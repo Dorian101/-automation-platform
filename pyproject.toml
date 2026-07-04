@@ -1,0 +1,7 @@
+[project]
+name = "automation-platform"
+version = "0.1.0"
+description = "Modular automation platform with Telegram interface."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
