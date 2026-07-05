@@ -2,13 +2,14 @@ from aiogram import Router
 from aiogram.types import Message
 
 from .base import BasePlugin
+from db.notes_repo import NotesRepository
 
 
 class NotesPlugin(BasePlugin):
     name = "notes"
 
     def __init__(self):
-        self._notes: list[str] = []
+        self.repo = NotesRepository()
 
     def router(self) -> Router:
         router = Router()
@@ -16,20 +17,23 @@ class NotesPlugin(BasePlugin):
         @router.message(lambda m: m.text and m.text.startswith("/add "))
         async def add_note(message: Message):
             note = message.text.replace("/add ", "", 1).strip()
+
             if not note:
                 await message.answer("Empty note")
                 return
 
-            self._notes.append(note)
+            self.repo.add(note)
             await message.answer("Saved")
 
         @router.message(lambda m: m.text == "/notes")
         async def list_notes(message: Message):
-            if not self._notes:
+            notes = self.repo.list()
+
+            if not notes:
                 await message.answer("No notes")
                 return
 
-            text = "\n".join(f"- {n}" for n in self._notes)
+            text = "\n".join(f"- {n}" for n in notes)
             await message.answer(text)
 
         return router
