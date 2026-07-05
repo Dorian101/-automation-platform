@@ -5,7 +5,10 @@ from core.logger import setup_logger
 from core.config import Config
 
 from bot.bot import create_bot, create_dispatcher
-from bot.handlers import router
+
+from plugins.manager import PluginManager
+from plugins.echo import EchoPlugin
+from plugins.notes import NotesPlugin
 
 
 async def main():
@@ -19,7 +22,10 @@ async def main():
     bot = create_bot(token)
     dp = create_dispatcher()
 
-    dp.include_router(router)
+    manager = PluginManager()
+    #manager.register(EchoPlugin())
+    manager.register(NotesPlugin())
+    manager.setup(dp)
 
     logger.info(f"Starting {Config.APP_NAME}")
 
