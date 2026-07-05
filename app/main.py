@@ -1,5 +1,12 @@
+from core.logger import setup_logger
+from core.config import Config
+
+
 def main():
-    print("Platform started")
+    logger = setup_logger()
+
+    logger.info(f"Starting {Config.APP_NAME}")
+    logger.info(f"Debug mode: {Config.DEBUG}")
 
 
 if __name__ == "__main__":
