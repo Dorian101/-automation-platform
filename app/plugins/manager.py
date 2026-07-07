@@ -17,3 +17,12 @@ class PluginManager:
             
     def get_plugins(self):
         return self._plugins.copy()
+    
+    async def startup(self):
+        for plugin in self._plugins:
+            await plugin.on_startup()
+
+
+    async def shutdown(self):
+        for plugin in reversed(self._plugins):
+            await plugin.on_shutdown()

@@ -31,12 +31,14 @@ async def main():
     manager.register(SystemPlugin(manager))
     manager.setup(dp)
     
-    asyncio.create_task(reminders.worker())
+    await manager.startup()
 
     logger.info(f"Starting {Config.APP_NAME}")
 
-    await dp.start_polling(bot)
-
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await manager.shutdown()
 
 if __name__ == "__main__":
     asyncio.run(main())

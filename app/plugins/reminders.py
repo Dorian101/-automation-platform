@@ -20,6 +20,20 @@ class RemindersPlugin(BasePlugin):
     def __init__(self, bot):
         self.repo = RemindersRepository()
         self.bot = bot
+        self._worker_task = None
+
+    async def on_startup(self):
+        self._worker_task = asyncio.create_task(self.worker())
+
+
+    async def on_shutdown(self):
+        if self._worker_task:
+            self._worker_task.cancel()
+
+            try:
+                await self._worker_task
+            except asyncio.CancelledError:
+                pass
 
     def router(self) -> Router:
         router = Router()
