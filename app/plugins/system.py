@@ -12,6 +12,7 @@ class SystemPlugin(BasePlugin):
     commands = {
     "/plugins": "Show loaded plugins",
     "/help": "Show available commands",
+    "/status": "Show platform status"
     }
 
     def __init__(self, manager: PluginManager):
@@ -42,5 +43,22 @@ class SystemPlugin(BasePlugin):
                     lines.append(f"{command} — {description}")
 
             await message.answer("\n".join(lines))
-            
+        
+        @router.message(lambda m: m.text == "/status")
+        async def status(message: Message):
+            plugins = self.manager.get_plugins()
+
+            lines = [
+                "Automation Platform",
+                "",
+                f"Plugins loaded: {len(plugins)}",
+                "",
+                "Active plugins:",
+            ]
+
+            for plugin in plugins:
+                lines.append(f"✓ {plugin.name}")
+
+            await message.answer("\n".join(lines))
+        
         return router

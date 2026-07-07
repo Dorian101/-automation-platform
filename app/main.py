@@ -5,11 +5,12 @@ from core.logger import setup_logger
 from core.config import Config
 
 from bot.bot import create_bot, create_dispatcher
+from bot.error_handler import register_error_handler
 
 from plugins.manager import PluginManager
-from plugins.echo import EchoPlugin
 from plugins.notes import NotesPlugin
 from plugins.reminders import RemindersPlugin
+from plugins.clipboard import ClipboardPlugin
 from plugins.system import SystemPlugin
 
 
@@ -23,11 +24,14 @@ async def main():
 
     bot = create_bot(token)
     dp = create_dispatcher()
-    reminders = RemindersPlugin(bot)
+    
+    register_error_handler(dp)
 	
-    manager = PluginManager()
+    manager = PluginManager(logger)
     manager.register(NotesPlugin())
-    manager.register(reminders)
+    manager.register(RemindersPlugin(bot))
+    manager.register(ClipboardPlugin())
+    
     manager.register(SystemPlugin(manager))
     manager.setup(dp)
     

@@ -1,0 +1,51 @@
+from datetime import datetime
+
+from aiogram import Router
+from aiogram.types import Message
+
+from .base import BasePlugin
+from db.clipboard_repo import ClipboardRepository
+
+
+class ClipboardPlugin(BasePlugin):
+    name = "clipboard"
+    version = "1.0.0"
+    description = "Personal clipboard storage"
+
+    commands = {
+        "/copy": "Save text to clipboard",
+        "/paste": "Get last copied text",
+    }
+
+    def __init__(self):
+        self.repo = ClipboardRepository()
+
+    def router(self) -> Router:
+        router = Router()
+
+        @router.message(lambda m: m.text and m.text.startswith("/copy"))
+        async def copy_command(message: Message):
+            text = message.text.removeprefix("/copy").strip()
+            
+            if not text:
+                await message.answer("Usage: /copy <text>")
+                return
+
+            self.repo.save(
+                text=text,
+                created_at=datetime.utcnow().isoformat(),
+            )
+
+            await message.answer("Copied")
+
+        @router.message(lambda m: m.text == "/paste")
+        async def paste_command(message: Message):
+            text = self.repo.get_last()
+
+            if not text:
+                await message.answer("Clipboard is empty")
+                return
+
+            await message.answer(text)
+
+        return router
