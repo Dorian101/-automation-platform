@@ -10,6 +10,7 @@ from plugins.manager import PluginManager
 from plugins.echo import EchoPlugin
 from plugins.notes import NotesPlugin
 from plugins.reminders import RemindersPlugin
+from plugins.system import SystemPlugin
 
 
 async def main():
@@ -25,9 +26,9 @@ async def main():
     reminders = RemindersPlugin(bot)
 	
     manager = PluginManager()
-    #manager.register(EchoPlugin())
     manager.register(NotesPlugin())
     manager.register(reminders)
+    manager.register(SystemPlugin(manager))
     manager.setup(dp)
     
     asyncio.create_task(reminders.worker())

@@ -7,6 +7,12 @@ from db.notes_repo import NotesRepository
 
 class NotesPlugin(BasePlugin):
     name = "notes"
+    version = "1.0.0"
+    description = "Store personal notes"
+    commands = {
+    "/add": "Add a new note",
+    "/notes": "Show all notes",
+    }
 
     def __init__(self):
         self.repo = NotesRepository()

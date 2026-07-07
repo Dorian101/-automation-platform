@@ -3,8 +3,13 @@ from aiogram import Router
 
 
 class BasePlugin(ABC):
-    name: str
+    name = "base"
+    version = "0.1.0"
+    description = "Base plugin"
+    
+    commands: dict[str, str] = {}
 
     @abstractmethod
     def router(self) -> Router:
-        pass
+        """Return plugin router."""
+        raise NotImplementedError

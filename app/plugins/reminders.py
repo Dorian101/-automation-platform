@@ -11,6 +11,11 @@ from db.reminders_repo import RemindersRepository
 
 class RemindersPlugin(BasePlugin):
     name = "reminders"
+    version = "1.0.0"
+    description = "Schedule reminders"
+    commands = {
+    "/remind": "Create a reminder",
+    }
 
     def __init__(self, bot):
         self.repo = RemindersRepository()

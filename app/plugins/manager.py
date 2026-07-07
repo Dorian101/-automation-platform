@@ -14,3 +14,6 @@ class PluginManager:
     def setup(self, dp: Dispatcher):
         for plugin in self._plugins:
             dp.include_router(plugin.router())
+            
+    def get_plugins(self):
+        return self._plugins.copy()
