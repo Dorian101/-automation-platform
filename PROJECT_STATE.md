@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.9.0
+v0.10.1
 
 ## Project goal
 Automation Platform is a personal Telegram-based automation system built around an extensible plugin architecture.
@@ -13,11 +13,15 @@ The platform is operational.
 
 ## Implemented:
 
-* Telegram bot integration
-* Plugin architecture
-* Persistent storage
-* Background tasks inside plugins
-* Several working automation plugins
+- Telegram bot integration
+- Plugin architecture
+- Persistent storage
+- Background tasks inside plugins
+- Several working automation plugins
+- plugin lifecycle management
+- lifecycle logging
+- global error handling
+- status monitoring
 
 ## Current architecture
 

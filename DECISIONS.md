@@ -30,3 +30,14 @@ New database components should not duplicate SQLite connection logic.
 
 ### Tradeoff
 Existing repositories are not migrated yet to avoid unnecessary changes.
+
+## 2026-07-08
+
+### Decision
+Use centralized error handling at Dispatcher level.
+
+### Reason
+Avoid duplicated exception handling inside plugins.
+
+### Result
+All plugin errors are logged consistently through the platform layer.
