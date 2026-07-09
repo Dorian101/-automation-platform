@@ -56,6 +56,7 @@ Core application never knows plugin internals.
 - Update AI_CONTEXT.md after every completed sprint.
 - Prefer small, incremental refactoring.
 - Avoid unnecessary complexity.
+- Error handling is centralized at Dispatcher level.
 
 ## Development workflow
 

@@ -1,6 +1,8 @@
 import asyncio
 import os
 
+from dotenv import load_dotenv
+
 from core.logger import setup_logger
 from core.config import Config
 
@@ -13,6 +15,7 @@ from plugins.reminders import RemindersPlugin
 from plugins.clipboard import ClipboardPlugin
 from plugins.system import SystemPlugin
 
+load_dotenv()
 
 async def main():
     logger = setup_logger()
