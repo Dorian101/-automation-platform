@@ -10,7 +10,7 @@ from db.clipboard_repo import ClipboardRepository
 class ClipboardPlugin(BasePlugin):
     name = "clipboard"
     version = "1.0.0"
-    description = "Personal clipboard storage"
+    description = "Useless plugin, cause it sends text to yours chat_id, but you already can see sended Copy command with target text"
 
     commands = {
         "/copy": "Save text to clipboard",
@@ -34,13 +34,14 @@ class ClipboardPlugin(BasePlugin):
             self.repo.save(
                 text=text,
                 created_at=datetime.utcnow().isoformat(),
+                chat_id = message.chat.id,
             )
 
             await message.answer("Copied")
 
         @router.message(lambda m: m.text == "/paste")
         async def paste_command(message: Message):
-            text = self.repo.get_last()
+            text = self.repo.get_last(message.chat.id)
 
             if not text:
                 await message.answer("Clipboard is empty")

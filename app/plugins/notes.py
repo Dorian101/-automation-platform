@@ -28,12 +28,12 @@ class NotesPlugin(BasePlugin):
                 await message.answer("Empty note")
                 return
 
-            self.repo.add(note)
+            self.repo.add(message.chat.id, note)
             await message.answer("Saved")
 
         @router.message(lambda m: m.text == "/notes")
         async def list_notes(message: Message):
-            notes = self.repo.list()
+            notes = self.repo.list(message.chat.id)
 
             if not notes:
                 await message.answer("No notes")
