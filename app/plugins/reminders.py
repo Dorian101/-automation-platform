@@ -6,7 +6,7 @@ from aiogram.types import Message
 from datetime import datetime, timedelta
 
 from .base import BasePlugin
-from db.reminders_repo import RemindersRepository
+from app.db.reminders_repo import RemindersRepository
 
 
 class RemindersPlugin(BasePlugin):

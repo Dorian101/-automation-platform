@@ -2,7 +2,7 @@ from aiogram import Router
 from aiogram.types import Message
 
 from .base import BasePlugin
-from db.notes_repo import NotesRepository
+from app.db.notes_repo import NotesRepository
 
 
 class NotesPlugin(BasePlugin):

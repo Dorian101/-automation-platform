@@ -3,17 +3,17 @@ import os
 
 from dotenv import load_dotenv
 
-from core.logger import setup_logger
-from core.config import Config
+from app.core.logger import setup_logger
+from app.core.config import Config
 
-from bot.bot import create_bot, create_dispatcher
-from bot.error_handler import register_error_handler
+from app.bot.bot import create_bot, create_dispatcher
+from app.bot.error_handler import register_error_handler
 
-from plugins.manager import PluginManager
-from plugins.notes import NotesPlugin
-from plugins.reminders import RemindersPlugin
-from plugins.clipboard import ClipboardPlugin
-from plugins.system import SystemPlugin
+from app.plugins.manager import PluginManager
+from app.plugins.notes import NotesPlugin
+from app.plugins.reminders import RemindersPlugin
+from app.plugins.clipboard import ClipboardPlugin
+from app.plugins.system import SystemPlugin
 
 load_dotenv()
 

@@ -8,5 +8,6 @@ dependencies = [
     "aiogram>=3.29.1",
     "aiohttp-socks>=0.11.0",
     "aiohttp[speedups]>=3.14.1",
+    "psycopg[binary]>=3.3.4",
     "python-dotenv>=1.2.2",
 ]

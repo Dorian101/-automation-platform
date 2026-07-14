@@ -4,7 +4,7 @@ from aiogram import Router
 from aiogram.types import Message
 
 from .base import BasePlugin
-from db.clipboard_repo import ClipboardRepository
+from app.db.clipboard_repo import ClipboardRepository
 
 
 class ClipboardPlugin(BasePlugin):

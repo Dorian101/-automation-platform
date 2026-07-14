@@ -6,30 +6,14 @@ from .database import Database
 class ClipboardRepository:
     def __init__(self, database: Database | None = None):
         self.database = database or Database()
-        self._init_table()
 
-    def _init_table(self):
-        conn = self.database.connect()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS clipboard (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                chat_id INTEGER,
-                text TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            )
-        """)
-
-        conn.commit()
-        conn.close()
 
     def save(self, text: str, created_at: str, chat_id: int):
         conn = self.database.connect()
         cursor = conn.cursor()
 
         cursor.execute(
-            "INSERT INTO clipboard (text, created_at, chat_id) VALUES (?, ?, ?)",
+            "INSERT INTO clipboard (text, created_at, chat_id) VALUES (%s, %s, %s)",
             (text, created_at, chat_id),
         )
 
@@ -43,12 +27,13 @@ class ClipboardRepository:
         cursor.execute("""
             SELECT text
             FROM clipboard
-            where chat_id = ?
+            where chat_id = %s
             ORDER BY id DESC
             LIMIT 1
         """, (chat_id,))
 
         result = cursor.fetchone()
+        cursor.close()
         conn.close()
 
         if result:
