@@ -9,9 +9,21 @@ Each feature is implemented as an independent plugin.
 
 - Plugin-based architecture
 - Repository pattern
-- SQLite persistence
+- PostgreSQL persistence
 - Separation of concerns
 - Simple before scalable
+- Database schema managed through sql/schema.sql
+
+## Database layer
+
+The project uses PostgreSQL as the primary storage.
+Database access is centralized through the Database helper.
+Repositories:
+- notes_repo.py
+- reminders_repo.py
+- clipboard_repo.py
+Database schema is stored in:
+- sql/schema.sql
 
 ## Current plugins
 
@@ -69,3 +81,10 @@ During implementation:
 - Always specify full file paths
 - Do not create new files without agreement
 - Keep changes minimal
+
+## Runtime
+
+Application is launched in linux daemon with:
+uv run python -m app.main
+
+Production deployment uses systemd service on VPS.

@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.10.1
+v0.12.0
 
 ## Project goal
 Automation Platform is a personal Telegram-based automation system built around an extensible plugin architecture.
@@ -46,7 +46,7 @@ PluginManager
        Repository layer
             │
             ▼
-          SQLite
+          PostgreSQL
 
 
 ## Core components
@@ -112,7 +112,7 @@ Implemented:
 
 * create notes
 * persistent storage
-* SQLite repository
+* PostgreSQL repository
 
 ⸻
 
@@ -125,7 +125,7 @@ Purpose:
 Implemented:
 
 * create reminders
-* SQLite storage
+* PostgreSQL storage
 * background worker
 * self-managed lifecycle
 
@@ -141,7 +141,7 @@ Implemented:
 
 * /copy <text>
 * /paste
-* SQLite repository
+* PostgreSQL repository
 
 ⸻
 
@@ -149,7 +149,9 @@ Implemented:
 
 Current database:
 
-* SQLite
+* PostgreSQL
+* sql/schema.sql
+* common database.py for all plugins
 
 Pattern:
 
@@ -159,11 +161,11 @@ Plugin
 Repository
   │
   ▼
-SQLite
+PostgreSQL
 
 ## Current state:
 
-* Existing repositories may use their own SQLite connection.
+* Existing repositories may use their own PostgreSQL connection.
 * New repositories should use the shared database helper:
 
 app/db/database.py
@@ -176,17 +178,8 @@ app/db/database.py
 * No authentication system.
 * No external integrations.
 * No web interface.
-* Existing repositories are not migrated to the shared database layer.
 
 ⸻
-
-# Next sprint
-
-v0.10.0
-
-## Goal:
-
-Improve platform stability before adding new functionality.
 
 ## Potential tasks:
 
