@@ -6,6 +6,9 @@ from dotenv import load_dotenv
 from app.core.logger import setup_logger
 from app.core.config import Config
 
+from app.db.database import Database
+from app.db.migrations import MigrationRunner
+
 from app.bot.bot import create_bot, create_dispatcher
 from app.bot.error_handler import register_error_handler
 
@@ -27,6 +30,8 @@ async def main():
 
     bot = create_bot(token)
     dp = create_dispatcher()
+    
+    MigrationRunner(Database()).run()
     
     register_error_handler(dp)
 	
