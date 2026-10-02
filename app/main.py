@@ -19,6 +19,10 @@ from app.web import WebServer
 
 load_dotenv()
 
+# sysexits EX_CONFIG: the process is misconfigured and retrying will not help.
+# Distinct from other failures so systemd can keep restarting those.
+EX_CONFIG = 78
+
 
 async def main() -> None:
     logger = setup_logger()
@@ -26,7 +30,7 @@ async def main() -> None:
     token = os.getenv("BOT_TOKEN")
     if not token:
         logger.error("BOT_TOKEN is not set")
-        raise SystemExit(1)
+        raise SystemExit(EX_CONFIG)
 
     bot = create_bot(token)
     dp = create_dispatcher()

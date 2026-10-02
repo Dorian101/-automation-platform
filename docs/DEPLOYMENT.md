@@ -83,7 +83,7 @@ WorkingDirectory=/opt/automation-platform
 ExecStart=/opt/automation-platform/.venv/bin/python -m app.main
 Restart=always
 RestartSec=10
-RestartPreventExitStatus=1
+RestartPreventExitStatus=78
 
 [Install]
 WantedBy=multi-user.target
