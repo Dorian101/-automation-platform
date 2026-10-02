@@ -1,4 +1,4 @@
-from typing import Optional
+from app.core.identity import Identity
 
 from .database import Database
 
@@ -7,36 +7,30 @@ class ClipboardRepository:
     def __init__(self, database: Database | None = None):
         self.database = database or Database()
 
+    def save(self, identity: Identity, text: str, created_at: str) -> None:
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO clipboard (user_id, text, created_at) "
+                    "VALUES (%s, %s, %s)",
+                    (str(identity), text, created_at),
+                )
+            conn.commit()
 
-    def save(self, text: str, created_at: str, chat_id: int):
-        conn = self.database.connect()
-        cursor = conn.cursor()
+    def get_last(self, identity: Identity) -> str | None:
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT text
+                    FROM clipboard
+                    WHERE user_id = %s
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """,
+                    (str(identity),),
+                )
 
-        cursor.execute(
-            "INSERT INTO clipboard (text, created_at, chat_id) VALUES (%s, %s, %s)",
-            (text, created_at, chat_id),
-        )
+                result = cur.fetchone()
 
-        conn.commit()
-        conn.close()
-
-    def get_last(self, chat_id: int) -> Optional[str]:
-        conn = self.database.connect()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT text
-            FROM clipboard
-            where chat_id = %s
-            ORDER BY id DESC
-            LIMIT 1
-        """, (chat_id,))
-
-        result = cursor.fetchone()
-        cursor.close()
-        conn.close()
-
-        if result:
-            return result[0]
-
-        return None
+                return result[0] if result else None

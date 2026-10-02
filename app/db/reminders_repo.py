@@ -1,54 +1,48 @@
+from app.core.identity import Identity
+
 from .database import Database
-from datetime import datetime
-from typing import List, Tuple
 
 
 class RemindersRepository:
     def __init__(self, database: Database | None = None):
         self.database = database or Database()
 
+    def add(self, identity: Identity, text: str, remind_at: str) -> None:
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO reminders (user_id, text, remind_at)
+                    VALUES (%s, %s, %s::timestamp)
+                    """,
+                    (str(identity), text, remind_at),
+                )
+            conn.commit()
 
-    def add(self,chat_id:int, text: str, remind_at: str) -> None:
-        conn = self.database.connect()
-        cursor = conn.cursor()
-        cursor.execute(
-        """
-        INSERT INTO reminders (chat_id, text, remind_at)
-        VALUES (%s, %s, %s)
-        """,
-        (chat_id, text, remind_at),
-        )
-        
-        conn.commit()
-        conn.close()
+    def get_due(self) -> list[tuple[int, str, str]]:
+        """Return ``(id, user_id, text)`` for every reminder that is due."""
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, user_id, text
+                    FROM reminders
+                    WHERE is_sent = FALSE
+                        AND remind_at <= (NOW() AT TIME ZONE 'UTC')
+                    """,
+                )
 
-    def get_due(self) -> List[Tuple[int, str]]:
-        conn = self.database.connect()
-        cursor = conn.cursor()
-        cursor.execute(
-        """
-        SELECT id, chat_id, text
-        FROM reminders
-        WHERE is_sent = FALSE AND remind_at <= %s
-        """,
-        (datetime.utcnow(),),
-        )
-        
-        result = cursor.fetchall()
-        conn.close()
-        
-        return result
+                return cur.fetchall()
 
     def mark_sent(self, reminder_id: int) -> None:
-        conn = self.database.connect()
-        cursor = conn.cursor()
-        cursor.execute(
-        """
-        UPDATE reminders
-        SET is_sent = TRUE
-        WHERE id = %s
-        """,
-        (reminder_id,),
-        )
-        conn.commit()
-        conn.close()
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE reminders
+                    SET is_sent = TRUE
+                    WHERE id = %s
+                    """,
+                    (reminder_id,),
+                )
+            conn.commit()

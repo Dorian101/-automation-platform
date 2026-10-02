@@ -3,24 +3,24 @@ import os
 
 from dotenv import load_dotenv
 
-from app.core.logger import setup_logger
-from app.core.config import Config
-
-from app.db.database import Database
-from app.db.migrations import MigrationRunner
-
 from app.bot.bot import create_bot, create_dispatcher
 from app.bot.error_handler import register_error_handler
-
+from app.core.config import Config
+from app.core.logger import setup_logger
+from app.db.database import Database
+from app.db.migrations import MigrationRunner
+from app.notifications import Notifier, TelegramChannel, WebChannel
+from app.plugins.clipboard import ClipboardPlugin
 from app.plugins.manager import PluginManager
 from app.plugins.notes import NotesPlugin
 from app.plugins.reminders import RemindersPlugin
-from app.plugins.clipboard import ClipboardPlugin
 from app.plugins.system import SystemPlugin
+from app.web import WebServer
 
 load_dotenv()
 
-async def main():
+
+async def main() -> None:
     logger = setup_logger()
 
     token = os.getenv("BOT_TOKEN")
@@ -30,27 +30,41 @@ async def main():
 
     bot = create_bot(token)
     dp = create_dispatcher()
-    
-    MigrationRunner(Database()).run()
-    
+
+    database = Database()
+    MigrationRunner(database).run()
+
     register_error_handler(dp)
-	
+
+    notifier = Notifier([TelegramChannel(bot), WebChannel()])
+
     manager = PluginManager(logger)
-    manager.register(NotesPlugin())
-    manager.register(RemindersPlugin(bot))
-    manager.register(ClipboardPlugin())
-    
+    manager.register(NotesPlugin(database))
+    manager.register(RemindersPlugin(notifier, database))
+    manager.register(ClipboardPlugin(database))
     manager.register(SystemPlugin(manager))
-    manager.setup(dp)
-    
+
+    dp.include_router(manager.build_router())
+
+    web = WebServer(
+        manager=manager,
+        database=database,
+        host=Config.WEB_HOST,
+        port=Config.WEB_PORT,
+    )
+
     await manager.startup()
 
-    logger.info(f"Starting {Config.APP_NAME}")
+    logger.info("Starting %s", Config.APP_NAME)
+
+    await web.start()
 
     try:
         await dp.start_polling(bot)
     finally:
+        await web.stop()
         await manager.shutdown()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

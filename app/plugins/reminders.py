@@ -1,74 +1,99 @@
 import asyncio
-from datetime import datetime, timedelta
+import logging
+from datetime import UTC, datetime, timedelta
 
-from aiogram import Router
-from aiogram.types import Message
-from datetime import datetime, timedelta
+from app.core.identity import Identity
+from app.core.results import CommandError, CommandResult, reply
+from app.db.database import Database
+from app.db.reminders_repo import RemindersRepository
+from app.notifications import Notifier
 
 from .base import BasePlugin
-from app.db.reminders_repo import RemindersRepository
+
+logger = logging.getLogger(__name__)
+
+POLL_INTERVAL_SECONDS = 30
 
 
 class RemindersPlugin(BasePlugin):
     name = "reminders"
-    version = "1.0.0"
+    version = "1.1.0"
     description = "Schedule reminders"
     commands = {
-    "/remind": "Create a reminder",
+        "/remind": "Create a reminder",
     }
 
-    def __init__(self, bot):
-        self.repo = RemindersRepository()
-        self.bot = bot
+    def __init__(self, notifier: Notifier, database: Database | None = None):
+        self.repo = RemindersRepository(database)
+        self._notifier = notifier
+        self._worker_task: asyncio.Task | None = None
+
+    async def on_startup(self) -> None:
+        self._worker_task = asyncio.create_task(self._worker())
+
+    async def on_shutdown(self) -> None:
+        if not self._worker_task:
+            return
+
+        self._worker_task.cancel()
+
+        try:
+            await self._worker_task
+        except asyncio.CancelledError:
+            pass
+
         self._worker_task = None
 
-    async def on_startup(self):
-        self._worker_task = asyncio.create_task(self.worker())
+    async def execute(
+        self,
+        command: str,
+        args: str,
+        identity: Identity,
+    ) -> CommandResult:
+        minutes_str, _, text = args.partition(" ")
 
+        if not text.strip():
+            raise CommandError("Usage: /remind <minutes> <text>")
 
-    async def on_shutdown(self):
-        if self._worker_task:
-            self._worker_task.cancel()
+        try:
+            minutes = int(minutes_str)
+        except ValueError:
+            raise CommandError("Minutes must be a number") from None
 
-            try:
-                await self._worker_task
-            except asyncio.CancelledError:
-                pass
+        if minutes < 0:
+            raise CommandError("Minutes must not be negative")
 
-    def router(self) -> Router:
-        router = Router()
+        remind_at = (
+            datetime.now(UTC) + timedelta(minutes=minutes)
+        ).replace(tzinfo=None).isoformat()
 
-        @router.message(lambda m: m.text and m.text.startswith("/remind "))
-        async def add_reminder(message: Message):
-            try:
-                parts = message.text.strip().split(maxsplit=2)
+        self.repo.add(identity, text.strip(), remind_at)
 
-                if len(parts) < 3:
-                    await message.answer("Format: /remind <minutes> <text>")
-                    return
+        return reply(f"Reminder set in {minutes} min")
 
-                _, minutes, text = parts
-                minutes = int(minutes)
-
-                remind_at = (datetime.utcnow() + timedelta(minutes=minutes)).isoformat()
-
-                self.repo.add(message.chat.id, text, remind_at)
-
-                await message.answer(f"Reminder set in {minutes} min")
-
-            except ValueError:
-                await message.answer("Minutes must be a number")
-
-        return router
-    async def worker(self):
+    async def _worker(self) -> None:
         while True:
-            due = self.repo.get_due()
-
-            for reminder_id,chat_id, text in due:
+            for reminder_id, user_id, text in self.repo.get_due():
                 try:
-                    await self.bot.send_message(chat_id=chat_id, text=text)
-                    self.repo.mark_sent(reminder_id)
-                except Exception:
-                    pass
+                    target = Identity.parse(user_id)
+                except ValueError:
+                    logger.warning(
+                        "Reminder %s has an unparsable user_id %r",
+                        reminder_id,
+                        user_id,
+                    )
+                    continue
 
-            await asyncio.sleep(30)
+                try:
+                    await self._notifier.deliver(target, text)
+                except Exception:
+                    logger.exception(
+                        "Failed to deliver reminder %s to %s",
+                        reminder_id,
+                        target,
+                    )
+                    continue
+
+                self.repo.mark_sent(reminder_id)
+
+            await asyncio.sleep(POLL_INTERVAL_SECONDS)

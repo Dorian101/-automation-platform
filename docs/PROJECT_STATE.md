@@ -1,12 +1,12 @@
 # Project State
 
 ## Current version
-v0.13.0
+v0.16.0
 
 ## Project goal
-Automation Platform is a personal Telegram-based automation system built around an extensible plugin architecture.
+Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
 
-The project goal is to provide a modular platform where new automation features can be added as independent plugins without changing the core application.
+The project goal is to provide a modular platform where new automation features can be added as independent plugins without changing the core application, and work identically on every transport.
 
 ## Current status
 The platform is operational.
@@ -25,34 +25,53 @@ The platform is operational.
 - PostgreSQL migrations system
 - automatic schema migration execution on startup
 - migration history tracking
+- database indexes on user_id columns
+- context managers for safe connection handling
+- shared Database instance across plugins
+- automated test suite
+- ruff linter
+- web interface as second entry point
+- transport-namespaced user identity
+- transport-independent plugin commands
+- notification channel layer
+- database health endpoint
+- shared-secret access control on the web interface
+- deployment runbook
 
 ## Current architecture
 
-Layers
+Entry points
 
-Telegram
-    │
-    ▼
-Core application
-    │
-    ▼
-PluginManager
-    │
-    ├── Plugin lifecycle
-    ├── Router registration
-    └── Plugin management
-            │
-            ▼
-        Plugins
-            │
-            ▼
-       Repository layer
-    		│
-    		▼
-		MigrationRunner
-   		    │
-    		▼
-  		PostgreSQL
+Telegram (aiogram)          Web (aiohttp)
+     │                           │
+     └──────────┬────────────────┘
+                ▼
+        PluginManager
+                │
+                ├── Command dispatch
+                ├── Plugin lifecycle
+                └── Plugin management
+                        │
+                        ▼
+                    Plugins
+              execute() — transport-independent
+                        │
+                        ▼
+               Repository layer
+                        │
+                        ▼
+                 MigrationRunner
+                        │
+                        ▼
+                   PostgreSQL
+
+Notification delivery
+
+Plugin → Notifier → channel by identity kind
+                        │
+              ┌─────────┴─────────┐
+        TelegramChannel        WebChannel
+                                (stub)
 
 
 ## Core components
@@ -65,6 +84,8 @@ Core
 * configuration loading
 * logging
 * Telegram bot initialization
+* web interface initialization
+* notification channel registration
 
 
 ## Plugin system
@@ -77,6 +98,15 @@ Core
 * plugin metadata
 * command metadata
 * plugin lifecycle
+* transport-independent execute()
+* automatic command routing
+
+Plugins implement `execute(command, args, identity)` and return a
+`CommandResult`. They contain no transport-specific code. The platform
+dispatches declared commands on every transport automatically.
+
+`router()` is optional and reserved for handlers a command cannot express,
+such as inline keyboards or file uploads.
 
 ## Plugin lifecycle:
 
@@ -105,10 +135,11 @@ Implemented:
 
 * /plugins
 * /help
+* /status
 
 ⸻
 
-## Notes
+Notes
 
 Purpose:
 
@@ -122,7 +153,7 @@ Implemented:
 
 ⸻
 
-## Reminders
+Reminders
 
 Purpose:
 
@@ -137,7 +168,7 @@ Implemented:
 
 ⸻
 
-## Clipboard
+Clipboard
 
 Purpose:
 
@@ -151,6 +182,48 @@ Implemented:
 
 ⸻
 
+## Web interface
+
+Purpose:
+
+* browser access to the same command set
+
+Implemented:
+
+* GET / — HTML console
+* GET /api/commands — plugin and command metadata
+* POST /api/command — command execution
+* GET /health — database health check
+* WEB_HOST / WEB_PORT configuration
+
+Access control:
+
+* reverse proxy terminates TLS and requires credentials
+* X-Platform-Auth shared secret, verified as middleware covering every route
+* WEB_HOST binds to loopback, port 8080 never exposed
+
+Identity resolution lives in app/web/auth.py and currently returns a single
+fixed web identity. That function is the seam for user accounts.
+
+Deployment runbook: docs/DEPLOYMENT.md
+
+⸻
+
+## Notifications
+
+Purpose:
+
+* deliver a message to a user over the transport they arrived on
+
+Implemented:
+
+* NotificationChannel interface
+* TelegramChannel — sends through the bot
+* WebChannel — placeholder that logs
+* Notifier — routes by identity kind
+
+⸻
+
 ## Database
 
 Current database:
@@ -158,11 +231,17 @@ Current database:
 * PostgreSQL
 * common database.py for all plugins
 * SQL migrations support
+* context managers for connection safety
+* shared Database instance across all components
+* indexes on user_id columns for all tables
+* user_id is TEXT namespaced as kind:id
 
 Database schema:
 
 sql/migrations/
-└── 001_initial.sql
+├── 001_initial.sql
+├── 002_add_indexes.sql
+└── 003_user_identity.sql
 
 Pattern:
 
@@ -177,9 +256,12 @@ PostgreSQL
 ## Current state:
 
 * Existing repositories use shared database helper for PostgreSQL connection.
+* All repositories use context managers to prevent connection leaks.
 * Database schema changes are managed through SQL migrations.
 * Migrations run automatically during application startup.
 * Applied migrations are tracked in schema_migrations table.
+* Migrations are wrapped in transactions with rollback on failure.
+* Timestamps use UTC consistently (NOW() AT TIME ZONE 'UTC').
 
 app/db/database.py
 
@@ -188,19 +270,21 @@ app/db/database.py
 ## Current limitations
 
 * Single-user oriented architecture.
-* No authentication system.
+* Web access is credential-based, not per-user accounts. Everyone who gets
+  past the proxy acts as the same web identity.
+* Web notifications are dropped rather than delivered.
 * No external integrations.
-* No web interface.
+* Web console is functional but minimal.
 
 ⸻
 
 ## Potential tasks:
 
-* improve plugin error handling;
-* add plugin startup/shutdown logging;
-* add platform health checks;
-* implement automated database backups;
-* prepare foundation for future multi-user support.
+* add per-user accounts so identity resolution stops returning a fixed value;
+* give the web interface a real inbox so WebChannel can deliver;
+* implement automated database backups (BackupManager exists but is not called);
+* add reminder to /cancel and /reminders listing;
+* serve the web interface over TLS if exposed publicly.
 
 ⸻
 
@@ -208,5 +292,19 @@ app/db/database.py
 
 * Keep core independent from plugin internals.
 * New functionality should be implemented as plugins.
+* Keep business logic transport-independent.
 * Avoid unnecessary architectural complexity.
 * Prefer incremental improvements over large rewrites.
+
+## Development workflow
+
+Before starting a new sprint:
+- Read PROJECT_STATE.md
+- Check DECISIONS.md
+- Do not rely on previous chat history as source of truth
+
+During implementation:
+- Always specify full file paths
+- Do not create new files without agreement
+- Keep changes minimal
+- Run ruff check and pytest before committing

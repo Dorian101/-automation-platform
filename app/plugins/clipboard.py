@@ -1,52 +1,46 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
-from aiogram import Router
-from aiogram.types import Message
+from app.core.identity import Identity
+from app.core.results import CommandError, CommandResult, reply
+from app.db.clipboard_repo import ClipboardRepository
+from app.db.database import Database
 
 from .base import BasePlugin
-from app.db.clipboard_repo import ClipboardRepository
 
 
 class ClipboardPlugin(BasePlugin):
     name = "clipboard"
-    version = "1.0.0"
-    description = "Useless plugin, cause it sends text to yours chat_id, but you already can see sended Copy command with target text"
-
+    version = "1.1.0"
+    description = "Store and retrieve clipboard entries"
     commands = {
         "/copy": "Save text to clipboard",
         "/paste": "Get last copied text",
     }
 
-    def __init__(self):
-        self.repo = ClipboardRepository()
+    def __init__(self, database: Database | None = None):
+        self.repo = ClipboardRepository(database)
 
-    def router(self) -> Router:
-        router = Router()
-
-        @router.message(lambda m: m.text and m.text.startswith("/copy"))
-        async def copy_command(message: Message):
-            text = message.text.removeprefix("/copy").strip()
-            
-            if not text:
-                await message.answer("Usage: /copy <text>")
-                return
+    async def execute(
+        self,
+        command: str,
+        args: str,
+        identity: Identity,
+    ) -> CommandResult:
+        if command == "/copy":
+            if not args:
+                raise CommandError("Usage: /copy <text>")
 
             self.repo.save(
-                text=text,
-                created_at=datetime.utcnow().isoformat(),
-                chat_id = message.chat.id,
+                identity=identity,
+                text=args,
+                created_at=datetime.now(UTC).replace(tzinfo=None).isoformat(),
             )
 
-            await message.answer("Copied")
+            return reply("Copied")
 
-        @router.message(lambda m: m.text == "/paste")
-        async def paste_command(message: Message):
-            text = self.repo.get_last(message.chat.id)
+        text = self.repo.get_last(identity)
 
-            if not text:
-                await message.answer("Clipboard is empty")
-                return
+        if not text:
+            return reply("Clipboard is empty")
 
-            await message.answer(text)
-
-        return router
+        return reply(text)

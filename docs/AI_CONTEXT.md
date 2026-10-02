@@ -2,8 +2,9 @@
 
 ## Project goal
 
-Automation Platform is a Telegram-based modular automation system.
-Each feature is implemented as an independent plugin.
+Automation Platform is a modular automation system with two entry points:
+Telegram and a web interface. Each feature is implemented as an independent
+plugin that works identically on both.
 
 ## Architecture principles
 
@@ -11,32 +12,75 @@ Each feature is implemented as an independent plugin.
 - Repository pattern
 - PostgreSQL persistence
 - Separation of concerns
-- Simple before scalable
-- Database schema managed through sql/schema.sql
+- Transport-independent business logic
+- Database schema managed through sql/migrations/
+
+## Entry points
+
+The platform exposes the same command set over two transports.
+
+- Telegram through aiogram polling
+- Web through aiohttp
+
+Neither transport knows about the other. Both build an `Identity` for the
+caller and hand it to `PluginManager.execute()`.
+
+## Identity
+
+Users are identified by `Identity`, stored as `kind:id` in the database
+(for example `telegram:-1001234567890`, `web:default`).
+
+Namespacing by transport means the same numeric id arriving on two transports
+never resolves to the same user.
+
+Web identity resolution lives in `app/web/auth.py`. It currently returns a
+single fixed identity, and is the seam for user accounts.
+
+## Access control
+
+The web interface has no user accounts. It is guarded by two independent
+layers, both of which are required:
+
+1. A reverse proxy that terminates TLS and requires credentials.
+2. A `X-Platform-Auth` shared secret in `WEB_ACCESS_TOKEN`, verified by
+   `verify_access()` as middleware covering every route.
+
+The secret guarantees nothing reached the app except through the proxy. The
+proxy alone would not, if the port were ever exposed directly.
+
+`WEB_HOST` defaults to loopback for this reason. See docs/DEPLOYMENT.md.
+
+## Command flow
+
+1. Input arrives on a transport
+2. `parse_command()` splits it into command and arguments
+3. `PluginManager.execute()` finds the owning plugin and calls `execute()`
+4. The plugin returns a `CommandResult` carrying transport-agnostic text
+5. The transport renders the result
+
+Plugins declare their commands in `commands`. The platform routes them
+automatically, so plugins contain no adapter code. A plugin overrides
+`router()` only when it needs transport-specific handlers, such as inline
+keyboards.
 
 ## Database layer
 
-The project uses PostgreSQL as the primary storage.
-Database access is centralized through the Database helper.
+PostgreSQL. All access goes through the shared `Database` helper and
+repositories using context managers.
+
 Repositories:
 - notes_repo.py
 - reminders_repo.py
 - clipboard_repo.py
-Database schema is stored in:
-- sql/schema.sql
+
+Schema is versioned in sql/migrations/.
 
 ## Current plugins
 
-### Notes
-Stores personal notes.
-
-### Reminders
-Stores reminders and delivers them using a background worker.
-
-### System
-Provides service commands:
-- /plugins
-- /help
+- Notes: /add, /notes
+- Reminders: /remind, delivers through notification channels
+- Clipboard: /copy, /paste
+- System: /plugins, /help, /status
 
 ## Plugin contract
 
@@ -46,20 +90,27 @@ Each plugin exposes:
 - version
 - description
 - commands
-- router()
+- execute(command, args, identity)
+- router() (optional)
+- on_startup() / on_shutdown()
 
-Plugins are registered only through PluginManager.
+## Notification layer
 
-## Plugin lifecycle
+`Notifier` routes a message to the channel matching the target's transport.
 
-The platform owns the plugin lifecycle.
+- TelegramChannel sends through the bot
+- WebChannel is a placeholder that logs, pending a web inbox
 
-Plugins manage their own resources through:
+Adding a transport means adding a channel, nothing else.
 
-- on_startup()
-- on_shutdown()
+## Web interface
 
-Core application never knows plugin internals.
+- GET / — HTML console
+- GET /api/commands — plugin and command metadata
+- POST /api/command — execute a command
+- GET /health — database health check
+
+Bound to `WEB_HOST` and `WEB_PORT`, defaulting to 127.0.0.1:8080.
 
 ## Development rules
 
@@ -69,6 +120,8 @@ Core application never knows plugin internals.
 - Prefer small, incremental refactoring.
 - Avoid unnecessary complexity.
 - Error handling is centralized at Dispatcher level.
+- Business logic stays transport-independent.
+- Run `ruff check app/ tests/` and `pytest` before committing.
 
 ## Development workflow
 
@@ -88,3 +141,9 @@ Application is launched in linux daemon with:
 uv run python -m app.main
 
 Production deployment uses systemd service on VPS.
+
+## Tests
+
+Run against a dedicated `automation_platform_test` database, dropped and
+recreated per test. Covers identity, command parsing, repositories,
+migrations, plugins, the manager, notification channels, and the web layer.

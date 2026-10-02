@@ -3,7 +3,6 @@ import logging
 from aiogram import Dispatcher
 from aiogram.types import ErrorEvent
 
-
 logger = logging.getLogger("platform")
 
 

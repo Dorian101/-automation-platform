@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Automation Platform</title>
+<style>
+  :root {
+    --bg: #14161a;
+    --panel: #1c1f26;
+    --border: #2a2f3a;
+    --text: #e4e7ec;
+    --muted: #8b93a3;
+    --accent: #4a9eff;
+    --error: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2rem 1rem;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+  main { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin: 0 0 0.25rem; }
+  .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  .panel h2 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 0 0 0.75rem;
+  }
+  form { display: flex; gap: 0.5rem; }
+  input[type=text] {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 0.55rem 0.7rem;
+    font: inherit;
+  }
+  input[type=text]:focus { outline: none; border-color: var(--accent); }
+  button {
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    padding: 0.55rem 1.1rem;
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+  #output {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9rem;
+  }
+  #output.error { color: var(--error); }
+  .plugin { margin-bottom: 0.9rem; }
+  .plugin:last-child { margin-bottom: 0; }
+  .plugin-name { font-weight: 600; }
+  .plugin-desc { color: var(--muted); font-size: 0.85rem; }
+  ul { margin: 0.35rem 0 0; padding-left: 1.1rem; }
+  li { margin-bottom: 0.2rem; }
+  code { background: var(--bg); padding: 0.05rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
+  .hint { color: var(--muted); font-size: 0.8rem; margin-top: 0.75rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Automation Platform</h1>
+  <p class="sub">Web interface &mdash; the same commands the Telegram bot accepts.</p>
+
+  <div class="panel">
+    <h2>Command</h2>
+    <form id="form">
+      <input type="text" id="input" placeholder="/add buy milk" autocomplete="off" autofocus>
+      <button type="submit" id="send">Run</button>
+    </form>
+    <p class="hint">Commands run against your web identity, separately from your Telegram data.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Output</h2>
+    <div id="output">Ready.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Available commands</h2>
+    <div id="commands">Loading&hellip;</div>
+  </div>
+</main>
+
+<script>
+const form = document.getElementById('form');
+const input = document.getElementById('input');
+const output = document.getElementById('output');
+const send = document.getElementById('send');
+
+function parseInput(raw) {
+  const trimmed = raw.trim();
+  const space = trimmed.indexOf(' ');
+  if (space === -1) return { command: trimmed, args: '' };
+  return { command: trimmed.slice(0, space), args: trimmed.slice(space + 1) };
+}
+
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const { command, args } = parseInput(input.value);
+  if (!command) return;
+
+  send.disabled = true;
+  output.classList.remove('error');
+  output.textContent = 'Running…';
+
+  try {
+    const response = await fetch('/api/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command, args }),
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      output.classList.add('error');
+      output.textContent = data.error || 'Request failed';
+    } else {
+      output.textContent = data.result;
+      input.value = '';
+    }
+  } catch (err) {
+    output.classList.add('error');
+    output.textContent = 'Could not reach the server';
+  } finally {
+    send.disabled = false;
+    input.focus();
+  }
+});
+
+fetch('/api/commands')
+  .then((response) => response.json())
+  .then((data) => {
+    const container = document.getElementById('commands');
+    container.innerHTML = '';
+
+    for (const plugin of data.plugins) {
+      const block = document.createElement('div');
+      block.className = 'plugin';
+
+      const name = document.createElement('div');
+      name.className = 'plugin-name';
+      name.textContent = plugin.name;
+      block.appendChild(name);
+
+      const desc = document.createElement('div');
+      desc.className = 'plugin-desc';
+      desc.textContent = plugin.description;
+      block.appendChild(desc);
+
+      const list = document.createElement('ul');
+      for (const [command, description] of Object.entries(plugin.commands)) {
+        const item = document.createElement('li');
+        const code = document.createElement('code');
+        code.textContent = command;
+        item.appendChild(code);
+        item.appendChild(document.createTextNode(' — ' + description));
+        list.appendChild(item);
+      }
+      block.appendChild(list);
+
+      container.appendChild(block);
+    }
+  })
+  .catch(() => {
+    document.getElementById('commands').textContent = 'Failed to load commands.';
+  });
+</script>
+</body>
+</html>

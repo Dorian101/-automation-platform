@@ -1,41 +1,35 @@
-from typing import List
+from app.core.identity import Identity
+
 from .database import Database
+
 
 class NotesRepository:
     def __init__(self, database: Database | None = None):
         self.database = database or Database()
 
-    
+    def add(self, identity: Identity, text: str) -> None:
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO notes (user_id, text)
+                    VALUES (%s, %s)
+                    """,
+                    (str(identity), text),
+                )
+            conn.commit()
 
-    def add(self,chat_id: int, text: str) -> None:
-        conn = self.database.connect()
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO notes (chat_id, text)
-            VALUES (%s, %s)
-            """,
-            (chat_id, text),
-        )
-        
-        conn.commit()
-        conn.close()
+    def list(self, identity: Identity) -> list[str]:
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT text
+                    FROM notes
+                    WHERE user_id = %s
+                    ORDER BY id DESC
+                    """,
+                    (str(identity),),
+                )
 
-    def list(self, chat_id: int) -> List[str]:
-        conn = self.database.connect()
-        cursor = conn.cursor()
-        cursor.execute(
-        """
-        SELECT text
-        FROM notes
-        WHERE chat_id = %s
-        ORDER BY id DESC
-        """,
-        (chat_id,),
-        )
-        
-        result = [row[0] for row in cursor.fetchall()]
-        cursor.close()
-        conn.close()
-        
-        return result
+                return [row[0] for row in cur.fetchall()]
