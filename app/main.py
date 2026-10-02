@@ -26,7 +26,7 @@ async def main() -> None:
     token = os.getenv("BOT_TOKEN")
     if not token:
         logger.error("BOT_TOKEN is not set")
-        return
+        raise SystemExit(1)
 
     bot = create_bot(token)
     dp = create_dispatcher()
