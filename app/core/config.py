@@ -1,5 +1,13 @@
 import os
 
+from dotenv import load_dotenv
+
+# Class attributes below are evaluated at import time. If the entry point loads
+# .env after importing this module, every value silently falls back to its
+# default. Loading here makes the order irrelevant.
+# Does not override variables already present in the environment.
+load_dotenv()
+
 
 class Config:
     APP_NAME = os.getenv("APP_NAME", "automation-platform")
