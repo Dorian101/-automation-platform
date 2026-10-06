@@ -278,9 +278,8 @@ app/db/database.py
 
 ## Current limitations
 
-* Single-user oriented architecture.
-* Web access is credential-based, not per-user accounts. Everyone who gets
-  past the proxy acts as the same web identity.
+* Web accounts are managed from the host only: there is no registration, no
+  password reset, and no way to disable an account other than by hand in SQL.
 * Web notifications are dropped rather than delivered.
 * No external integrations.
 * Web console is functional but minimal.
@@ -289,11 +288,11 @@ app/db/database.py
 
 ## Potential tasks:
 
-* add per-user accounts so identity resolution stops returning a fixed value;
 * give the web interface a real inbox so WebChannel can deliver;
-* implement automated database backups (BackupManager exists but is not called);
 * add reminder to /cancel and /reminders listing;
-* serve the web interface over TLS if exposed publicly.
+* call BackupManager before applying a migration, so a failed deploy has a
+  dump from minutes ago rather than from last night;
+* manage accounts beyond create and list — disable, rename, reset a password.
 
 ⸻
 

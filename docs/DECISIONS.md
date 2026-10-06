@@ -411,3 +411,60 @@ schema, so a future migration cannot reintroduce the stale-table failure.
 Recorded because the suite stayed green throughout, which is exactly what
 makes this worth writing down.
 
+
+## 2026-10-06
+
+### Decision
+Do not add the second Caddy listener on `127.0.0.1:8081`.
+
+### Reason
+It was the missing half of the SSH-tunnel fallback for the corporate laptop.
+A browser cannot send `X-Platform-Auth`, so a plain forward to port 8080 would
+have got nothing but `401`; the fix was a second listener on loopback whose
+entire job is to inject that header. It would have been extra production
+surface serving no user-facing purpose, guarded only so that nobody reached
+the app without going through the first listener.
+
+The problem went away instead: the employer issued a corporate MTProto
+gateway, and the bot reaches the platform through it with no tunnel at all.
+
+### Result
+Nothing to build and nothing extra to guard. `DEPLOYMENT.md` now records why
+the tunnel is not the answer rather than leaving a task marked "not
+implemented yet".
+
+## 2026-10-06
+
+### Decision
+Run backups from a systemd timer calling `python -m app.manage backup`, built
+on the `BackupManager` that had been sitting in the codebase uncalled.
+
+### Reason
+Two alternatives were on the table: a shell script, or letting the
+application schedule its own backups.
+
+A shell script would have been about five lines, but it would have been the
+only executable logic in the repository with no test around it, and it would
+have been typed onto the server by hand — which is where mistakes are made.
+`BackupManager` already existed for pre-migration dumps and was flagged in
+`PROJECT_STATE.md` as "exists but is not called"; making it general costs
+little, and a `backup` subcommand on the existing `manage.py` costs less than
+a new entry point.
+
+Running it from systemd rather than from inside the application is the part
+that actually matters: the scheduler has to work when the application cannot,
+and a timer has no opinion about whether the platform starts.
+
+### Result
+`create_backup(name)` and `prune(retention_days)` replace the migration-only
+method, so the same class can serve both a scheduled run and a pre-migration
+one later. Dumps are written through a file descriptor opened at mode `0600`
+rather than through `pg_dump -f`, which would have created them at the umask
+default and only tightened the mode afterwards — the dump carries scrypt
+password hashes. A retention of `0` means keep everything, not delete
+everything.
+
+12 tests in `tests/test_backup.py`. The restore path was exercised against a
+scratch database: tables, ownership, recorded migrations and sequences all
+came back. What is still *not* wired is the pre-migration call inside
+`MigrationRunner`, and `PROJECT_STATE.md` says so.

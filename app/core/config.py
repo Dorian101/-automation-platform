@@ -35,3 +35,13 @@ class Config:
     SESSION_COOKIE_SECURE = (
         os.getenv("SESSION_COOKIE_SECURE", "true").lower() == "true"
     )
+
+    # Where scheduled backups are written. Empty falls back to <repo>/backups,
+    # which is only appropriate for local development: on a server this should
+    # point outside the working tree so a stray `git clean` cannot take the
+    # backups with it.
+    BACKUP_DIR = os.getenv("BACKUP_DIR", "")
+
+    # Backups older than this are deleted after each run. 0 disables pruning
+    # and keeps everything.
+    BACKUP_RETENTION_DAYS = int(os.getenv("BACKUP_RETENTION_DAYS", "14"))

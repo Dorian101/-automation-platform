@@ -129,7 +129,7 @@ Bound to `WEB_HOST` and `WEB_PORT`, defaulting to 127.0.0.1:8080.
 - Avoid unnecessary complexity.
 - Error handling is centralized at Dispatcher level.
 - Business logic stays transport-independent.
-- Run `ruff check app/ tests/` and `pytest` before committing.
+- Run `ruff check .` and `pytest` before committing.
 
 ## Development workflow
 
@@ -154,4 +154,5 @@ Production deployment uses systemd service on VPS.
 
 Run against a dedicated `automation_platform_test` database, dropped and
 recreated per test. Covers identity, command parsing, repositories,
-migrations, plugins, the manager, notification channels, and the web layer.
+migrations, plugins, the manager, notification channels, the web layer,
+accounts and sessions, password hashing, and database backups.

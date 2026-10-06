@@ -293,22 +293,90 @@ this server:
 2. IT must add `automationplatformlebedev.ru` to the allowlist for HTTPS
    inspection and corporate DNS resolution.
 
-While that is pending, the fallback is an SSH tunnel in Termius
-(`127.0.0.1:8080` on the server → a local port). The browser cannot send
-`X-Platform-Auth`, so this needs a second Caddy listener on `127.0.0.1:8081`
-that injects the header. **Not implemented yet.**
+An SSH tunnel was considered as the fallback (`127.0.0.1:8080` on the server
+forwarded to a local port), and it does not work as-is: a browser cannot send
+`X-Platform-Auth`, so it would also need a second Caddy listener on
+`127.0.0.1:8081` that injects the header. **Dropped** — a corporate MTProto
+gateway was issued instead, and the bot needs no tunnel, no allowlist and no
+second listener. Recorded in DECISIONS.md.
 
 ## Database backup
 
-Manual only, nothing scheduled:
+Daily, run by systemd rather than by the application. The job must not depend
+on the platform being able to start: the one time a backup is desperately
+needed is when the application is broken.
 
-```bash
-sudo -u postgres pg_dump -d automation_platform -f /var/backups/automation_$(date +%F).sql
+`/etc/systemd/system/automation-platform-backup.service`:
+
+```ini
+[Unit]
+Description=Automation Platform database backup
+After=postgresql.service
+
+[Service]
+Type=oneshot
+User=automation
+WorkingDirectory=/opt/automation-platform
+ExecStart=/opt/automation-platform/.venv/bin/python -m app.manage backup
 ```
 
-**Open item:** no automatic backups exist. The only copy of every note and
-reminder lives in this database. Before any deploy containing a migration,
-take a dump.
+`/etc/systemd/system/automation-platform-backup.timer`:
+
+```ini
+[Unit]
+Description=Daily Automation Platform database backup
+
+[Timer]
+OnCalendar=*-*-* 04:17:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+`Persistent=true` runs a missed backup at the next boot. That matters more
+than the hour itself: nothing guarantees the box is up at 04:17.
+
+Point `BACKUP_DIR` in `.env` outside the checkout and create the directory
+before the first run — the job runs as `automation`:
+
+```bash
+mkdir -p /var/backups/automation-platform
+chown automation:automation /var/backups/automation-platform
+chmod 700 /var/backups/automation-platform
+```
+
+Files are `scheduled_YYYY-MM-DD_HH-MM-SS.sql`, mode `0600`, because the dump
+contains the scrypt password hashes. `BACKUP_RETENTION_DAYS` (default 14) is
+how long they are kept; `0` keeps everything.
+
+```bash
+systemctl daemon-reload && systemctl enable --now automation-platform-backup.timer
+systemctl start automation-platform-backup.service
+journalctl -u automation-platform-backup.service -n 20 --no-pager
+systemctl list-timers automation-platform-backup.timer
+```
+
+### Restore
+
+Verified against a scratch database: tables, ownership, recorded migrations
+and sequences all came back, and an `INSERT` worked immediately afterwards.
+
+The dump is `0600` and owned by `automation`, so read it as root and let the
+stream reach `postgres`:
+
+```bash
+systemctl stop automation-platform
+sudo -u postgres dropdb --if-exists automation_platform
+sudo -u postgres createdb -O automation automation_platform
+sudo -u postgres psql -q -v ON_ERROR_STOP=1 -d automation_platform \
+  < /var/backups/automation-platform/scheduled_<timestamp>.sql
+systemctl start automation-platform
+```
+
+The dump carries `schema_migrations`, so the application starts without
+reapplying anything, and `pg_dump` emits the `setval` calls that leave the
+sequences usable.
 
 ## Gotchas
 
@@ -348,7 +416,7 @@ uv run ruff check .
 uv run pytest
 ```
 
-154 tests. Run before pushing anything that touches config, auth or
+166 tests. Run before pushing anything that touches config, auth or
 migrations. The parts worth knowing about:
 
 - `tests/test_config.py` — subprocess test for the `.env` import-order bug;

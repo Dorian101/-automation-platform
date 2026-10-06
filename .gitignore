@@ -25,3 +25,5 @@ dist/
 # IDE
 .idea/
 .vscode/
+# Database backups (BACKUP_DIR usually points elsewhere in production)
+backups/
