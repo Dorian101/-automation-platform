@@ -265,3 +265,74 @@ No linting or testing infrastructure existed. Code quality issues (unused import
 
 ### Result
 Added ruff with E/F/I/W rules. Added pytest with 87 tests covering identity, command parsing, repositories, migrations, plugins, the manager, notification channels and the web layer. Tests run against a dedicated test database (automation_platform_test).
+
+## 2026-10-06
+
+### Decision
+Use Caddy from the Ubuntu 24.04 universe repository, not the official
+upstream repository.
+
+### Reason
+The deployment target is a single small VPS, and adding a third-party apt
+source is another trust relationship and another maintenance surface for
+one package. Ubuntu's version receives backported security fixes.
+
+### Result
+Caddy 2.6.2. The constraint this imposes: the directive is `basicauth`, not
+`basic_auth`, which needs 2.8+. Anyone upgrading Caddy from upstream must
+rename it, and anyone reading old notes must not assume the newer name
+applies here.
+
+## 2026-10-06
+
+### Decision
+Delegate both domains to Ruvds nameservers, and treat the Ruvds panel as the
+only place DNS can be edited.
+
+### Reason
+DNS was initially edited at reg.ru for `.online` while its zone was already
+served by Ruvds. Those edits were applied to a non-authoritative copy of the
+zone and silently had no effect — the SOA serial never changed, which was the
+only reliable signal that nothing was happening.
+
+### Result
+`ns1.ruvds.com` and `ns2.ruvds.com` for both `.ru` and `.online`. reg.ru's
+DNS panel is no longer authoritative for either, and `ns1.reg.ru` now answers
+REFUSED for `.ru`. Checking who actually serves a zone before trusting a
+panel's display became a documented step in docs/DEPLOYMENT.md.
+
+## 2026-10-06
+
+### Decision
+Let Caddy own TLS entirely; reject the free DomainSSL offered with the `.ru`
+domain.
+
+### Reason
+Caddy obtains and renews Let's Encrypt certificates on its own. DomainSSL
+requires manual installation and manual renewal once a year, and a
+certificate Caddy did not obtain is one it will not renew — so it fails
+silently when it expires. That is an extra failure mode with no benefit over
+what already works.
+
+### Result
+No certificate file on disk to monitor or rotate. Side finding: the
+`_globalsign-domain-verification` TXT record added for DomainSSL is not
+present in the authoritative zone, so that certificate could not be issued
+regardless. Recorded to stop the next person chasing it.
+
+## 2026-10-06
+
+### Decision
+Load `.env` from inside `app/core/config.py`.
+
+### Reason
+`Config` reads `os.getenv` into class attributes at import time, but the
+entry point called `load_dotenv()` after importing the app modules — too
+late. On the server every database setting silently fell back to its default
+and the service crash-looped with `fe_sendauth: no password supplied`, which
+reads like a database problem rather than an import-order problem.
+
+### Result
+Config no longer depends on import order at the entry point. Covered by a
+subprocess test in tests/test_config.py that fails if the fix is reverted,
+because a module-level ordering bug is invisible to in-process tests.
