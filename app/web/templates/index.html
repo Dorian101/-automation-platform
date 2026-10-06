@@ -94,6 +94,15 @@
     font-size: 0.85rem;
   }
   .secondary:hover { border-color: var(--accent); }
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+  }
+  .links a { color: var(--muted); text-decoration: none; }
+  .links a:hover { color: var(--text); text-decoration: none; }
 </style>
 </head>
 <body>
@@ -110,6 +119,11 @@
       </form>
     </div>
   </header>
+
+  <nav class="links">
+    <a href="/about">Обо мне</a>
+    <a href="/project">Проект и метод</a>
+  </nav>
 
   <div class="panel">
     <h2>Command</h2>
