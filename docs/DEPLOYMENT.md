@@ -441,7 +441,7 @@ uv run ruff check .
 uv run pytest
 ```
 
-182 tests. Run before pushing anything that touches config, auth or
+190 tests. Run before pushing anything that touches config, auth or
 migrations. The parts worth knowing about:
 
 - `tests/test_config.py` — subprocess test for the `.env` import-order bug;

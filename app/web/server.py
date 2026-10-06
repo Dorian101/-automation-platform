@@ -30,19 +30,24 @@ TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
 DAY_SECONDS = 86400
 
-# Only the sign in and sign up pages are reachable without a session.
+# Only pages that make sense without a session are reachable without one.
 # Everything else falls back to the login form or a 401, so a route added
 # later is protected by default rather than by remembering to protect it.
 #
 # /health is the exception: it has to answer while the database is down, and
-# requiring a session would make it fail at authentication instead of reporting
-# the failure. It still needs the proxy's shared secret and reveals nothing but
-# a boolean.
+# requiring a session would make it fail at authentication instead of
+# reporting the failure. It still needs the proxy's shared secret and reveals
+# nothing but a boolean.
+#
+# /about and /project are static documents: they read nothing from the
+# database and render no user data, which is the only reason they belong
+# here. Anything added to them later has to keep that property, or the page
+# has to leave this set.
 #
 # /signup is listed even though it answers 404 when no invite code is
 # configured: it is the page itself that decides, so that turning sign-up off
 # cannot leave a route behind that still needs a session to reach.
-PUBLIC_PATHS = {"/login", "/signup", "/health"}
+PUBLIC_PATHS = {"/login", "/signup", "/about", "/project", "/health"}
 
 
 class WebServer:
@@ -68,6 +73,12 @@ class WebServer:
         body = source.replace("__USER__", html.escape(identity.id if identity else ""))
 
         return web.Response(text=body, content_type="text/html")
+
+    async def _about(self, request: web.Request) -> web.Response:
+        return _render_page("about.html")
+
+    async def _project(self, request: web.Request) -> web.Response:
+        return _render_page("project.html")
 
     async def _commands(self, request: web.Request) -> web.Response:
         plugins = [
@@ -302,6 +313,8 @@ class WebServer:
                 web.post("/login", self._login_submit),
                 web.get("/signup", self._signup_form),
                 web.post("/signup", self._signup_submit),
+                web.get("/about", self._about),
+                web.get("/project", self._project),
                 web.post("/logout", self._logout),
                 web.get("/", self._index),
                 web.get("/api/commands", self._commands),
@@ -351,6 +364,23 @@ def _render_card(
 
     for name, value in replacements.items():
         source = source.replace(name, value)
+
+    return web.Response(text=source, content_type="text/html", status=status)
+
+
+def _render_page(template: str, status: int = 200) -> web.Response:
+    """Render one of the public document pages.
+
+    They take no arguments and read nothing: a page that has to work without
+    a session must not quietly grow a dependency on one, so the only thing
+    substituted here is the stylesheet. If a page starts needing data, that
+    is the signal to reconsider whether it belongs in PUBLIC_PATHS at all.
+    """
+    source = (TEMPLATES_DIR / template).read_text(encoding="utf-8")
+    source = source.replace(
+        "__PAGE_STYLES__",
+        (TEMPLATES_DIR / "_page_styles.html").read_text(encoding="utf-8"),
+    )
 
     return web.Response(text=source, content_type="text/html", status=status)
 

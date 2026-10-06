@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
@@ -21,6 +23,14 @@ async def client(web_server, create_user, login):
     test_server = TestServer(web_server.build_app())
     async with TestClient(test_server) as test_client:
         await login(test_client)
+        yield test_client
+
+
+@pytest.fixture
+async def guest(web_server):
+    """A browser with no session — the state a resume link arrives in."""
+    test_server = TestServer(web_server.build_app())
+    async with TestClient(test_server) as test_client:
         yield test_client
 
 
@@ -141,3 +151,80 @@ class TestHealthEndpoint:
 
         assert response.status == 503
         assert (await response.json())["database"] is False
+
+
+class TestPublicPages:
+    """The pages a resume links to.
+
+    Two properties have to hold at once: they answer without a session, and
+    they say nothing about whoever is asking. The first is what makes them
+    useful, the second is what makes it safe to give out the link.
+    """
+
+    async def test_about_is_served_without_a_session(self, guest):
+        response = await guest.get("/about")
+
+        assert response.status == 200
+        assert response.content_type == "text/html"
+
+    async def test_project_is_served_without_a_session(self, guest):
+        response = await guest.get("/project")
+
+        assert response.status == 200
+        assert response.content_type == "text/html"
+
+    async def test_everything_else_still_requires_a_session(self, guest):
+        """Being public has to stay the exception, not a growing habit."""
+        for path in ("/about", "/project"):
+            response = await guest.get(path, allow_redirects=False)
+
+            assert response.status == 200
+            assert response.headers.get("Location") is None
+
+        denied = await guest.get("/", allow_redirects=False)
+
+        assert denied.status == 303
+        assert denied.headers["Location"] == "/login"
+
+    async def test_they_link_to_each_other(self, guest):
+        about = await (await guest.get("/about")).text()
+        project = await (await guest.get("/project")).text()
+
+        assert 'href="/project"' in about
+        assert 'href="/about"' in project
+
+    async def test_project_states_the_method(self, guest):
+        body = await (await guest.get("/project")).text()
+
+        assert "Как делалось" in body
+        assert "github.com/Dorian101" in body
+
+    async def test_rendering_leaves_no_untouched_token(self, guest):
+        """A forgotten substitution shows up as literal text in the browser."""
+        for path in ("/about", "/project"):
+            body = await (await guest.get(path)).text()
+
+            assert "__PAGE_STYLES__" not in body, path
+            assert "[[" not in body, f"{path} still has a placeholder"
+            assert "--accent: #4a9eff" in body, f"{path} has no styles"
+
+    async def test_a_session_adds_nothing_to_them(
+        self,
+        guest,
+        create_user,
+        login,
+    ):
+        """Signed in or not, these pages are the same public documents.
+
+        If one ever starts rendering the account, it has stopped being a
+        page anyone can be given a link to.
+        """
+        await login(guest)
+
+        for path in ("/about", "/project"):
+            body = await (await guest.get(path)).text()
+
+            assert not re.search(
+                rf"\b{re.escape(TEST_USERNAME)}\b", body
+            ), path
+            assert "Sign out" not in body, path
