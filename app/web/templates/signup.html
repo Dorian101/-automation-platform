@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign up &mdash; Automation Platform</title>
+__STYLES__
+</head>
+<body>
+<main class="card">
+  <h1>Automation Platform</h1>
+  <p class="sub">Create an account to continue.</p>
+
+  __ERROR_BLOCK__
+
+  <form method="post" action="/signup">
+    <label>
+      Invite code
+      <input type="text" name="invite" autocomplete="off" autofocus required>
+    </label>
+    <label>
+      Username
+      <input type="text" name="username" value="__USERNAME__"
+             autocomplete="username" required>
+    </label>
+    <label>
+      Password
+      <input type="password" name="password" autocomplete="new-password" required>
+    </label>
+    <button type="submit">Sign up</button>
+  </form>
+
+  <p class="alt">Already have an account? <a href="/login">Sign in</a></p>
+</main>
+</body>
+</html>

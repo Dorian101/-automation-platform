@@ -203,12 +203,13 @@ Access control:
 * reverse proxy terminates TLS and injects the X-Platform-Auth secret
 * X-Platform-Auth shared secret, verified as middleware covering every route
 * session cookie (HttpOnly, SameSite=Lax, Secure) issued at /login
-* every route except /login and /health requires a session
+* every route except /login, /signup and /health requires a session
 * WEB_HOST binds to loopback, port 8080 never exposed
 
-Accounts are created only from the host with `python -m app.manage
-create-user`. Passwords are stored as salted scrypt hashes; only the SHA-256
-of a session token is kept. Two web users cannot read each other's data.
+Accounts are created either from the host with `python -m app.manage
+create-user`, or through the sign-up page when `SIGNUP_INVITE_CODE` is set.
+Passwords are stored as salted scrypt hashes; only the SHA-256 of a session
+token is kept. Two web users cannot read each other's data.
 
 Identity resolution lives in app/web/auth.py and maps the session cookie to
 `Identity(WEB, username)`. That function remains the seam for user accounts —
@@ -278,8 +279,9 @@ app/db/database.py
 
 ## Current limitations
 
-* Web accounts are managed from the host only: there is no registration, no
-  password reset, and no way to disable an account other than by hand in SQL.
+* Sign-up is gated by one shared invite code with no approval step behind it —
+  whoever holds the code can join — and there is still no password reset and
+  no way to disable an account other than by hand in SQL.
 * Web notifications are dropped rather than delivered.
 * No external integrations.
 * Web console is functional but minimal.
@@ -292,7 +294,8 @@ app/db/database.py
 * add reminder to /cancel and /reminders listing;
 * call BackupManager before applying a migration, so a failed deploy has a
   dump from minutes ago rather than from last night;
-* manage accounts beyond create and list — disable, rename, reset a password.
+* manage accounts beyond create and list — disable, rename, reset a password,
+  and revoke a session that has leaked.
 
 ⸻
 

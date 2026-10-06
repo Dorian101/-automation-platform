@@ -87,3 +87,34 @@ def set_session_cookie(response: web.Response, token: str) -> None:
 
 def clear_session_cookie(response: web.Response) -> None:
     response.del_cookie(SESSION_COOKIE, path="/")
+
+
+def signup_enabled() -> bool:
+    """Whether this deployment has a sign-up page at all.
+
+    Stripped, so a variable holding only whitespace counts as unset: the gate
+    and `signup_allowed()` have to agree, or the page would render and then
+    reject every code typed into it.
+    """
+    return bool(Config.SIGNUP_INVITE_CODE.strip())
+
+
+def signup_allowed(code: str) -> bool:
+    """Decide whether an invite code may open a new account.
+
+    An unset code must never let anyone through, not even an empty one: that
+    is the default for every deployment that never thought about sign-up, and
+    an accidental open door would be the worst possible reading of a missing
+    variable. `compare_digest` reports two empty strings as equal, so the
+    empty check has to come first.
+
+    Both sides are stripped, because a code pasted with a stray space or
+    newline is the likeliest mistake a person can make here, and rejecting it
+    as "invalid invite code" would send them looking for the wrong problem.
+    """
+    expected = Config.SIGNUP_INVITE_CODE.strip()
+
+    if not expected:
+        return False
+
+    return hmac.compare_digest(code.strip(), expected)

@@ -468,3 +468,39 @@ everything.
 scratch database: tables, ownership, recorded migrations and sequences all
 came back. What is still *not* wired is the pre-migration call inside
 `MigrationRunner`, and `PROJECT_STATE.md` says so.
+
+## 2026-10-06
+
+### Decision
+Add a sign-up page gated by an invite code, replacing the host-only account
+creation that had been deliberate until now.
+
+### Reason
+The old rule was that a public sign-up form on a private tool is an open
+invitation, so accounts were made from the machine only. That was right about
+the open form and wrong about the conclusion: the problem was never that a
+registration page exists, it was that anybody reaching it could use it.
+
+An invite code separates the two. It has to be typed to get in, it is never
+stored, and rotating it does not disturb the accounts that already exist.
+Leaving it unset reproduces the old behaviour exactly — no link on the login
+page and a 404 on `/signup` — so a deployment that never configures it is no
+more exposed than before.
+
+What makes registration acceptable at all is how little a registered account
+gets: an isolated namespace and the commands `/notes`, `/reminders`, `/copy`,
+`/plugins`, `/help` and `/status`. Nothing executes anything, and nothing
+reaches another user's rows.
+
+### Result
+`signup_allowed()` refuses an empty configured code even against an empty
+submitted one, because `compare_digest` would happily match empty to empty —
+that is the single line standing between "variable not set" and an open door.
+There is no rate limiting anywhere (Caddy 2.6.2 cannot do it, and the app does
+not), so the entropy of the code is the protection; `openssl rand -hex 16`.
+
+The card styles moved into a shared `_styles.html`, because sign in and sign
+up are the same layout and two copies would have drifted. 15 tests were added:
+the gate itself, failed attempts leaving nothing behind, the
+disabled-by-default behaviour, and a check that no template placeholder
+survives rendering — a forgotten replacement only ever shows up in a browser.

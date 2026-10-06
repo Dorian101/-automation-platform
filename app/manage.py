@@ -4,11 +4,13 @@
     python -m app.manage list-users
     python -m app.manage backup
 
-Accounts are created only from the machine itself. There is deliberately no
-registration page: this is a private tool, and a public sign-up form would be
-an open invitation rather than a convenience. The password is never accepted as
-a command line argument, because arguments are visible to any other user on
-the host and end up in shell history.
+Accounts are created here from the machine, with no browser involved, which
+is what an administrator wants when an invite code should never be typed
+anywhere. The browser alternative is the sign-up page, and that only exists
+when SIGNUP_INVITE_CODE is configured — an invite code rather than an open
+form is what keeps a private tool from becoming an open invitation. The
+password is never accepted as a command line argument, because arguments are
+visible to any other user on the host and end up in shell history.
 
 `backup` is what the systemd timer calls. It is a plain command so that a
 backup does not depend on the application being able to start.

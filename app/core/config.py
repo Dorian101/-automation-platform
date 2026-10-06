@@ -28,6 +28,13 @@ class Config:
 
     SESSION_TTL_DAYS = int(os.getenv("SESSION_TTL_DAYS", "30"))
 
+    # Invite code required to register a web account. Empty disables sign-up
+    # entirely: the login page then offers no link and /signup answers 404,
+    # which is what every deployment that never set this should see. It should
+    # be long and random — the code is the only thing standing between the
+    # internet and an account: openssl rand -hex 16
+    SIGNUP_INVITE_CODE = os.getenv("SIGNUP_INVITE_CODE", "")
+
     # Whether the session cookie carries the Secure flag. This cannot be
     # inferred from the request: the app talks to the reverse proxy over plain
     # HTTP on loopback, so the socket is never TLS and request.secure is always

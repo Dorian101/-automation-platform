@@ -99,6 +99,7 @@ WEB_PORT=8080
 WEB_ACCESS_TOKEN=<openssl rand -hex 32>
 SESSION_TTL_DAYS=30
 SESSION_COOKIE_SECURE=true
+SIGNUP_INVITE_CODE=   # empty: no sign-up page at all (see Accounts)
 PROXY_URL=          # empty: api.telegram.org is reachable from Germany
 ```
 
@@ -107,8 +108,29 @@ PROXY_URL=          # empty: api.telegram.org is reachable from Germany
 
 ### Accounts
 
-There is no registration page, on purpose: a public sign-up form on a private
-tool is an open invitation. Accounts are created from the host only:
+Two ways in, and neither of them is an open door.
+
+**Sign-up page.** Enable it with an invite code in `.env`:
+
+```bash
+SIGNUP_INVITE_CODE=$(openssl rand -hex 16)
+```
+
+Leave the variable unset and there is no sign-up page at all: the login form
+offers no link and `/signup` answers 404. That is the default for every
+deployment that never thought about it, so forgetting the variable fails
+closed rather than open.
+
+With a code set, `/signup` asks for the code, a username and a password, and
+a successful registration signs the person in on the spot. The code is a gate
+rather than a credential: it decides who may join, it is never stored, and
+rotating it does not disturb the accounts that already exist. There is no
+approval step behind it — anyone holding the code can create an account —
+which is why it should be long. Guessing it is the only thing standing
+between the internet and a working login.
+
+**From the host.** No browser involved, which is what to reach for when the
+invite code should never be typed anywhere:
 
 ```bash
 cd /opt/automation-platform
@@ -260,6 +282,7 @@ Expected shape of each:
 | `/health` straight on 8080 | `401` — transport secret missing |
 | `/health` with the header, no cookie | `200` — health is deliberately not behind a session |
 | `/api/command` with the header, no cookie | `401` |
+| `/signup` with the header, no cookie | `404` while `SIGNUP_INVITE_CODE` is unset, `200` once it is |
 
 A fresh database logs `Applied 4 new migration(s)` on first start. An existing
 one that already had `001`–`003` logs `Applied 1 new migration(s)`, for
@@ -267,7 +290,9 @@ one that already had `001`–`003` logs `Applied 1 new migration(s)`, for
 
 Then open the site in a browser: it must land on the sign-in form, and a wrong
 password must return `Incorrect username or password.` without saying which
-half was wrong.
+half was wrong. The login page shows a sign-up link only when
+`SIGNUP_INVITE_CODE` is set in `.env`; following it and registering should
+leave you on the index, already signed in, with a new row in `users`.
 
 ## Update
 
@@ -416,13 +441,15 @@ uv run ruff check .
 uv run pytest
 ```
 
-166 tests. Run before pushing anything that touches config, auth or
+182 tests. Run before pushing anything that touches config, auth or
 migrations. The parts worth knowing about:
 
 - `tests/test_config.py` — subprocess test for the `.env` import-order bug;
   it fails if that fix is reverted, because a module-level ordering problem
   is invisible to in-process tests.
-- `tests/test_auth.py` — both layers separately: transport secret and session.
+- `tests/test_auth.py` — both layers separately: transport secret and session;
+  then the sign-up gate, a failed attempt leaving no account behind, and that
+  sign-up is off by default when no invite code is configured.
 - `tests/test_accounts.py` — password storage, session lifetime, and that two
   web users cannot read each other's notes.
 - `tests/test_passwords.py` — a corrupt or truncated hash fails the login

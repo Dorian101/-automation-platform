@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from aiohttp import web
+from psycopg.errors import UniqueViolation
 
 from app.core.config import Config
 from app.core.identity import Identity
@@ -18,6 +19,8 @@ from .auth import (
     clear_session_cookie,
     resolve_identity,
     set_session_cookie,
+    signup_allowed,
+    signup_enabled,
     verify_access,
 )
 
@@ -27,15 +30,19 @@ TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
 DAY_SECONDS = 86400
 
-# Only the login page is reachable without a session. Everything else falls
-# back to the login form or a 401, so a route added later is protected by
-# default rather than by remembering to protect it.
+# Only the sign in and sign up pages are reachable without a session.
+# Everything else falls back to the login form or a 401, so a route added
+# later is protected by default rather than by remembering to protect it.
 #
 # /health is the exception: it has to answer while the database is down, and
 # requiring a session would make it fail at authentication instead of reporting
 # the failure. It still needs the proxy's shared secret and reveals nothing but
 # a boolean.
-PUBLIC_PATHS = {"/login", "/health"}
+#
+# /signup is listed even though it answers 404 when no invite code is
+# configured: it is the page itself that decides, so that turning sign-up off
+# cannot leave a route behind that still needs a session to reach.
+PUBLIC_PATHS = {"/login", "/signup", "/health"}
 
 
 class WebServer:
@@ -162,23 +169,100 @@ class WebServer:
         clear_session_cookie(response)
         return response
 
+    async def _signup_form(self, request: web.Request) -> web.Response:
+        # 404 rather than 403: with no invite code configured this deployment
+        # has no sign-up page, and the path should behave like any other that
+        # does not exist.
+        if not signup_enabled():
+            return web.Response(status=404)
+
+        if self._identity(request) is not None:
+            return _redirect("/")
+
+        return self._render_signup()
+
+    async def _signup_submit(self, request: web.Request) -> web.Response:
+        if not signup_enabled():
+            return web.Response(status=404)
+
+        # Same as the GET: an existing session must not be quietly swapped for
+        # the account someone is about to create. Signing out first is the
+        # one step that makes that swap deliberate.
+        if self._identity(request) is not None:
+            return _redirect("/")
+
+        form = await request.post()
+
+        invite = _form_value(form, "invite")
+        username = _form_value(form, "username")
+        password = _form_value(form, "password")
+
+        if not signup_allowed(invite):
+            return self._render_signup(
+                error="Invalid invite code.",
+                username=username,
+                status=403,
+            )
+
+        try:
+            user = self._users.create(username, password)
+        except ValueError as error:
+            # PasswordError is a ValueError, so a short password and an empty
+            # username both arrive here carrying a message written for the
+            # person filling in the form.
+            return self._render_signup(
+                error=str(error),
+                username=username,
+                status=400,
+            )
+        except UniqueViolation:
+            return self._render_signup(
+                error="That username is taken.",
+                username=username,
+                status=409,
+            )
+
+        # Straight into a session: making someone sign in again immediately
+        # after registering would only be an extra round trip for a form they
+        # have just proved they can fill in.
+        token = self._sessions.create(
+            user.id, Config.SESSION_TTL_DAYS * DAY_SECONDS
+        )
+
+        response = _redirect("/")
+        set_session_cookie(response, token)
+        return response
+
     def _render_login(
         self,
         error: str = "",
         username: str = "",
         status: int = 200,
     ) -> web.Response:
-        source = (TEMPLATES_DIR / "login.html").read_text(encoding="utf-8")
-
-        error_block = f'<p class="error">{html.escape(error)}</p>' if error else ""
-
-        body = (
-            source.replace("__ERROR_BLOCK__", error_block).replace(
-                "__USERNAME__", html.escape(username)
-            )
+        return _render_card(
+            "login.html",
+            {
+                "__ERROR_BLOCK__": _error_block(error),
+                "__USERNAME__": html.escape(username),
+                "__SIGNUP_BLOCK__": _signup_link(),
+            },
+            status=status,
         )
 
-        return web.Response(text=body, content_type="text/html", status=status)
+    def _render_signup(
+        self,
+        error: str = "",
+        username: str = "",
+        status: int = 200,
+    ) -> web.Response:
+        return _render_card(
+            "signup.html",
+            {
+                "__ERROR_BLOCK__": _error_block(error),
+                "__USERNAME__": html.escape(username),
+            },
+            status=status,
+        )
 
     def _identity(self, request: web.Request) -> Identity | None:
         return resolve_identity(request, self._users, self._sessions)
@@ -216,6 +300,8 @@ class WebServer:
             [
                 web.get("/login", self._login_form),
                 web.post("/login", self._login_submit),
+                web.get("/signup", self._signup_form),
+                web.post("/signup", self._signup_submit),
                 web.post("/logout", self._logout),
                 web.get("/", self._index),
                 web.get("/api/commands", self._commands),
@@ -243,6 +329,49 @@ class WebServer:
         self._runner = None
 
         logger.info("Web interface stopped")
+
+
+def _render_card(
+    template: str,
+    replacements: Mapping[str, str],
+    status: int = 200,
+) -> web.Response:
+    """Build one of the card pages.
+
+    Sign in and sign up are the same layout with different fields between the
+    heading and the button, so the styles live in a file both templates pull
+    in. A change to the card lands on both pages instead of one of them
+    silently drifting.
+    """
+    source = (TEMPLATES_DIR / template).read_text(encoding="utf-8")
+    source = source.replace(
+        "__STYLES__",
+        (TEMPLATES_DIR / "_styles.html").read_text(encoding="utf-8"),
+    )
+
+    for name, value in replacements.items():
+        source = source.replace(name, value)
+
+    return web.Response(text=source, content_type="text/html", status=status)
+
+
+def _error_block(message: str) -> str:
+    if not message:
+        return ""
+
+    return f'<p class="error">{html.escape(message)}</p>'
+
+
+def _signup_link() -> str:
+    """Offer registration exactly where it works.
+
+    With no invite code configured there is no sign-up page either — it
+    answers 404 — so showing the link would send people to a dead end.
+    """
+    if not signup_enabled():
+        return ""
+
+    return '<p class="alt">No account yet? <a href="/signup">Sign up</a></p>'
 
 
 def _redirect(location: str) -> web.Response:

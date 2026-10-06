@@ -50,11 +50,13 @@ Two independent layers, both required, doing different jobs.
    `resolve_identity()`. It says who the user is, and it is what separates one
    user's notes from another's.
 
-The login page is the only public route, plus `/health`, which must be able to
-answer while the database is down.
+The sign-in and sign-up pages are the only public routes, plus `/health`, which
+must be able to answer while the database is down.
 
 Accounts exist only in the application. Caddy holds no credentials — see
-docs/DECISIONS.md for why `basicauth` was removed.
+docs/DECISIONS.md for why `basicauth` was removed. Sign-up is gated by the
+invite code in `SIGNUP_INVITE_CODE`, and when that is unset the sign-up page
+does not exist at all.
 
 `WEB_HOST` defaults to loopback for this reason. See docs/DEPLOYMENT.md.
 
