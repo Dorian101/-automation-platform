@@ -336,3 +336,78 @@ reads like a database problem rather than an import-order problem.
 Config no longer depends on import order at the entry point. Covered by a
 subprocess test in tests/test_config.py that fails if the fix is reverted,
 because a module-level ordering bug is invisible to in-process tests.
+
+## 2026-10-06
+
+### Decision
+Move authentication out of Caddy and into the application: drop `basicauth`
+from the Caddyfile and introduce real accounts with a login page.
+
+### Reason
+`basicauth` gives one shared password to everyone. Every request behind it is
+indistinguishable from every other, so there is no answer to "who wrote this
+note" and no way to remove one person's access without changing the password
+for everybody. The credential also lived as a hash in a config file that only
+guarded the edge — the application itself trusted anything Caddy forwarded.
+
+The two checks that existed had been conflated. A shared secret in a header
+answers "did this come through the proxy", which is a transport property; a
+login answers "who is asking", which is an account property. Collapsing them
+into one credential is what made per-user data impossible.
+
+### Result
+Two layers with separate jobs. `X-Platform-Auth` still proves the request
+came through Caddy and is still injected by Caddy, so the user never sees it
+and it costs nothing in the interface. The session cookie identifies the user
+and is what every plugin already keys its data on — `Identity(WEB, username)`
+instead of the fixed `web:default`, which required no change in any plugin or
+repository. Caddy is back to doing TLS and nothing else.
+
+## 2026-10-06
+
+### Decision
+Hash passwords with `hashlib.scrypt` from the standard library, and store only
+the SHA-256 of each session token.
+
+### Reason
+`passlib` or `bcrypt` would add a dependency for something Python already
+ships. scrypt carries a per-password salt and, unlike plain iteration counts,
+demands memory — which is the resource a GPU attack is short of. Parameters
+are stored alongside each hash so the cost can be raised later without
+invalidating existing accounts.
+
+Storing the token itself would mean a dump of the `sessions` table hands over
+live sessions. Storing its digest means the dump is useless, and deleting a
+row is enough to log that session out.
+
+### Result
+No new dependencies. A leaked `users` table yields hashes that cost 37 ms each
+to check; a leaked `sessions` table yields nothing usable. Both are covered in
+tests/test_passwords.py and tests/test_accounts.py.
+
+## 2026-10-06
+
+### Decision
+Set the test environment at module level in `tests/conftest.py`, above the
+first import of the application.
+
+### Reason
+`Config` evaluates `os.getenv` once, when its class body runs. The env vars
+were being set in a session-scoped fixture, which pytest runs *after*
+collecting — that is, after every test module has already imported
+`app.core.config`. The values were silently ignored and all 97 tests ran
+against the development database, emptying it on every run while appearing
+green.
+
+The second half of the same bug: `_clean_db` dropped an explicit list of
+tables, so `users` — created by the new migration and missing from that list
+— survived, and the next migration failed on `relation "users" already
+exists`.
+
+### Result
+`conftest.py` carries `# ruff: noqa: E402` deliberately; the imports below the
+env block must stay below it. `_clean_db` now drops every table in the public
+schema, so a future migration cannot reintroduce the stale-table failure.
+Recorded because the suite stayed green throughout, which is exactly what
+makes this worth writing down.
+

@@ -1,4 +1,12 @@
+from pathlib import Path
+
 from app.db.migrations import MigrationRunner
+
+MIGRATIONS_DIR = Path(__file__).resolve().parents[1] / "sql" / "migrations"
+
+
+def _migration_names() -> list[str]:
+    return sorted(path.name for path in MIGRATIONS_DIR.glob("*.sql"))
 
 
 class TestMigrations:
@@ -23,11 +31,7 @@ class TestMigrations:
                 cur.execute("SELECT name FROM schema_migrations ORDER BY version")
                 names = [row[0] for row in cur.fetchall()]
 
-        assert names == [
-            "001_initial.sql",
-            "002_add_indexes.sql",
-            "003_user_identity.sql",
-        ]
+        assert names == _migration_names()
 
     def test_is_idempotent(self, database):
         runner = MigrationRunner(database)
@@ -38,14 +42,14 @@ class TestMigrations:
         with database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT COUNT(*) FROM schema_migrations")
-                assert cur.fetchone()[0] == 3
+                assert cur.fetchone()[0] == len(_migration_names())
 
     def test_creates_all_tables(self, database):
         MigrationRunner(database).run()
 
         with database.connect() as conn:
             with conn.cursor() as cur:
-                for table in ("notes", "reminders", "clipboard"):
+                for table in ("notes", "reminders", "clipboard", "users", "sessions"):
                     cur.execute("""
                         SELECT EXISTS (
                             SELECT FROM information_schema.tables

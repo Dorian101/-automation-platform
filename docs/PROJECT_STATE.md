@@ -190,6 +190,8 @@ Purpose:
 
 Implemented:
 
+* GET /login, POST /login — sign in form
+* POST /logout — ends the session
 * GET / — HTML console
 * GET /api/commands — plugin and command metadata
 * POST /api/command — command execution
@@ -198,12 +200,19 @@ Implemented:
 
 Access control:
 
-* reverse proxy terminates TLS and requires credentials
+* reverse proxy terminates TLS and injects the X-Platform-Auth secret
 * X-Platform-Auth shared secret, verified as middleware covering every route
+* session cookie (HttpOnly, SameSite=Lax, Secure) issued at /login
+* every route except /login and /health requires a session
 * WEB_HOST binds to loopback, port 8080 never exposed
 
-Identity resolution lives in app/web/auth.py and currently returns a single
-fixed web identity. That function is the seam for user accounts.
+Accounts are created only from the host with `python -m app.manage
+create-user`. Passwords are stored as salted scrypt hashes; only the SHA-256
+of a session token is kept. Two web users cannot read each other's data.
+
+Identity resolution lives in app/web/auth.py and maps the session cookie to
+`Identity(WEB, username)`. That function remains the seam for user accounts —
+no plugin or repository knows about any of this.
 
 Deployment runbook: docs/DEPLOYMENT.md
 

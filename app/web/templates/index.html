@@ -76,12 +76,40 @@
   li { margin-bottom: 0.2rem; }
   code { background: var(--bg); padding: 0.05rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
   .hint { color: var(--muted); font-size: 0.8rem; margin-top: 0.75rem; }
+  .topbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .topbar .sub { margin-bottom: 0; }
+  .account { display: flex; align-items: center; gap: 0.75rem; }
+  .who { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+  .secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.4rem 0.85rem;
+    font-size: 0.85rem;
+  }
+  .secondary:hover { border-color: var(--accent); }
 </style>
 </head>
 <body>
 <main>
-  <h1>Automation Platform</h1>
-  <p class="sub">Web interface &mdash; the same commands the Telegram bot accepts.</p>
+  <header class="topbar">
+    <div>
+      <h1>Automation Platform</h1>
+      <p class="sub">Web interface &mdash; the same commands the Telegram bot accepts.</p>
+    </div>
+    <div class="account">
+      <span class="who">Signed in as <b>__USER__</b></span>
+      <form method="post" action="/logout">
+        <button type="submit" class="secondary">Sign out</button>
+      </form>
+    </div>
+  </header>
 
   <div class="panel">
     <h2>Command</h2>

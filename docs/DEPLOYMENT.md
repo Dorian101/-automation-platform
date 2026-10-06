@@ -21,15 +21,25 @@ PostgreSQL, the bot and Caddy all run on this one box. The app listens on
 ## Traffic
 
 ```
-browser → 187.13.70.46:443 → Caddy (TLS, basicauth)
-                                     → 127.0.0.1:8080 → app
-                                       └─ injects X-Platform-Auth
+browser → 187.13.70.46:443 → Caddy (TLS)
+                                    → 127.0.0.1:8080 → app
+                                      └─ injects X-Platform-Auth
+                                      └─ app checks the session cookie
 ```
 
-Two independent gates. `basicauth` is the human-facing credential at the edge.
-`X-Platform-Auth` proves the request came through Caddy and not around it.
-Neither alone is enough: without the secret, anything that could reach 8080
-gets in; without the password, the edge is open.
+Two independent gates, with different jobs.
+
+`X-Platform-Auth` is the transport secret. It is attached by Caddy and proves
+the request came through the proxy rather than straight at port 8080. Without
+it, anything that could reach the port could issue commands.
+
+The session cookie is the account. It is issued when a user signs in at
+`/login` and identifies *who* is asking, which is what separates one user's
+notes from another's. Without it, the edge may be reachable but there is no one
+to act as.
+
+Neither is enough on its own, and neither replaces the other: the transport
+secret says *where the request came from*, the cookie says *who sent it*.
 
 ## Install
 
@@ -87,11 +97,37 @@ DB_PASSWORD=...
 WEB_HOST=127.0.0.1
 WEB_PORT=8080
 WEB_ACCESS_TOKEN=<openssl rand -hex 32>
+SESSION_TTL_DAYS=30
+SESSION_COOKIE_SECURE=true
 PROXY_URL=          # empty: api.telegram.org is reachable from Germany
 ```
 
 `app/core/config.py` calls `load_dotenv()` itself. Do not "simplify" that away
 — see Gotchas.
+
+### Accounts
+
+There is no registration page, on purpose: a public sign-up form on a private
+tool is an open invitation. Accounts are created from the host only:
+
+```bash
+cd /opt/automation-platform
+python -m app.manage create-user alexey     # prompts, never takes argv
+python -m app.manage list-users
+```
+
+The password is read with `getpass` and is never accepted as a command line
+argument — arguments are visible in `ps` and land in shell history. On a box
+without a terminal, pipe it in instead: `echo "<password>" | python -m
+app.manage create-user alexey`.
+
+The command applies pending migrations first, so it works on a fresh install
+before the service has ever started.
+
+`SESSION_COOKIE_SECURE` must stay `true` in production. It cannot be inferred
+from the request: the app talks to Caddy over plain HTTP on loopback, so the
+socket is never TLS and `request.secure` is false even behind HTTPS. Set it to
+`false` only for local `http://` development.
 
 ## systemd
 
@@ -129,26 +165,27 @@ systemctl daemon-reload && systemctl enable --now automation-platform
 
 ## Caddy
 
-Version 2.6.2 comes from the Ubuntu universe repository. The directive is
-**`basicauth`**, not `basic_auth` — the latter needs Caddy 2.8+ and will be
-rejected.
+Version 2.6.2 comes from the Ubuntu universe repository.
+
+Caddy holds no credentials any more — it used to run `basicauth`, and that has
+been removed. All authentication is the application's job now, which is what
+makes per-user accounts and per-user data possible. Caddy's only remaining
+duties are TLS and attaching the transport secret.
 
 `/etc/caddy/Caddyfile`:
 
 ```
 automationplatformlebedev.ru, automationplatformlebedev.online {
-	basicauth {
-		alexey $2a$14$...
-	}
 	reverse_proxy 127.0.0.1:8080 {
 		header_up X-Platform-Auth "<WEB_ACCESS_TOKEN value>"
 	}
 }
 ```
 
-Generate the hash with `caddy hash-password` (promotes input invisibly, never
-paste a plaintext password). The header value must byte-match
-`WEB_ACCESS_TOKEN` in `.env` — edit both when rotating.
+The header value must byte-match `WEB_ACCESS_TOKEN` in `.env` — edit both when
+rotating. Anyone who knows the domain can now reach the login page; the page
+itself still requires the header, so a request that bypasses Caddy never gets
+as far as a password prompt.
 
 Validate before reloading; a bad config should never reach the running
 service:
@@ -208,13 +245,29 @@ their migration.
 ## Verify
 
 ```bash
-curl -I https://automationplatformlebedev.ru/            # 401 + Server: Caddy
-curl -i localhost:8080/health                            # 401: proxy-only
+curl -sI https://automationplatformlebedev.ru/            # 303, Location: /login
+curl -si localhost:8080/health                            # 401: no proxy header
+curl -si -H "X-Platform-Auth: <WEB_ACCESS_TOKEN value>" localhost:8080/health
 systemctl status automation-platform caddy
 journalctl -u automation-platform -n 50
 ```
 
-A fresh database logs `Applied 3 new migration(s)` on first start.
+Expected shape of each:
+
+| Call | Result |
+|---|---|
+| `https://…/` through Caddy | `303` to `/login`, `Server: Caddy` |
+| `/health` straight on 8080 | `401` — transport secret missing |
+| `/health` with the header, no cookie | `200` — health is deliberately not behind a session |
+| `/api/command` with the header, no cookie | `401` |
+
+A fresh database logs `Applied 4 new migration(s)` on first start. An existing
+one that already had `001`–`003` logs `Applied 1 new migration(s)`, for
+`004_users_sessions.sql`.
+
+Then open the site in a browser: it must land on the sign-in form, and a wrong
+password must return `Incorrect username or password.` without saying which
+half was wrong.
 
 ## Update
 
@@ -270,16 +323,39 @@ Things that cost real debugging time. Read before editing.
   afterwards, or use `sudo -u`.
 - **git: "dubious ownership".** Root reading an `automation`-owned repo. Fix
   with `git config --global --add safe.directory`, then `chown` back.
-- **Caddy directive name.** `basicauth` on 2.6.2, `basic_auth` on 2.8+.
+- **Test env vars must be set before the first app import.** `Config` reads
+  `os.getenv` into class attributes once, when its class body runs. Setting
+  `DB_NAME` inside a pytest fixture happens *after* every test module has
+  already imported `app.core.config`, so the values are ignored and the tests
+  run against the development database — emptying it. `tests/conftest.py`
+  sets them at module level, above the app imports, and carries a
+  `# ruff: noqa: E402` for exactly that reason. Do not move them into a
+  fixture.
+- **`_clean_db` drops every table, not a list.** It used to name the tables
+  it knew about, so a table created by a newer migration survived, and the
+  next migration run failed on `relation ... already exists`. Listing tables
+  in a test helper is a maintenance bug waiting to happen.
+- **`/health` is not behind a session.** It has to answer while the database
+  is down; requiring a session would make it fail at authentication instead of
+  reporting. It still needs `X-Platform-Auth`, and it reveals only a boolean.
 - **Panel ≠ authoritative zone.** Check who actually serves the zone before
   trusting what a registrar's panel displays.
 
 ## Local checks
 
 ```bash
-uv run ruff check app/ tests/
-uv run pytest tests/
+uv run ruff check .
+uv run pytest
 ```
 
-97 tests, including the subprocess dotenv test. Run before pushing anything
-that touches config, auth or migrations.
+154 tests. Run before pushing anything that touches config, auth or
+migrations. The parts worth knowing about:
+
+- `tests/test_config.py` — subprocess test for the `.env` import-order bug;
+  it fails if that fix is reverted, because a module-level ordering problem
+  is invisible to in-process tests.
+- `tests/test_auth.py` — both layers separately: transport secret and session.
+- `tests/test_accounts.py` — password storage, session lifetime, and that two
+  web users cannot read each other's notes.
+- `tests/test_passwords.py` — a corrupt or truncated hash fails the login
+  instead of raising.

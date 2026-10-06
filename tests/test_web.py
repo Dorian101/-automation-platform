@@ -3,6 +3,7 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from app.core.identity import WEB, Identity, telegram
 from app.web.server import WebServer
+from tests.conftest import TEST_USERNAME
 
 
 @pytest.fixture
@@ -16,9 +17,10 @@ def web_server(manager, database_with_schema):
 
 
 @pytest.fixture
-async def client(web_server):
+async def client(web_server, create_user, login):
     test_server = TestServer(web_server.build_app())
     async with TestClient(test_server) as test_client:
+        await login(test_client)
         yield test_client
 
 
@@ -109,7 +111,7 @@ class TestExecuteEndpoint:
 
         repo = NotesRepository(database_with_schema)
 
-        assert repo.list(Identity(kind=WEB, id="default")) == ["only web"]
+        assert repo.list(Identity(kind=WEB, id=TEST_USERNAME)) == ["only web"]
         assert repo.list(telegram(999)) == []
 
 

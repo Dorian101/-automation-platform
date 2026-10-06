@@ -28,25 +28,33 @@ caller and hand it to `PluginManager.execute()`.
 ## Identity
 
 Users are identified by `Identity`, stored as `kind:id` in the database
-(for example `telegram:-1001234567890`, `web:default`).
+(for example `telegram:-1001234567890`, `web:alexey`).
 
 Namespacing by transport means the same numeric id arriving on two transports
 never resolves to the same user.
 
-Web identity resolution lives in `app/web/auth.py`. It currently returns a
-single fixed identity, and is the seam for user accounts.
+Web identity resolution lives in `app/web/auth.py`: it reads the session
+cookie, loads the account behind it and returns `Identity(WEB, username)`.
+Everything downstream — plugins, repositories, notifications — receives that
+identity and never sees a password, a cookie or a token.
 
 ## Access control
 
-The web interface has no user accounts. It is guarded by two independent
-layers, both of which are required:
+Two independent layers, both required, doing different jobs.
 
-1. A reverse proxy that terminates TLS and requires credentials.
-2. A `X-Platform-Auth` shared secret in `WEB_ACCESS_TOKEN`, verified by
-   `verify_access()` as middleware covering every route.
+1. `X-Platform-Auth`, a shared secret in `WEB_ACCESS_TOKEN` verified by
+   `verify_access()` as middleware on every route. It is injected by the
+   reverse proxy and proves the request came through it, not around it. It is
+   a transport property: it says where the request came from, not who sent it.
+2. A session cookie issued by `POST /login` and checked by
+   `resolve_identity()`. It says who the user is, and it is what separates one
+   user's notes from another's.
 
-The secret guarantees nothing reached the app except through the proxy. The
-proxy alone would not, if the port were ever exposed directly.
+The login page is the only public route, plus `/health`, which must be able to
+answer while the database is down.
+
+Accounts exist only in the application. Caddy holds no credentials — see
+docs/DECISIONS.md for why `basicauth` was removed.
 
 `WEB_HOST` defaults to loopback for this reason. See docs/DEPLOYMENT.md.
 

@@ -25,3 +25,13 @@ class Config:
     # Shared secret required in the X-Platform-Auth header. Empty disables the
     # check, which is only appropriate for local development.
     WEB_ACCESS_TOKEN = os.getenv("WEB_ACCESS_TOKEN", "")
+
+    SESSION_TTL_DAYS = int(os.getenv("SESSION_TTL_DAYS", "30"))
+
+    # Whether the session cookie carries the Secure flag. This cannot be
+    # inferred from the request: the app talks to the reverse proxy over plain
+    # HTTP on loopback, so the socket is never TLS and request.secure is always
+    # false even in production. Keep this on everywhere except local http://.
+    SESSION_COOKIE_SECURE = (
+        os.getenv("SESSION_COOKIE_SECURE", "true").lower() == "true"
+    )
