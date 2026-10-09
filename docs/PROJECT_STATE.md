@@ -150,6 +150,7 @@ Implemented:
 * create notes
 * persistent storage
 * PostgreSQL repository
+* no deletion — notes only ever accumulate
 
 ⸻
 
@@ -206,6 +207,16 @@ Access control:
 * every route except /login, /signup and /health requires a session
 * WEB_HOST binds to loopback, port 8080 never exposed
 
+An account can be paired with a Telegram chat, stored in `telegram_links` and
+one-to-one in both directions. The pair never moves data: web rows stay under
+`web:<name>`, Telegram rows stay under `telegram:<id>`, and neither identity is
+merged into the other. No delivery path reads the link yet.
+
+Managed from the host with `python -m app.manage link-telegram <username>
+<chat_id>`, `unlink-telegram <username>` and `list-links`, which is also the
+way out when the browser cannot reach Telegram. There is no browser flow for
+it yet.
+
 Accounts are created either from the host with `python -m app.manage
 create-user`, or through the sign-up page when `SIGNUP_INVITE_CODE` is set.
 Passwords are stored as salted scrypt hashes; only the SHA-256 of a session
@@ -251,7 +262,9 @@ Database schema:
 sql/migrations/
 ├── 001_initial.sql
 ├── 002_add_indexes.sql
-└── 003_user_identity.sql
+├── 003_user_identity.sql
+├── 004_users_sessions.sql
+└── 005_telegram_links.sql
 
 Pattern:
 
@@ -282,15 +295,26 @@ app/db/database.py
 * Sign-up is gated by one shared invite code with no approval step behind it —
   whoever holds the code can join — and there is still no password reset and
   no way to disable an account other than by hand in SQL.
-* Web notifications are dropped rather than delivered.
+* Web notifications are dropped rather than delivered. A linked account does
+  not change this yet: the link exists but nothing consults it.
 * No external integrations.
 * Web console is functional but minimal.
+* Notes can be added and listed but not deleted, so they accumulate with no
+  way to clear one out or all of them.
 
 ⸻
 
 ## Potential tasks:
 
-* give the web interface a real inbox so WebChannel can deliver;
+* read the linked chat when delivering, so a reminder set on the web reaches
+  the bot instead of vanishing into WebChannel;
+* add the Telegram link to the console: a button and an unlink, which means
+  giving `/` its first page that renders account state rather than the result
+  of a command;
+* let a linked account read one person's notes and clipboard from both
+  transports, which means reading by both identities at once — and deciding
+  what "the last copied text" means across the two;
+* let notes be deleted, individually and in bulk;
 * add reminder to /cancel and /reminders listing;
 * call BackupManager before applying a migration, so a failed deploy has a
   dump from minutes ago rather than from last night;

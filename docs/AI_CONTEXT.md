@@ -38,6 +38,12 @@ cookie, loads the account behind it and returns `Identity(WEB, username)`.
 Everything downstream — plugins, repositories, notifications — receives that
 identity and never sees a password, a cookie or a token.
 
+A web account can be paired with a Telegram chat through `telegram_links`,
+one to one in both directions. The pair records that two identities belong to
+the same person; it never moves data. Web rows stay under `web:<name>` and
+Telegram rows stay under `telegram:<id>`, and reading them as one person's
+history is a decision for the delivery layer, not for the link.
+
 ## Access control
 
 Two independent layers, both required, doing different jobs.
@@ -82,6 +88,7 @@ Repositories:
 - notes_repo.py
 - reminders_repo.py
 - clipboard_repo.py
+- links_repo.py
 
 Schema is versioned in sql/migrations/.
 

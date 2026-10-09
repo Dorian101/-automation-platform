@@ -504,3 +504,44 @@ up are the same layout and two copies would have drifted. 15 tests were added:
 the gate itself, failed attempts leaving nothing behind, the
 disabled-by-default behaviour, and a check that no template placeholder
 survives rendering — a forgotten replacement only ever shows up in a browser.
+
+## 2026-10-09
+
+### Decision
+Record a link between a web account and a Telegram chat in its own table,
+`telegram_links`, one-to-one in both directions. Do not move the data and do
+not merge the two identities.
+
+### Reason
+The reminders plugin was written for Telegram: a reminder that arrives as a
+sound on one of twenty open tabs is not a reminder. But the web interface is
+where the same commands are easiest to type, so reminders set there have to
+reach the chat — and that was impossible while `identity.kind` alone decided
+delivery, since a `web:` identity lands in `WebChannel`, which logs and drops.
+
+There were two ways to fix that. Merging the identities would have been
+simpler — one namespace, no routing decision anywhere — and it was rejected:
+`user_id` is a text column in `notes`, `reminders` and `clipboard`, so merging
+means rewriting every row, and it would contradict the reason namespacing
+exists, namely that one numeric id on two transports is not one person.
+
+Keeping the identities apart and recording the pairing instead costs a lookup
+and moves no rows. It also stays reversible: an unlink has nothing to undo,
+which a namespace change would not have.
+
+A separate table rather than a column on `users`, because that table is about
+web credentials and a link is not an account — it is a statement that two
+identities belong to the same person. `UNIQUE` on `telegram_id` enforces the
+one-to-one: without it a shared login would silently merge two people's data,
+which is the failure the table exists to prevent.
+
+### Result
+Storage only. `TelegramLinksRepository` and migration `005_telegram_links.sql`;
+`python -m app.manage link-telegram|unlink-telegram|list-links` for the case
+where the browser cannot reach Telegram. Re-linking replaces the previous chat
+and says so, rather than overwriting it silently.
+
+Nothing reads the link yet — delivery and the shared-data read are the next
+two steps — and no authentication through Telegram exists yet, so the link
+cannot yet be created from a browser. `Tests: 16 in tests/test_manage_links.py,
+17 in tests/test_links.py`, including that linking moves no data.

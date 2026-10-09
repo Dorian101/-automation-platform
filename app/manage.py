@@ -2,6 +2,9 @@
 
     python -m app.manage create-user <username>
     python -m app.manage list-users
+    python -m app.manage link-telegram <username> <chat_id>
+    python -m app.manage unlink-telegram <username>
+    python -m app.manage list-links
     python -m app.manage backup
 
 Accounts are created here from the machine, with no browser involved, which
@@ -11,6 +14,10 @@ when SIGNUP_INVITE_CODE is configured — an invite code rather than an open
 form is what keeps a private tool from becoming an open invitation. The
 password is never accepted as a command line argument, because arguments are
 visible to any other user on the host and end up in shell history.
+
+`link-telegram` is the way out when the browser cannot reach Telegram: the
+Telegram account is the only other way in, so a wrong or revoked link would
+otherwise be a dead end with no way back from the host.
 
 `backup` is what the systemd timer calls. It is a plain command so that a
 backup does not depend on the application being able to start.
@@ -27,6 +34,7 @@ from app.core.config import Config
 from app.core.passwords import PasswordError
 from app.db.backup import BackupManager
 from app.db.database import Database
+from app.db.links_repo import TelegramLinksRepository
 from app.db.migrations import MigrationRunner
 from app.db.users_repo import UsersRepository
 
@@ -67,6 +75,112 @@ def list_users(args: argparse.Namespace) -> int:
     return 0
 
 
+def link_telegram(args: argparse.Namespace) -> int:
+    """Pair a web account with a Telegram chat, by hand."""
+    links, users = _ready_links()
+
+    account = users.get_by_username(args.username)
+
+    if account is None:
+        print(f"error: no user '{args.username}'", file=sys.stderr)
+        return 1
+
+    existing = links.get_by_user_id(account.id)
+    chat_id = _chat_id(args.chat_id)
+
+    if existing is not None:
+        if existing.telegram_id == chat_id:
+            print(f"{account.username} is already linked to {chat_id}")
+            return 0
+
+        # Not overwritten silently. The previous chat keeps whatever data it
+        # already has, and an account that was linked by mistake is exactly the
+        # case where guessing would be worst.
+        links.unlink(account.id)
+        print(
+            f"Replaced link: {account.username} was {existing.telegram_id}, "
+            f"now {chat_id}",
+        )
+        return _relink(links, account.id, chat_id, account.username)
+
+    return _relink(links, account.id, chat_id, account.username)
+
+
+def _relink(
+    links: TelegramLinksRepository,
+    user_id: int,
+    chat_id: int,
+    name: str,
+) -> int:
+    try:
+        links.link(user_id, chat_id)
+    except UniqueViolation:
+        owner = links.get_by_telegram_id(chat_id)
+
+        # Which of the two conflicts happened is worth spelling out: the same
+        # error comes out of the database for both, and "cannot link" on its own
+        # sends someone looking in the wrong place.
+        if owner is not None:
+            print(
+                f"error: chat {chat_id} is already linked to another account",
+                file=sys.stderr,
+            )
+        else:
+            print(f"error: {name} is already linked", file=sys.stderr)
+
+        return 1
+
+    print(f"Linked {name} to Telegram chat {chat_id}")
+    return 0
+
+
+def unlink_telegram(args: argparse.Namespace) -> int:
+    links, users = _ready_links()
+
+    account = users.get_by_username(args.username)
+
+    if account is None:
+        print(f"error: no user '{args.username}'", file=sys.stderr)
+        return 1
+
+    if not links.unlink(account.id):
+        print(f"{account.username} is not linked to a Telegram account")
+        return 0
+
+    print(f"Unlinked {account.username}")
+    return 0
+
+
+def list_links(args: argparse.Namespace) -> int:
+    links, users = _ready_links()
+    pairs = links.list_all()
+
+    if not pairs:
+        print("No Telegram links. Create one with: "
+              "python -m app.manage link-telegram <username> <chat_id>")
+        return 0
+
+    for pair in pairs:
+        account = users.get_by_id(pair.user_id)
+        name = account.username if account else f"user #{pair.user_id}"
+
+        print(f"{name}\t{pair.telegram_id}\t{pair.linked_at}")
+
+    return 0
+
+
+def _chat_id(raw: str) -> int:
+    """Read a chat id, refusing anything that is not one.
+
+    Stored as BIGINT, so a value that cannot be that would reach the driver as
+    an error at insert time instead of here.
+    """
+    try:
+        return int(raw)
+    except ValueError:
+        raise ValueError(f"chat id must be a number, not {raw!r}") from None
+
+
 def backup(args: argparse.Namespace) -> int:
     """Write one backup and drop the ones that have aged out.
 
@@ -93,6 +207,13 @@ def _ready_database() -> UsersRepository:
     database = Database()
     MigrationRunner(database).run()
     return UsersRepository(database)
+
+
+def _ready_links() -> tuple[TelegramLinksRepository, UsersRepository]:
+    """The same, for the commands that need accounts and links together."""
+    database = Database()
+    MigrationRunner(database).run()
+    return TelegramLinksRepository(database), UsersRepository(database)
 
 
 def _read_password() -> str:
@@ -128,6 +249,30 @@ def build_parser() -> argparse.ArgumentParser:
 
     listing = subparsers.add_parser("list-users", help="List web accounts")
     listing.set_defaults(func=list_users)
+
+    link = subparsers.add_parser(
+        "link-telegram",
+        help="Pair a web account with a Telegram chat",
+    )
+    link.add_argument("username", help="Account name, matched case-insensitively")
+    link.add_argument(
+        "chat_id",
+        help="Telegram chat id, negative for a group",
+    )
+    link.set_defaults(func=link_telegram)
+
+    unlink = subparsers.add_parser(
+        "unlink-telegram",
+        help="Remove a web account's Telegram link",
+    )
+    unlink.add_argument("username", help="Account name, matched case-insensitively")
+    unlink.set_defaults(func=unlink_telegram)
+
+    links_listing = subparsers.add_parser(
+        "list-links",
+        help="List web accounts and their Telegram chats",
+    )
+    links_listing.set_defaults(func=list_links)
 
     backuping = subparsers.add_parser(
         "backup",
