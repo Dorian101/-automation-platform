@@ -35,6 +35,25 @@ class Config:
     # internet and an account: openssl rand -hex 16
     SIGNUP_INVITE_CODE = os.getenv("SIGNUP_INVITE_CODE", "")
 
+    # Telegram username of the bot, without the leading @. The Login Widget
+    # needs it, and so does the button on the account page. Empty hides the
+    # whole linking flow, which is what a deployment that never registered a
+    # domain with BotFather should see.
+    TELEGRAM_BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "")
+
+    # Telegram bot token. Read here as well as in main.py because verifying a
+    # Login Widget signature needs it, and a second os.getenv would be a second
+    # place for the two to disagree.
+    BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+
+    # How long a Login Widget payload stays acceptable. A valid signature never
+    # stops being valid, so without a limit one captured anywhere would be
+    # replayable years later. Five minutes is generous for a redirect that
+    # follows the click immediately.
+    TELEGRAM_LOGIN_MAX_AGE_SECONDS = int(
+        os.getenv("TELEGRAM_LOGIN_MAX_AGE_SECONDS", "300")
+    )
+
     # Whether the session cookie carries the Secure flag. This cannot be
     # inferred from the request: the app talks to the reverse proxy over plain
     # HTTP on loopback, so the socket is never TLS and request.secure is always

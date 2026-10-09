@@ -210,12 +210,29 @@ Access control:
 An account can be paired with a Telegram chat, stored in `telegram_links` and
 one-to-one in both directions. The pair never moves data: web rows stay under
 `web:<name>`, Telegram rows stay under `telegram:<id>`, and neither identity is
-merged into the other. No delivery path reads the link yet.
+merged into the other.
+
+From the console, through Telegram's Login Widget: the page shows either a
+link button or the linked chat with an unlink button, never both. Requires
+`TELEGRAM_BOT_USERNAME` and a domain registered with `/setdomain`; without
+both, no button and no route.
+
+Implemented:
+- GET /account/telegram/link — verifies the signed payload, binds it to the
+  browser that started the flow with a one-use nonce, rejects payloads older
+  than TELEGRAM_LOGIN_MAX_AGE_SECONDS
+- POST /account/telegram/unlink — removes the pairing
+- verification errors are deliberately vague; the reason is logged instead
+- re-linking to a different chat replaces the old one and logs it; re-linking
+  to the same one is a no-op rather than an error
+- a chat already held by another account is refused and named
 
 Managed from the host with `python -m app.manage link-telegram <username>
 <chat_id>`, `unlink-telegram <username>` and `list-links`, which is also the
-way out when the browser cannot reach Telegram. There is no browser flow for
-it yet.
+way out when the browser cannot reach Telegram.
+
+No delivery path reads the link yet: a reminder set on the web still reaches
+WebChannel and is dropped.
 
 Accounts are created either from the host with `python -m app.manage
 create-user`, or through the sign-up page when `SIGNUP_INVITE_CODE` is set.
@@ -297,6 +314,8 @@ app/db/database.py
   no way to disable an account other than by hand in SQL.
 * Web notifications are dropped rather than delivered. A linked account does
   not change this yet: the link exists but nothing consults it.
+* Telegram linking needs a domain registered with BotFather, so it cannot be
+  tried on localhost — the button stays hidden until that is done.
 * No external integrations.
 * Web console is functional but minimal.
 * Notes can be added and listed but not deleted, so they accumulate with no
@@ -308,9 +327,6 @@ app/db/database.py
 
 * read the linked chat when delivering, so a reminder set on the web reaches
   the bot instead of vanishing into WebChannel;
-* add the Telegram link to the console: a button and an unlink, which means
-  giving `/` its first page that renders account state rather than the result
-  of a command;
 * let a linked account read one person's notes and clipboard from both
   transports, which means reading by both identities at once — and deciding
   what "the last copied text" means across the two;

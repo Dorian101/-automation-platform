@@ -44,6 +44,13 @@ the same person; it never moves data. Web rows stay under `web:<name>` and
 Telegram rows stay under `telegram:<id>`, and reading them as one person's
 history is a decision for the delivery layer, not for the link.
 
+The console offers the pair through Telegram's Login Widget, gated on
+`TELEGRAM_BOT_USERNAME`. Verification lives in `app/web/telegram_auth.py` and
+is two checks more than the signature: the payload must be recent
+(`TELEGRAM_LOGIN_MAX_AGE_SECONDS`) and must carry a nonce issued to the browser
+that started the flow. The signature proves a real Telegram user signed it; the
+nonce proves this browser is the one presenting it.
+
 ## Access control
 
 Two independent layers, both required, doing different jobs.
@@ -126,6 +133,8 @@ Adding a transport means adding a channel, nothing else.
 - GET /api/commands — plugin and command metadata
 - POST /api/command — execute a command
 - GET /health — database health check
+- GET /account/telegram/link — completes a Login Widget redirect
+- POST /account/telegram/unlink — removes the pairing
 
 Bound to `WEB_HOST` and `WEB_PORT`, defaulting to 127.0.0.1:8080.
 

@@ -101,10 +101,42 @@ SESSION_TTL_DAYS=30
 SESSION_COOKIE_SECURE=true
 SIGNUP_INVITE_CODE=   # empty: no sign-up page at all (see Accounts)
 PROXY_URL=          # empty: api.telegram.org is reachable from Germany
+
+TELEGRAM_BOT_USERNAME=   # empty: no Telegram link button (see Telegram linking)
 ```
 
 `app/core/config.py` calls `load_dotenv()` itself. Do not "simplify" that away
 — see Gotchas.
+
+### Telegram linking
+
+Optional. With `TELEGRAM_BOT_USERNAME` empty the console shows no link button
+and `/account/telegram/link` answers 404 — nothing to configure, nothing to
+undo.
+
+To turn it on, two steps, and the first is not done from here:
+
+1. In `@BotFather`, `/setdomain`, pointing at the domain the console is served
+   on. Telegram checks this before showing its login button, so nothing works
+   until it is set, and it cannot be tested on localhost.
+2. Set `TELEGRAM_BOT_USERNAME` to the bot's username without the leading `@`
+   and restart the service.
+
+Accounts can also be paired from the host, which needs neither:
+
+```
+python -m app.manage link-telegram <username> <chat_id>
+python -m app.manage unlink-telegram <username>
+python -m app.manage list-links
+```
+
+The chat id is what `getUpdates` reports, or the numeric part of the bot's URL
+when you open `t.me/<bot>`. `manage` is also the way out if a link is wrong
+and the browser cannot reach Telegram to fix it.
+
+Linking changes where reminders are delivered. It does not merge the two
+identities: web data stays under `web:<name>` and Telegram data stays under
+`telegram:<id>`.
 
 ### Accounts
 

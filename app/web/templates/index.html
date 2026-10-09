@@ -125,13 +125,21 @@
     <a href="/project">Проект и метод</a>
   </nav>
 
+  __ERROR_BLOCK__
+
+  <div class="panel">
+    <h2>Telegram</h2>
+    __TELEGRAM_BLOCK__
+  </div>
+
   <div class="panel">
     <h2>Command</h2>
     <form id="form">
       <input type="text" id="input" placeholder="/add buy milk" autocomplete="off" autofocus>
       <button type="submit" id="send">Run</button>
     </form>
-    <p class="hint">Commands run against your web identity, separately from your Telegram data.</p>
+    <p class="hint">Commands run against your web identity. Linking Telegram
+      above changes where reminders are delivered, not whose commands run.</p>
   </div>
 
   <div class="panel">

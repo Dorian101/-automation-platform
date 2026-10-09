@@ -545,3 +545,46 @@ Nothing reads the link yet — delivery and the shared-data read are the next
 two steps — and no authentication through Telegram exists yet, so the link
 cannot yet be created from a browser. `Tests: 16 in tests/test_manage_links.py,
 17 in tests/test_links.py`, including that linking moves no data.
+
+## 2026-10-09
+
+### Decision
+Link accounts through Telegram's own Login Widget rather than a one-time code
+typed into the console.
+
+### Reason
+Both approaches end with the same table, and both have the user confirm
+ownership. The difference is what has to be built and what can go wrong.
+
+A code means a table to store codes with expiry, a limit on guesses (the app
+has no rate limiting anywhere, and a short code is exactly what that invites),
+a handler in the bot, and a page that copies the code across. The widget means
+verifying a signature, and Telegram's own button on a domain registered with
+`/setdomain`.
+
+The signature alone is not enough, and this is the part worth being explicit
+about: a valid payload proves a real Telegram user signed it, not that the
+person at the keyboard is that user. Someone who obtains their own valid
+payload could otherwise ask any other browser to submit it, and that person's
+account would be linked to the attacker's chat — handing over every reminder
+sent to it. So the payload is bound to the browser that asked, with a nonce
+issued in an `HttpOnly` cookie and spent on the first use, and `auth_date` is
+checked so a captured signature cannot be replayed years later. Two checks
+beyond the signature, and the widget was the cheaper place to put them.
+
+### Result
+`TELEGRAM_BOT_USERNAME` gates the whole flow: unset means no button and a 404
+on the route, which is what a deployment that never registered a domain should
+see. `Config.BOT_TOKEN` is read once, in config, rather than by a second
+`os.getenv` in `main.py`.
+
+Verification errors are deliberately vague — an unsigned payload, a wrong
+signature and a wrong bot all produce one message. Naming the check that
+failed tells an attacker which one to work on, and the detail belongs in the
+log, which is what the `logger.warning` is for.
+
+26 tests in tests/test_telegram_auth.py for the signature, 30 in
+tests/test_telegram_link.py for the flow, including the nonce theft stated as
+the attack it prevents. Linking still changes no delivery behaviour: a
+reminder set on the web is still dropped by WebChannel until that is the next
+step.
