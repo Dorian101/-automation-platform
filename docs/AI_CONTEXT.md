@@ -109,7 +109,9 @@ keyboards.
 ## Database layer
 
 PostgreSQL. All access goes through the shared `Database` helper and
-repositories using context managers.
+repositories using context managers. The migration from SQLite is complete
+(DECISIONS 2026-07-16) and the app has been psycopg-only since — moving to
+PostgreSQL is done work, never propose it again.
 
 Repositories:
 - notes_repo.py
