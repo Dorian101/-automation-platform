@@ -537,18 +537,21 @@ def _telegram_panel(link, nonce: str) -> str:
             "</form>"
         )
 
-    # The widget script comes from telegram.org and rewrites this button into
-    # Telegram's own. data-auth-url is the URL it redirects back to; the nonce
-    # rides along so the reply can be tied to the browser that asked.
+    # The widget script comes from telegram.org and replaces its own element
+    # with Telegram's login button, so the bot username and the return URL
+    # live on the <script> tag itself. The widget only looks at
+    # script[data-telegram-login]; putting those attributes on another
+    # element would leave it untouched and the account with nothing to click.
+    # The nonce rides along so the reply can be tied to the browser that
+    # asked.
     return (
         '<p class="hint">Link your Telegram account so reminders set here '
         "arrive in the bot.</p>"
-        '<script async src="https://telegram.org/js/telegram-widget.js?22">'
-        "</script>"
-        f'<button class="secondary" data-telegram-login="'
-        f'{html.escape(Config.TELEGRAM_BOT_USERNAME)}" '
+        f'<script async src="https://telegram.org/js/telegram-widget.js?22" '
+        f'data-telegram-login="{html.escape(Config.TELEGRAM_BOT_USERNAME)}" '
+        f'data-size="large" '
         f'data-auth-url="/account/telegram/link?nonce={nonce}">'
-        "Link Telegram</button>"
+        "</script>"
     )
 
 

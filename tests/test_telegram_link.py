@@ -129,7 +129,7 @@ class TestTheButton:
         body = await (await signed_in.get("/")).text()
 
         assert BOT_USERNAME in body
-        assert "Link Telegram" in body
+        assert "data-telegram-login" in body
 
     async def test_the_button_carries_a_nonce(self, signed_in):
         """Without one, anyone could have their browser submit a payload."""
@@ -439,7 +439,7 @@ class TestUnlinking:
         await signed_in.post("/account/telegram/unlink", allow_redirects=False)
         body = await (await signed_in.get("/")).text()
 
-        assert "Link Telegram" in body
+        assert "data-telegram-login" in body
 
     async def test_unlinking_without_a_link_is_harmless(self, signed_in, links):
         response = await signed_in.post(
