@@ -54,3 +54,60 @@ class TestNotifier:
         notifier = Notifier([TelegramChannel(bot=None), WebChannel()])
 
         assert sorted(notifier.kinds()) == ["telegram", "web"]
+
+
+class RecordingChannel:
+    """A channel that remembers what it was asked to deliver."""
+
+    def __init__(self, kind: str):
+        self.kind = kind
+        self.received: list[tuple[Identity, str]] = []
+
+    async def deliver(self, target, text):
+        self.received.append((target, text))
+
+
+class TestNotifierReportsDelivery:
+    """The caller must be able to tell delivered from merely handled."""
+
+    async def test_a_delivered_message_reports_true(self):
+        telegram_channel = RecordingChannel("telegram")
+        notifier = Notifier([telegram_channel])
+
+        assert await notifier.deliver(telegram(42), "hi") is True
+
+    async def test_a_missing_channel_reports_false(self):
+        """Silently dropping is the behaviour being corrected."""
+        notifier = Notifier([WebChannel()])
+
+        assert await notifier.deliver(telegram(42), "hi") is False
+
+    async def test_the_web_placeholder_counts_as_delivered(self):
+        """It is a channel that accepted the message.
+
+        Reporting False here would make an unlinked deployment give up on
+        reminders that were previously only logged, which is a behaviour change
+        nobody asked for.
+        """
+        notifier = Notifier([WebChannel()])
+
+        assert await notifier.deliver(Identity(kind=WEB, id="a"), "hi") is True
+
+    async def test_a_failing_resolver_reports_false(self):
+        def broken(target):
+            raise RuntimeError("database is down")
+
+        notifier = Notifier([RecordingChannel("web")], resolver=broken)
+
+        assert await notifier.deliver(telegram(1), "hi") is False
+
+    async def test_a_failing_resolver_reaches_no_channel(self):
+        sent = RecordingChannel("web")
+
+        def broken(target):
+            raise RuntimeError("database is down")
+
+        notifier = Notifier([sent], resolver=broken)
+        await notifier.deliver(telegram(1), "hi")
+
+        assert sent.received == []

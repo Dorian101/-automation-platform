@@ -5,8 +5,15 @@ from app.bot.error_handler import register_error_handler
 from app.core.config import Config
 from app.core.logger import setup_logger
 from app.db.database import Database
+from app.db.links_repo import TelegramLinksRepository
 from app.db.migrations import MigrationRunner
-from app.notifications import Notifier, TelegramChannel, WebChannel
+from app.db.users_repo import UsersRepository
+from app.notifications import (
+    LinkedChatResolver,
+    Notifier,
+    TelegramChannel,
+    WebChannel,
+)
 from app.plugins.clipboard import ClipboardPlugin
 from app.plugins.manager import PluginManager
 from app.plugins.notes import NotesPlugin
@@ -35,13 +42,25 @@ async def main() -> None:
 
     register_error_handler(dp)
 
-    notifier = Notifier([TelegramChannel(bot), WebChannel()])
+    notifier = Notifier(
+        [TelegramChannel(bot), WebChannel()],
+        resolver=LinkedChatResolver(
+            UsersRepository(database),
+            TelegramLinksRepository(database),
+        ),
+    )
 
     manager = PluginManager(logger)
     manager.register(NotesPlugin(database))
     manager.register(RemindersPlugin(notifier, database))
     manager.register(ClipboardPlugin(database))
-    manager.register(SystemPlugin(manager))
+    manager.register(
+        SystemPlugin(
+            manager,
+            users=UsersRepository(database),
+            links=TelegramLinksRepository(database),
+        )
+    )
 
     dp.include_router(manager.build_router())
 

@@ -166,6 +166,9 @@ Implemented:
 * PostgreSQL storage
 * background worker
 * self-managed lifecycle
+* delivered to the linked Telegram chat, not dropped in the browser
+* an undeliverable reminder is given up on after three passes rather than
+  retried for ever; a raising delivery is retried indefinitely
 
 ⸻
 
@@ -258,7 +261,9 @@ Implemented:
 * NotificationChannel interface
 * TelegramChannel — sends through the bot
 * WebChannel — placeholder that logs
-* Notifier — routes by identity kind
+* Notifier — routes by identity kind, and returns whether anything was sent
+* LinkedChatResolver — a web account's notification is delivered to its paired
+  Telegram chat; the only place where delivery crosses transports
 
 ⸻
 
@@ -312,8 +317,10 @@ app/db/database.py
 * Sign-up is gated by one shared invite code with no approval step behind it —
   whoever holds the code can join — and there is still no password reset and
   no way to disable an account other than by hand in SQL.
-* Web notifications are dropped rather than delivered. A linked account does
-  not change this yet: the link exists but nothing consults it.
+* Web notifications are still dropped rather than delivered, but only for an
+  account that has not linked Telegram. A linked one reaches its chat.
+* Data is still per-transport: a note written in the bot is not yet visible in
+  the console, and clipboard likewise. The link changes delivery only.
 * Telegram linking needs a domain registered with BotFather, so it cannot be
   tried on localhost — the button stays hidden until that is done.
 * No external integrations.
@@ -325,8 +332,6 @@ app/db/database.py
 
 ## Potential tasks:
 
-* read the linked chat when delivering, so a reminder set on the web reaches
-  the bot instead of vanishing into WebChannel;
 * let a linked account read one person's notes and clipboard from both
   transports, which means reading by both identities at once — and deciding
   what "the last copied text" means across the two;

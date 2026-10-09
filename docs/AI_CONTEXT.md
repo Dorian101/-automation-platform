@@ -127,6 +127,18 @@ Each plugin exposes:
 
 Adding a transport means adding a channel, nothing else.
 
+`Notifier.deliver` returns whether the message actually went anywhere, so a
+caller can tell "delivered" from "handled but undeliverable". An optional
+resolver answers "where should this reach, given who asked", and may return an
+identity naming a different transport than the one the request arrived on:
+`LinkedChatResolver` sends a web account's notification to its paired chat, and
+falls back to the web identity when there is no link. That is the only place
+that decides delivery crosses transports.
+
+A reminder with nowhere to go is given up on after three passes rather than
+retried for ever, because nothing about it can change until the account is
+linked. A delivery that raises is retried indefinitely — that is an outage.
+
 ## Web interface
 
 - GET / — HTML console

@@ -588,3 +588,46 @@ tests/test_telegram_link.py for the flow, including the nonce theft stated as
 the attack it prevents. Linking still changes no delivery behaviour: a
 reminder set on the web is still dropped by WebChannel until that is the next
 step.
+
+## 2026-10-09
+
+### Decision
+Route delivery through a resolver in `Notifier` rather than hardcoding Telegram
+in the reminders plugin, and give up on a reminder that has nowhere to go.
+
+### Reason
+The reminder was written for Telegram. A reminder that arrives as a sound on
+one of twenty open tabs is not a reminder, so the web interface had to be able
+to reach the chat — and while `identity.kind` alone picked the channel, a
+`web:` identity landed in `WebChannel`, which logs and drops.
+
+Hardcoding "reminders go to Telegram" inside the plugin would have been fewer
+lines, and it was rejected: it would put transport knowledge in the one place
+that had none, and leave `WebChannel` registered but unreachable. A resolver
+keeps the decision in one function that returns an identity — which may name a
+different transport than the one the request arrived on, which is the whole
+point of pairing the accounts.
+
+Nothing is merged and no row is rewritten. Web data stays under `web:<name>`;
+what moves is the delivery, so an unlink is still just a delete.
+
+The second half is about a reminder with nowhere to go. It was retried every
+thirty seconds for ever, because the loop could not tell "not delivered yet"
+from "cannot be delivered at all" — one unlinked account would have filled the
+journal indefinitely. `Notifier.deliver` now returns whether anything was sent,
+and the worker gives up after three passes. A delivery that *raises* is still
+retried for ever, because that one is a Telegram outage and waiting it out is
+correct. Linking after two failures still works: the common sequence is setting
+a reminder and linking a minute later, and that must not lose it.
+
+### Result
+`/status` reports where a reminder from this identity would actually arrive.
+A reminder that goes nowhere is otherwise invisible: the command succeeds, the
+plugin works, and nothing arrives.
+
+14 tests in tests/test_delivery.py for the routing, 8 in tests/test_plugins.py
+for the worker's decisions. The worker was split into `process_due()` so those
+decisions can be exercised without a task that never returns.
+
+309 tests pass. A reminder set on the web now reaches the linked chat, and an
+unlinked one still reaches `WebChannel` exactly as before.
