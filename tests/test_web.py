@@ -8,6 +8,11 @@ from app.web.server import WebServer
 from tests.conftest import TEST_USERNAME
 
 
+def _texts(entries):
+    """The note text alone, so assertions do not repeat the row id."""
+    return [text for _, text in entries]
+
+
 @pytest.fixture
 def web_server(manager, database_with_schema):
     return WebServer(
@@ -72,7 +77,7 @@ class TestExecuteEndpoint:
             json={"command": "/notes", "args": ""},
         )
 
-        assert (await response.json())["result"] == "- hello"
+        assert (await response.json())["result"] == "1. hello"
 
     async def test_command_error_is_400(self, client):
         response = await client.post(
@@ -121,8 +126,10 @@ class TestExecuteEndpoint:
 
         repo = NotesRepository(database_with_schema)
 
-        assert repo.list(Identity(kind=WEB, id=TEST_USERNAME)) == ["only web"]
-        assert repo.list(telegram(999)) == []
+        assert _texts(
+            repo.entries(Identity(kind=WEB, id=TEST_USERNAME))
+        ) == ["only web"]
+        assert _texts(repo.entries(telegram(999))) == []
 
 
 class TestIndexEndpoint:

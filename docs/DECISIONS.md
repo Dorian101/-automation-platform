@@ -678,3 +678,45 @@ plus plugin-level tests that the resolver is actually wired through, which is
 the part that would otherwise look built and behave unpaired.
 
 339 tests pass.
+
+## 2026-10-09
+
+### Decision
+Address a note by its position in the list, never by its row id.
+
+### Reason
+Notes had no way to be removed, so they accumulated and nothing said what to do
+with them once old. Deletion needs an address, and there were three candidates:
+the row id, the text, or a position.
+
+The row id is a global sequence, so printing it tells one person how many notes
+other people have written and hands them a number to try. It is an address that
+works across accounts, which is the wrong property for the one operation that
+must not reach them. The text is not unique and is not typeable reliably.
+
+A position is relative to the list the person is looking at, so it cannot point
+at anything they cannot see, and it renumbers itself after a delete — which is
+what makes it safe to hold onto an old list. The cost is that position 1 means
+"your newest" rather than a fixed thing, which is why the numbering is recomputed
+on every read and the error says how many there are.
+
+The repository's delete is scoped to the identities being read as well as to the
+id, so widening a read across a linked pair does not leave a note visible in the
+console that cannot be deleted from it. That is the same reasoning that made
+reading span the pair, and skipping it would have produced a note on screen with
+no way to get rid of it.
+
+`entries()` returns `(id, text)` so the plugin can map a position to a row, but
+the id is never rendered.
+
+### Result
+`/notes` lists numbered, `/del <n>` removes one, `/clear` removes the lot. All
+three widen across a linked pair, so a note written in the bot is deletable from
+the console and vice versa. Unlinking is still a single delete, because
+deletion moved nothing either.
+
+30 tests in tests/test_notes_deletion.py. Existing note tests were updated to
+the `(id, text)` shape rather than replaced, so the isolation tests that guard
+one account against another are still there.
+
+369 tests pass.

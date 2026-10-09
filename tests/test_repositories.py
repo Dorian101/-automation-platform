@@ -6,6 +6,11 @@ from app.db.notes_repo import NotesRepository
 from app.db.reminders_repo import RemindersRepository
 
 
+def _texts(entries):
+    """The note text alone, so assertions do not repeat the row id."""
+    return [text for _, text in entries]
+
+
 def _iso(offset: timedelta) -> str:
     return (datetime.now(UTC) + offset).replace(tzinfo=None).isoformat()
 
@@ -18,12 +23,12 @@ class TestNotesRepository:
         repo.add(identity, "first note")
         repo.add(identity, "second note")
 
-        assert repo.list(identity) == ["second note", "first note"]
+        assert _texts(repo.entries(identity)) == ["second note", "first note"]
 
     def test_list_empty(self, database_with_schema):
         repo = NotesRepository(database_with_schema)
 
-        assert repo.list(Identity(kind=WEB, id="nobody")) == []
+        assert _texts(repo.entries(Identity(kind=WEB, id="nobody"))) == []
 
     def test_isolated_by_identity(self, database_with_schema):
         repo = NotesRepository(database_with_schema)
@@ -31,8 +36,8 @@ class TestNotesRepository:
         repo.add(telegram(111), "for 111")
         repo.add(telegram(222), "for 222")
 
-        assert repo.list(telegram(111)) == ["for 111"]
-        assert repo.list(telegram(222)) == ["for 222"]
+        assert _texts(repo.entries(telegram(111))) == ["for 111"]
+        assert _texts(repo.entries(telegram(222))) == ["for 222"]
 
     def test_same_id_different_transport_is_separate(self, database_with_schema):
         repo = NotesRepository(database_with_schema)
@@ -40,8 +45,8 @@ class TestNotesRepository:
         repo.add(telegram(777), "telegram")
         repo.add(Identity(kind=WEB, id="777"), "web")
 
-        assert repo.list(telegram(777)) == ["telegram"]
-        assert repo.list(Identity(kind=WEB, id="777")) == ["web"]
+        assert _texts(repo.entries(telegram(777))) == ["telegram"]
+        assert _texts(repo.entries(Identity(kind=WEB, id="777"))) == ["web"]
 
 
 class TestRemindersRepository:

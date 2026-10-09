@@ -10,6 +10,11 @@ from tests.conftest import TEST_USERNAME
 PASSWORD = "correct-horse-battery"
 
 
+def _texts(entries):
+    """The note text alone, so assertions do not repeat the row id."""
+    return [text for _, text in entries]
+
+
 @pytest.fixture
 def sessions(database_with_schema):
     return SessionsRepository(database_with_schema)
@@ -219,12 +224,12 @@ class TestIsolation:
         notes.add(Identity(kind=WEB, id="alice"), "alice secret")
         notes.add(Identity(kind=WEB, id="bob"), "bob secret")
 
-        assert notes.list(Identity(kind=WEB, id="alice")) == ["alice secret"]
-        assert notes.list(Identity(kind=WEB, id="bob")) == ["bob secret"]
+        assert _texts(notes.entries(Identity(kind=WEB, id="alice"))) == ["alice secret"]
+        assert _texts(notes.entries(Identity(kind=WEB, id="bob"))) == ["bob secret"]
 
     def test_web_user_does_not_see_telegram_data(self, notes):
         from app.core.identity import telegram
 
         notes.add(telegram(42), "telegram note")
 
-        assert notes.list(Identity(kind=WEB, id="alice")) == []
+        assert _texts(notes.entries(Identity(kind=WEB, id="alice"))) == []

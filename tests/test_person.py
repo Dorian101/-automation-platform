@@ -17,6 +17,11 @@ from tests.conftest import TEST_USERNAME
 CHAT_ID = 4242
 
 
+def _texts(entries):
+    """The note text alone, so assertions do not repeat the row id."""
+    return [text for _, text in entries]
+
+
 @pytest.fixture
 def users(database_with_schema):
     return UsersRepository(database_with_schema)
@@ -164,7 +169,9 @@ class TestNotesReadAcrossThePair:
         notes.add(telegram(CHAT_ID), "written in the bot")
         links.link(account.id, CHAT_ID)
 
-        assert notes.list(persons.identities(web())) == ["written in the bot"]
+        assert _texts(notes.entries(persons.identities(web()))) == [
+            "written in the bot",
+        ]
 
     def test_a_note_written_on_the_web_is_visible_in_the_bot(
         self,
@@ -176,9 +183,9 @@ class TestNotesReadAcrossThePair:
         notes.add(web(), "written on the web")
         links.link(account.id, CHAT_ID)
 
-        assert notes.list(persons.identities(telegram(CHAT_ID))) == [
-            "written on the web",
-        ]
+        assert _texts(
+            notes.entries(persons.identities(telegram(CHAT_ID)))
+        ) == ["written on the web"]
 
     def test_both_transports_are_read_as_one_history(
         self,
@@ -191,7 +198,7 @@ class TestNotesReadAcrossThePair:
         notes.add(telegram(CHAT_ID), "from the bot")
         links.link(account.id, CHAT_ID)
 
-        read = notes.list(persons.identities(web()))
+        read = _texts(notes.entries(persons.identities(web())))
 
         assert sorted(read) == ["from the bot", "from the web"]
 
@@ -208,7 +215,7 @@ class TestNotesReadAcrossThePair:
         notes.add(web(), "third")
         links.link(account.id, CHAT_ID)
 
-        assert notes.list(persons.identities(web())) == [
+        assert _texts(notes.entries(persons.identities(web()))) == [
             "third",
             "second",
             "first",
@@ -222,7 +229,7 @@ class TestNotesReadAcrossThePair:
         notes.add(web(), "mine")
         notes.add(telegram(CHAT_ID), "not mine")
 
-        assert notes.list(persons.identities(web())) == ["mine"]
+        assert _texts(notes.entries(persons.identities(web()))) == ["mine"]
 
     def test_nothing_is_written_to_the_other_identity(
         self,
@@ -235,7 +242,7 @@ class TestNotesReadAcrossThePair:
         notes.add(web(), "mine")
         links.link(account.id, CHAT_ID)
 
-        assert notes.list(telegram(CHAT_ID)) == []
+        assert _texts(notes.entries(telegram(CHAT_ID))) == []
 
     def test_another_persons_notes_are_never_readable(
         self,
@@ -251,7 +258,7 @@ class TestNotesReadAcrossThePair:
         links.link(account.id, CHAT_ID)
         links.link(bob.id, bob_chat)
 
-        read = notes.list(persons.identities(web()))
+        read = _texts(notes.entries(persons.identities(web())))
 
         assert "bob secret" not in read
 
@@ -262,14 +269,14 @@ class TestOneIdentityAloneStillWorks:
         notes.add(web(), "first")
         notes.add(web(), "second")
 
-        assert notes.list(web()) == ["second", "first"]
+        assert _texts(notes.entries(web())) == ["second", "first"]
 
     def test_an_empty_tuple_reads_nothing(self, notes):
         notes.add(web(), "mine")
 
-        assert notes.list(()) == []
+        assert _texts(notes.entries(())) == []
 
     def test_a_list_of_identities_is_accepted(self, notes):
         notes.add(web(), "mine")
 
-        assert notes.list([web(), telegram(CHAT_ID)]) == ["mine"]
+        assert _texts(notes.entries([web(), telegram(CHAT_ID)])) == ["mine"]

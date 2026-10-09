@@ -44,13 +44,19 @@ the same person; it never moves data. Web rows stay under `web:<name>` and
 Telegram rows stay under `telegram:<id>`.
 
 `PersonResolver` turns that into the set of identities a read may span.
-Reads are widened across the pair, in both directions, so a note written in
-the bot is visible in the console and the other way round. Writes are **not**
-widened: a row is stored under the identity that wrote it, so the history
-records where each note came from and unlinking is a single delete rather than
-a row-by-row move back. The clipboard is deliberately different — it is one
-buffer, not a history, so `/paste` reads across the pair and the last write
-wins whoever made it.
+Reads, deletes and clears are widened across the pair, in both directions, so a
+note written in the bot is visible in the console and removable from it. Writes
+are **not** widened: a row is stored under the identity that wrote it, so the
+history records where each note came from and unlinking is a single delete
+rather than a row-by-row move back. The clipboard is deliberately different — it
+is one buffer, not a history, so `/paste` reads across the pair and the last
+write wins whoever made it.
+
+A note is addressed by its position in the numbered list, never by its row id:
+the id is a global sequence, so it would leak how many notes other people have
+and give a number to try. `NotesRepository.entries()` returns `(id, text)` so
+the plugin can map a position to a row, and `delete()` is scoped to the
+identities being read as well as to the id.
 
 The console offers the pair through Telegram's Login Widget, gated on
 `TELEGRAM_BOT_USERNAME`. Verification lives in `app/web/telegram_auth.py` and
@@ -109,7 +115,7 @@ Schema is versioned in sql/migrations/.
 
 ## Current plugins
 
-- Notes: /add, /notes
+- Notes: /add, /notes, /del, /clear
 - Reminders: /remind, delivers through notification channels
 - Clipboard: /copy, /paste
 - System: /plugins, /help, /status

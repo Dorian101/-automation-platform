@@ -9,6 +9,11 @@ from tests.conftest import TEST_USERNAME
 CHAT_ID = 4242
 
 
+def _texts(entries):
+    """The note text alone, so assertions do not repeat the row id."""
+    return [text for _, text in entries]
+
+
 @pytest.fixture
 def links(database_with_schema):
     return TelegramLinksRepository(database_with_schema)
@@ -135,9 +140,9 @@ class TestLinkingMovesNoData:
         notes.add(Identity(kind=WEB, id=TEST_USERNAME), "written on the web")
         links.link(user.id, CHAT_ID)
 
-        assert notes.list(Identity(kind=WEB, id=TEST_USERNAME)) == [
-            "written on the web",
-        ]
+        assert _texts(
+            notes.entries(Identity(kind=WEB, id=TEST_USERNAME))
+        ) == ["written on the web"]
 
     def test_telegram_notes_are_reachable_after_linking(self, notes, links, user):
         notes.add(telegram(CHAT_ID), "written in the bot")
@@ -145,8 +150,8 @@ class TestLinkingMovesNoData:
 
         # Still stored as telegram:<id>, not rewritten to web:<name>. Reading
         # them together is the delivery layer's job, not the link's.
-        assert notes.list(telegram(CHAT_ID)) == ["written in the bot"]
-        assert notes.list(Identity(kind=WEB, id=TEST_USERNAME)) == []
+        assert _texts(notes.entries(telegram(CHAT_ID))) == ["written in the bot"]
+        assert _texts(notes.entries(Identity(kind=WEB, id=TEST_USERNAME))) == []
 
 
 class TestListing:

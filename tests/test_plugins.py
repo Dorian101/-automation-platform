@@ -26,7 +26,7 @@ class TestNotesPlugin:
         assert saved.text == "Saved"
 
         listed = await plugin.execute("/notes", "", web_identity)
-        assert listed.text == "- first note"
+        assert listed.text == "1. first note"
 
     async def test_empty_args_rejected(self, database_with_schema, web_identity):
         plugin = NotesPlugin(database_with_schema)
@@ -52,8 +52,8 @@ class TestNotesPlugin:
         web_result = await plugin.execute("/notes", "", web_user)
         tg_result = await plugin.execute("/notes", "", tg_user)
 
-        assert web_result.text == "- from web"
-        assert tg_result.text == "- from telegram"
+        assert web_result.text == "1. from web"
+        assert tg_result.text == "1. from telegram"
 
     async def test_same_numeric_id_different_transport(self, database_with_schema):
         plugin = NotesPlugin(database_with_schema)
@@ -63,8 +63,10 @@ class TestNotesPlugin:
         await plugin.execute("/add", "web note", web_user)
         await plugin.execute("/add", "telegram note", tg_user)
 
-        assert (await plugin.execute("/notes", "", web_user)).text == "- web note"
-        assert (await plugin.execute("/notes", "", tg_user)).text == "- telegram note"
+        assert (await plugin.execute("/notes", "", web_user)).text == "1. web note"
+        assert (
+            await plugin.execute("/notes", "", tg_user)
+        ).text == "1. telegram note"
 
 
 class TestClipboardPlugin:

@@ -6,6 +6,11 @@ from app.web.auth import AUTH_HEADER, SESSION_COOKIE, signup_allowed
 from app.web.server import WebServer
 from tests.conftest import TEST_PASSWORD, TEST_USERNAME
 
+
+def _texts(entries):
+    """The note text alone, so assertions do not repeat the row id."""
+    return [text for _, text in entries]
+
 TOKEN = "s3cret-token-value"
 
 INVITE_CODE = "correct-horse-invite"
@@ -280,7 +285,7 @@ class TestDenial:
 
         repo = NotesRepository(database_with_schema)
 
-        assert repo.list(Identity(kind=WEB, id=TEST_USERNAME)) == []
+        assert _texts(repo.entries(Identity(kind=WEB, id=TEST_USERNAME))) == []
 
     async def test_command_runs_once_signed_in(self, client):
         response = await client.post(

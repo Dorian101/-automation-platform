@@ -151,7 +151,9 @@ Implemented:
 * persistent storage
 * PostgreSQL repository
 * read across a linked Telegram pair, from either transport
-* no deletion — notes only ever accumulate
+* /notes numbers the list, /del removes one, /clear removes all
+* notes are addressed by position, never by row id
+* deletion spans a linked pair too, so a visible note is removable
 
 ⸻
 
@@ -335,16 +337,15 @@ app/db/database.py
   account that has not linked Telegram. A linked one reaches its chat.
 * Telegram linking needs a domain registered with BotFather, so it cannot be
   tried on localhost — the button stays hidden until that is done.
+* /clear removes every note at once with no confirmation, which is right for a
+  single-user tool and wrong the day there is a second one.
 * No external integrations.
 * Web console is functional but minimal.
-* Notes can be added and listed but not deleted, so they accumulate with no
-  way to clear one out or all of them.
 
 ⸻
 
 ## Potential tasks:
 
-* let notes be deleted, individually and in bulk;
 * add reminder to /cancel and /reminders listing;
 * call BackupManager before applying a migration, so a failed deploy has a
   dump from minutes ago rather than from last night;
