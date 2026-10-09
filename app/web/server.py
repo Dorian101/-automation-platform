@@ -530,7 +530,8 @@ def _telegram_panel(link, nonce: str) -> str:
     if link is not None:
         return (
             f'<p class="hint">Reminders reach Telegram chat '
-            f"<b>{html.escape(str(link.telegram_id))}</b>.</p>"
+            f"<b>{html.escape(str(link.telegram_id))}</b>. Notes and clipboard "
+            "are shared both ways.</p>"
             '<form method="post" action="/account/telegram/unlink">'
             '<button type="submit" class="secondary">Unlink Telegram</button>'
             "</form>"

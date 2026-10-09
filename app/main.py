@@ -4,6 +4,7 @@ from app.bot.bot import create_bot, create_dispatcher
 from app.bot.error_handler import register_error_handler
 from app.core.config import Config
 from app.core.logger import setup_logger
+from app.core.person import PersonResolver
 from app.db.database import Database
 from app.db.links_repo import TelegramLinksRepository
 from app.db.migrations import MigrationRunner
@@ -42,24 +43,25 @@ async def main() -> None:
 
     register_error_handler(dp)
 
+    users = UsersRepository(database)
+    links = TelegramLinksRepository(database)
+
     notifier = Notifier(
         [TelegramChannel(bot), WebChannel()],
-        resolver=LinkedChatResolver(
-            UsersRepository(database),
-            TelegramLinksRepository(database),
-        ),
+        resolver=LinkedChatResolver(users, links),
     )
 
+    # One resolver answering both halves of the same question: where a message
+    # goes, and whose data is readable as one person's. Sharing it means the two
+    # cannot disagree about who a link belongs to.
+    persons = PersonResolver(users, links)
+
     manager = PluginManager(logger)
-    manager.register(NotesPlugin(database))
+    manager.register(NotesPlugin(database, persons=persons))
     manager.register(RemindersPlugin(notifier, database))
-    manager.register(ClipboardPlugin(database))
+    manager.register(ClipboardPlugin(database, persons=persons))
     manager.register(
-        SystemPlugin(
-            manager,
-            users=UsersRepository(database),
-            links=TelegramLinksRepository(database),
-        )
+        SystemPlugin(manager, users=users, links=links)
     )
 
     dp.include_router(manager.build_router())

@@ -150,6 +150,7 @@ Implemented:
 * create notes
 * persistent storage
 * PostgreSQL repository
+* read across a linked Telegram pair, from either transport
 * no deletion — notes only ever accumulate
 
 ⸻
@@ -183,6 +184,7 @@ Implemented:
 * /copy <text>
 * /paste
 * PostgreSQL repository
+* one buffer across a linked pair — copy on the web, paste in the bot
 
 ⸻
 
@@ -234,8 +236,20 @@ Managed from the host with `python -m app.manage link-telegram <username>
 <chat_id>`, `unlink-telegram <username>` and `list-links`, which is also the
 way out when the browser cannot reach Telegram.
 
-No delivery path reads the link yet: a reminder set on the web still reaches
-WebChannel and is dropped.
+The pair also widens reads. `PersonResolver.identities()` returns the identity
+plus whatever it is paired with, and the notes and clipboard plugins pass that
+set to their repositories:
+
+* notes are read across the pair in both directions, so a note written in the
+  bot appears in the console and vice versa, as one list in real order
+* writes stay under the identity that wrote them — the stored row still
+  records where it came from, and unlinking is a single delete rather than a
+  row-by-row move back
+* the clipboard is one buffer rather than a history, so `/paste` reads across
+  the pair and the last write wins whoever made it
+
+An identity with no pair resolves to itself, so an unpaired deployment behaves
+exactly as it did before.
 
 Accounts are created either from the host with `python -m app.manage
 create-user`, or through the sign-up page when `SIGNUP_INVITE_CODE` is set.
@@ -319,8 +333,6 @@ app/db/database.py
   no way to disable an account other than by hand in SQL.
 * Web notifications are still dropped rather than delivered, but only for an
   account that has not linked Telegram. A linked one reaches its chat.
-* Data is still per-transport: a note written in the bot is not yet visible in
-  the console, and clipboard likewise. The link changes delivery only.
 * Telegram linking needs a domain registered with BotFather, so it cannot be
   tried on localhost — the button stays hidden until that is done.
 * No external integrations.
@@ -332,9 +344,6 @@ app/db/database.py
 
 ## Potential tasks:
 
-* let a linked account read one person's notes and clipboard from both
-  transports, which means reading by both identities at once — and deciding
-  what "the last copied text" means across the two;
 * let notes be deleted, individually and in bulk;
 * add reminder to /cancel and /reminders listing;
 * call BackupManager before applying a migration, so a failed deploy has a

@@ -90,6 +90,20 @@ class TelegramLinksRepository:
 
         return _to_link(row)
 
+    def get_by_telegram_id_or_none(self, raw: str) -> TelegramLink | None:
+        """Look up by a chat id read from an identity rather than parsed.
+
+        An identity's id is a string that claims to be a chat id. Anything that
+        is not one cannot match a stored value, so it means "no link" — not an
+        error, and not a chance to guess at what it was meant to be.
+        """
+        try:
+            chat_id = int(raw)
+        except (TypeError, ValueError):
+            return None
+
+        return self.get_by_telegram_id(chat_id)
+
     def telegram_id_for(self, user_id: int) -> int | None:
         """Return the chat a user's notifications should go to.
 

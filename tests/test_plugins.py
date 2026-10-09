@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.core.identity import TELEGRAM, WEB, Identity, telegram
+from app.core.person import PersonResolver
 from app.core.results import CommandError
 from app.plugins.clipboard import ClipboardPlugin
 from app.plugins.notes import NotesPlugin
@@ -455,3 +456,133 @@ class TestStatusSaysWhereRemindersGo:
 
         assert "Plugins loaded" in result.text
         assert "no Telegram link available" in result.text
+
+
+class TestSharedDataThroughThePlugins:
+    """The plugins' end of the pairing, rather than the repositories'.
+
+    Wiring is the risk here: a resolver that exists but is not passed to a
+    plugin would leave the feature looking built and behaving unpaired.
+    """
+
+    def _notes(self, database, persons):
+        return NotesPlugin(database, persons=persons)
+
+    def _clipboard(self, database, persons):
+        return ClipboardPlugin(database, persons=persons)
+
+    @pytest.fixture
+    def users(self, database_with_schema):
+        from app.db.users_repo import UsersRepository
+
+        return UsersRepository(database_with_schema)
+
+    @pytest.fixture
+    def links(self, database_with_schema):
+        from app.db.links_repo import TelegramLinksRepository
+
+        return TelegramLinksRepository(database_with_schema)
+
+    @pytest.fixture
+    def linked(self, create_user, users, links):
+        """A default account paired with a chat, and a resolver that knows it."""
+        links.link(users.get_by_username(TEST_USERNAME).id, 4242)
+
+        return PersonResolver(users, links)
+
+    async def test_a_note_added_in_the_bot_is_listed_on_the_web(
+        self,
+        database_with_schema,
+        linked,
+    ):
+        plugin = self._notes(database_with_schema, linked)
+        bot = Identity(kind="telegram", id="4242")
+
+        await plugin.execute("/add", "from the bot", bot)
+        web = Identity(kind=WEB, id=TEST_USERNAME)
+        result = await plugin.execute("/notes", "", web)
+
+        assert "from the bot" in result.text
+
+    async def test_a_note_added_on_the_web_is_listed_in_the_bot(
+        self,
+        database_with_schema,
+        linked,
+    ):
+        plugin = self._notes(database_with_schema, linked)
+        web = Identity(kind=WEB, id=TEST_USERNAME)
+
+        await plugin.execute("/add", "from the web", web)
+        result = await plugin.execute("/notes", "", telegram(4242))
+
+        assert "from the web" in result.text
+
+    async def test_without_a_link_the_two_stay_apart(
+        self,
+        database_with_schema,
+        create_user,
+        users,
+        links,
+    ):
+        persons = PersonResolver(users, links)
+
+        plugin = self._notes(database_with_schema, persons)
+        web = Identity(kind=WEB, id=TEST_USERNAME)
+
+        await plugin.execute("/add", "mine", web)
+        result = await plugin.execute("/notes", "", telegram(4242))
+
+        assert result.text == "No notes"
+
+    async def test_a_plugin_without_a_resolver_still_works(
+        self,
+        database_with_schema,
+    ):
+        """NotesPlugin(database) is how the tests and any other caller build it."""
+        plugin = NotesPlugin(database_with_schema)
+        web = Identity(kind=WEB, id=TEST_USERNAME)
+
+        await plugin.execute("/add", "solo", web)
+        result = await plugin.execute("/notes", "", web)
+
+        assert "solo" in result.text
+
+    async def test_copied_text_pastes_in_the_bot(
+        self,
+        database_with_schema,
+        linked,
+    ):
+        """The clipboard is what makes pairing immediately useful."""
+        plugin = self._clipboard(database_with_schema, linked)
+        web = Identity(kind=WEB, id=TEST_USERNAME)
+
+        await plugin.execute("/copy", "a link to read", web)
+        result = await plugin.execute("/paste", "", telegram(4242))
+
+        assert result.text == "a link to read"
+
+    async def test_the_last_write_wins_across_both(
+        self,
+        database_with_schema,
+        linked,
+    ):
+        plugin = self._clipboard(database_with_schema, linked)
+        web = Identity(kind=WEB, id=TEST_USERNAME)
+
+        await plugin.execute("/copy", "from the web", web)
+        await plugin.execute("/copy", "from the bot", telegram(4242))
+        result = await plugin.execute("/paste", "", web)
+
+        assert result.text == "from the bot"
+
+    async def test_copied_text_does_not_leak_between_people(
+        self,
+        database_with_schema,
+        linked,
+    ):
+        plugin = self._clipboard(database_with_schema, linked)
+
+        await plugin.execute("/copy", "mine", Identity(kind=WEB, id=TEST_USERNAME))
+        result = await plugin.execute("/paste", "", telegram(9999))
+
+        assert result.text == "Clipboard is empty"

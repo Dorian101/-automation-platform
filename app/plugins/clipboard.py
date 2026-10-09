@@ -17,8 +17,9 @@ class ClipboardPlugin(BasePlugin):
         "/paste": "Get last copied text",
     }
 
-    def __init__(self, database: Database | None = None):
+    def __init__(self, database: Database | None = None, persons=None):
         self.repo = ClipboardRepository(database)
+        self._persons = persons
 
     async def execute(
         self,
@@ -38,9 +39,18 @@ class ClipboardPlugin(BasePlugin):
 
             return reply("Copied")
 
-        text = self.repo.get_last(identity)
+        # One buffer for both entry points: pasting in the bot returns what was
+        # copied on the web, and the other way round. Saving is not widened, so
+        # the row still records which transport the text arrived through.
+        text = self.repo.get_last(self._readable_as(identity))
 
         if not text:
             return reply("Clipboard is empty")
 
         return reply(text)
+
+    def _readable_as(self, identity: Identity):
+        if self._persons is None:
+            return identity
+
+        return self._persons.identities(identity)

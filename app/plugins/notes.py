@@ -15,8 +15,9 @@ class NotesPlugin(BasePlugin):
         "/notes": "Show all notes",
     }
 
-    def __init__(self, database: Database | None = None):
+    def __init__(self, database: Database | None = None, persons=None):
         self.repo = NotesRepository(database)
+        self._persons = persons
 
     async def execute(
         self,
@@ -28,13 +29,27 @@ class NotesPlugin(BasePlugin):
             if not args:
                 raise CommandError("Usage: /add <text>")
 
+            # Written under the identity that wrote it, never widened: the
+            # stored row says who wrote it and from where, and unlinking takes
+            # effect at once because there is nothing to undo.
             self.repo.add(identity, args)
 
             return reply("Saved")
 
-        notes = self.repo.list(identity)
+        notes = self.repo.list(self._readable_as(identity))
 
         if not notes:
             return reply("No notes")
 
         return reply("\n".join(f"- {note}" for note in notes))
+
+    def _readable_as(self, identity: Identity):
+        """The identities whose notes are this person's to read.
+
+        Falls back to the identity alone, so a plugin built without a resolver
+        behaves exactly as it did before pairing existed.
+        """
+        if self._persons is None:
+            return identity
+
+        return self._persons.identities(identity)

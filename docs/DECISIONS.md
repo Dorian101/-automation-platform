@@ -631,3 +631,50 @@ decisions can be exercised without a task that never returns.
 
 309 tests pass. A reminder set on the web now reaches the linked chat, and an
 unlinked one still reaches `WebChannel` exactly as before.
+
+## 2026-10-09
+
+### Decision
+Widen reads across a pair and leave writes where they are.
+
+### Reason
+The two namespaces were kept apart so that one numeric id on two transports
+could never be mistaken for one person. Pairing them says two identities are
+one person, so a note written in the bot has to be readable in the console —
+otherwise pairing only changes where reminders go, and half of its value is
+missing.
+
+Widening the read is cheap: `PersonResolver.identities()` returns the identity
+plus whatever it is paired with, and the repositories take a list. Nothing is
+rewritten, so a stored row still records who wrote it and from where, and the
+history does not lie about its own provenance.
+
+Widening the *write* would have been wrong in a way that is easy to miss. A
+note added on the web would land under the Telegram identity, and unlinking
+would then need to put it back — which means moving rows, in the direction that
+cannot be verified. Keeping writes where they happen makes unlinking a single
+delete, which is what made it safe to make links reversible in the first place.
+
+The clipboard is the exception that proves the rule. It is one buffer shared
+between two entry points rather than a history, so `/paste` reads across the
+pair and the last write wins whoever made it. Copying a link on the web and
+pasting it in the bot is the case the whole feature is for.
+
+### Result
+Reads span the pair in both directions, not just from the web: without the
+reverse, a pair would be one-directional, which is not the same person. An
+identity with no pair — every Telegram user, and any web account that never
+linked — resolves to itself, so an unpaired deployment behaves exactly as
+before.
+
+`PersonResolver` answers the same question as `LinkedChatResolver` and shares
+its dependencies, so the two cannot disagree about who a link belongs to. A
+malformed chat id is treated as "no pair" rather than an error, since it
+cannot match a stored one.
+
+Writes are unchanged on purpose and are documented as such, so a later change
+to the storage model does not quietly alter them. 30 tests in tests/test_person.py,
+plus plugin-level tests that the resolver is actually wired through, which is
+the part that would otherwise look built and behave unpaired.
+
+339 tests pass.
