@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.16.0
+v0.17.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -67,7 +67,7 @@ Telegram (aiogram)          Web (aiohttp)
 
 Notification delivery
 
-Plugin → Notifier → channel by identity kind
+Plugin → Notifier → resolver picks the target → channel by kind
                         │
               ┌─────────┴─────────┐
         TelegramChannel        WebChannel
@@ -199,8 +199,10 @@ Purpose:
 Implemented:
 
 * GET /login, POST /login — sign in form
+* GET /signup, POST /signup — registration; 404 while SIGNUP_INVITE_CODE is unset
 * POST /logout — ends the session
 * GET / — HTML console
+* GET /about, GET /project — static public documents, no session needed
 * GET /api/commands — plugin and command metadata
 * POST /api/command — command execution
 * GET /health — database health check
@@ -211,7 +213,8 @@ Access control:
 * reverse proxy terminates TLS and injects the X-Platform-Auth secret
 * X-Platform-Auth shared secret, verified as middleware covering every route
 * session cookie (HttpOnly, SameSite=Lax, Secure) issued at /login
-* every route except /login, /signup and /health requires a session
+* every route except the two auth pages, the two public documents (/about,
+  /project) and /health requires a session
 * WEB_HOST binds to loopback, port 8080 never exposed
 
 An account can be paired with a Telegram chat, stored in `telegram_links` and

@@ -720,3 +720,25 @@ the `(id, text)` shape rather than replaced, so the isolation tests that guard
 one account against another are still there.
 
 369 tests pass.
+
+## 2026-10-09
+
+### Erratum: the Login Widget matches a `<script>` element, not a button
+
+### Doing
+The console rendered the link offer as a `<button data-telegram-login=...>`
+next to the widget's `<script>` tag. Telegram's widget looks for
+`script[data-telegram-login]` and replaces that single element with its own
+button, so it never matched — the page showed a button that did nothing on
+click, and the whole flow looked broken.
+
+### Why it was missed
+The markup looked right and the script loaded; only Telegram's own search
+could disagree, and it did so silently. Nothing surfaced the mismatch until a
+real browser click.
+
+### Rule
+Both `data-telegram-login` and `data-auth-url` live on the widget's `<script>`
+element. In the console that is `_telegram_panel()` in `app/web/server.py`;
+keep the attributes on the script tag, which the widget replaces, and never on
+a neighbouring element. Fix: commit `01e3f2b`.

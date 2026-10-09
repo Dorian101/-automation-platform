@@ -103,6 +103,7 @@ SIGNUP_INVITE_CODE=   # empty: no sign-up page at all (see Accounts)
 PROXY_URL=          # empty: api.telegram.org is reachable from Germany
 
 TELEGRAM_BOT_USERNAME=   # empty: no Telegram link button (see Telegram linking)
+TELEGRAM_LOGIN_MAX_AGE_SECONDS=300   # how long a Login Widget signature stays fresh
 ```
 
 `app/core/config.py` calls `load_dotenv()` itself. Do not "simplify" that away
@@ -302,6 +303,7 @@ their migration.
 curl -sI https://automationplatformlebedev.ru/            # 303, Location: /login
 curl -si localhost:8080/health                            # 401: no proxy header
 curl -si -H "X-Platform-Auth: <WEB_ACCESS_TOKEN value>" localhost:8080/health
+curl -si -H "X-Platform-Auth: <WEB_ACCESS_TOKEN value>" localhost:8080/about   # 200: public document
 systemctl status automation-platform caddy
 journalctl -u automation-platform -n 50
 ```
@@ -313,12 +315,14 @@ Expected shape of each:
 | `https://…/` through Caddy | `303` to `/login`, `Server: Caddy` |
 | `/health` straight on 8080 | `401` — transport secret missing |
 | `/health` with the header, no cookie | `200` — health is deliberately not behind a session |
+| `/about` or `/project` with the header, no cookie | `200` — static documents, no session needed |
+| `/account/telegram/link` with the header, no cookie | `303` to `/login`; `404` while linking is disabled |
 | `/api/command` with the header, no cookie | `401` |
 | `/signup` with the header, no cookie | `404` while `SIGNUP_INVITE_CODE` is unset, `200` once it is |
 
-A fresh database logs `Applied 4 new migration(s)` on first start. An existing
-one that already had `001`–`003` logs `Applied 1 new migration(s)`, for
-`004_users_sessions.sql`.
+A fresh database logs `Applied 5 new migration(s)` on first start. An existing
+one that already had `001`–`004` logs `Applied 1 new migration(s)`, for
+`005_telegram_links.sql`.
 
 Then open the site in a browser: it must land on the sign-in form, and a wrong
 password must return `Incorrect username or password.` without saying which
@@ -473,7 +477,7 @@ uv run ruff check .
 uv run pytest
 ```
 
-190 tests. Run before pushing anything that touches config, auth or
+369 tests. Run before pushing anything that touches config, auth or
 migrations. The parts worth knowing about:
 
 - `tests/test_config.py` — subprocess test for the `.env` import-order bug;
@@ -482,6 +486,14 @@ migrations. The parts worth knowing about:
 - `tests/test_auth.py` — both layers separately: transport secret and session;
   then the sign-up gate, a failed attempt leaving no account behind, and that
   sign-up is off by default when no invite code is configured.
+- `tests/test_telegram_auth.py` and `tests/test_telegram_link.py` — the Login
+  Widget signature, the one-use nonce, and the link/unlink flow including the
+  theft a nonce exists to block.
+- `tests/test_delivery.py` and `tests/test_notifications.py` — where a linked
+  account's reminder actually goes, and that an undeliverable one is given up
+  on after three passes.
+- `tests/test_person.py` and `tests/test_notes_deletion.py` — reads spanning a
+  linked pair, and `/del` addressed by position, never by row id.
 - `tests/test_accounts.py` — password storage, session lifetime, and that two
   web users cannot read each other's notes.
 - `tests/test_passwords.py` — a corrupt or truncated hash fails the login

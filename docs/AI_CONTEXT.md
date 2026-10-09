@@ -59,7 +59,11 @@ the plugin can map a position to a row, and `delete()` is scoped to the
 identities being read as well as to the id.
 
 The console offers the pair through Telegram's Login Widget, gated on
-`TELEGRAM_BOT_USERNAME`. Verification lives in `app/web/telegram_auth.py` and
+`TELEGRAM_BOT_USERNAME`. The widget finds the bot by a `script[data-telegram-login]`
+element and replaces that script tag with its own button, so both
+`data-telegram-login` and `data-auth-url` live on that `<script>` tag — putting
+them on a button next to it silently leaves the account with a dead button.
+Verification lives in `app/web/telegram_auth.py` and
 is two checks more than the signature: the payload must be recent
 (`TELEGRAM_LOGIN_MAX_AGE_SECONDS`) and must carry a nonce issued to the browser
 that started the flow. The signature proves a real Telegram user signed it; the
@@ -77,8 +81,10 @@ Two independent layers, both required, doing different jobs.
    `resolve_identity()`. It says who the user is, and it is what separates one
    user's notes from another's.
 
-The sign-in and sign-up pages are the only public routes, plus `/health`, which
-must be able to answer while the database is down.
+The sign-in and sign-up pages are public, plus `/health`, which must be able to
+answer while the database is down, and the two static documents `/about` and
+`/project` (they read nothing from the database and render no user data, which
+is the only reason they may work without a session).
 
 Accounts exist only in the application. Caddy holds no credentials — see
 docs/DECISIONS.md for why `basicauth` was removed. Sign-up is gated by the
@@ -155,6 +161,10 @@ linked. A delivery that raises is retried indefinitely — that is an outage.
 
 ## Web interface
 
+- GET /login, POST /login — sign-in form
+- GET /signup, POST /signup — registration, 404 while the invite code is unset
+- GET /about, GET /project — static public documents
+- POST /logout — ends the session
 - GET / — HTML console
 - GET /api/commands — plugin and command metadata
 - POST /api/command — execute a command
