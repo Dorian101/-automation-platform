@@ -132,6 +132,9 @@ Bound to `WEB_HOST` and `WEB_PORT`, defaulting to 127.0.0.1:8080.
 - Error handling is centralized at Dispatcher level.
 - Business logic stays transport-independent.
 - Run `ruff check .` and `pytest` before committing.
+- If the owner proposes something that would only hurt the work, stop and warn
+  instead of starting to execute it right away. State the tradeoff before
+  acting, not afterwards, and let the owner decide with the warning in hand.
 
 ## Development workflow
 
