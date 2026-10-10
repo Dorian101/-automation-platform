@@ -6,29 +6,6 @@ from app.db.notes_repo import NotesRepository
 from .base import BasePlugin
 
 
-def _rows_payload(notes: list[tuple[int, str]]) -> dict:
-    """The note list in the shape the web console knows how to draw.
-
-    Columns carry their own titles so the console does not have to know what a
-    note is — it places ``label`` above each column and leaves the rest to the
-    plugin that filled them in. The position is exported as a value rather than
-    as row ids, because the id is deliberately never shown and a console must
-    not be the place it starts leaking.
-    """
-    return {
-        "kind": "rows",
-        "draw": "table",
-        "columns": [
-            {"key": "position", "label": "#"},
-            {"key": "text", "label": "Note"},
-        ],
-        "rows": [
-            {"position": position, "text": text}
-            for position, (_, text) in enumerate(notes, 1)
-        ],
-    }
-
-
 class NotesPlugin(BasePlugin):
     name = "notes"
     version = "1.2.0"
@@ -83,7 +60,6 @@ class NotesPlugin(BasePlugin):
             "\n".join(
                 f"{position}. {text}" for position, (_, text) in enumerate(notes, 1)
             ),
-            data=_rows_payload(notes),
         )
 
     def _delete(self, args: str, identity: Identity) -> CommandResult:
