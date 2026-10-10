@@ -36,6 +36,9 @@ The platform is operational.
 - notification channel layer
 - database health endpoint
 - shared-secret access control on the web interface
+- rate limiting on the public forms
+- security headers on every web response
+- username restrictions and failed-login logging
 - deployment runbook
 
 ## Current architecture
@@ -216,6 +219,15 @@ Access control:
 * every route except the two auth pages, the two public documents (/about,
   /project) and /health requires a session
 * WEB_HOST binds to loopback, port 8080 never exposed
+* /login and /signup are rate limited: an in-process sliding window keyed on
+  X-Forwarded-For (login also per username, cleared by a successful login),
+  429 once the allowance is spent
+* every response carries the security headers — CSP restricted to the app
+  origin plus https://telegram.org, X-Frame-Options DENY, nosniff,
+  Referrer-Policy no-referrer; Strict-Transport-Security only when
+  SESSION_COOKIE_SECURE is set
+* usernames are restricted to [A-Za-z0-9._-], at most 32 characters, and
+  failed logins are logged
 
 An account can be paired with a Telegram chat, stored in `telegram_links` and
 one-to-one in both directions. The pair never moves data: web rows stay under

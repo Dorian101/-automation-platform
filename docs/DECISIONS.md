@@ -742,3 +742,59 @@ Both `data-telegram-login` and `data-auth-url` live on the widget's `<script>`
 element. In the console that is `_telegram_panel()` in `app/web/server.py`;
 keep the attributes on the script tag, which the widget replaces, and never on
 a neighbouring element. Fix: commit `01e3f2b`.
+
+## 2026-10-10
+
+### Decision
+Harden the public edges of the web interface: rate limit the two public forms,
+send security headers on every response, raise the scrypt cost, bound what a
+username can be, and log failed logins.
+
+### Reason
+An OWASP pass found the doors that invite the cheap attacks. There was no rate
+limiting anywhere — the 2026-10-09 note about the invite code said it then and
+it is true of the login form too — so the username and password fields were an
+unbounded guessing surface reached from the whole internet. Responses shipped
+no CSP, frame or nosniff headers, so the console's HTML could be embedded or
+misdeclared by a browser. And a username was accepted with any bytes in it,
+which also means it could carry a newline into a log line and forge one.
+
+### How it is done
+
+- **Rate limiting.** An in-process sliding window (`app/web/ratelimit.py`)
+  keys on `X-Forwarded-For`, which is trustworthy here because every request
+  has already passed the transport check — nothing reaches a rated handler
+  without the proxy's header. `/login` is also keyed per username, so one
+  account's typos do not lock out a whole network, and a successful login
+  clears its own key. Denied attempts are not recorded, keeping memory bounded
+  by the limit. In-process is all the sharing there is: the deployment runs
+  one web process, so two windows cannot disagree.
+- **Security headers.** Attached in a `response_prepare` hook (not a
+  middleware), so they reach responses that only an exception produced. CSP is
+  `default-src 'self'` plus `https://telegram.org` for the Login Widget,
+  `frame-ancestors 'none'`, `object-src 'none'`, `form-action 'self'`;
+  `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: no-referrer`. HSTS is emitted only when
+  `SESSION_COOKIE_SECURE` is on, i.e. where the site really is TLS.
+- **scrypt.** `SCRYPT_N` rose from 2^14 to 2^17, OWASP's non-interactive
+  recommendation; `maxmem` follows (128 MiB of working memory now, allowed up
+  to 256 MiB). Parameters are recorded per hash, so hashes made at the old
+  cost still verify — no password migration.
+- **Username.** Restricted to `[A-Za-z0-9._-]`, max 32 characters, at the one
+  place names enter the system (`UsersRepository.create`). The alphabet bounds
+  what a caller-supplied name can do to a log line; failed logins are logged
+  with `%r` on the username for the same reason.
+- **Defaults.** `5` login attempts per 60 seconds, `10` sign-ups per hour per
+  address; each overridable in `.env`, `0` disables.
+
+### Result
+13 new tests: the 429 after the allowance is spent and its reset on success,
+the per-username keying, the per-address sign-up limit, the headers present on
+HTML and on error responses, HSTS only on secure deployments, the OWASP cost
+and old-hash verification, and the username rejections. 382 tests pass. A
+fresh deploy also gets `SIGNUP_ATTEMPTS_PER_WINDOW`-style rows in the
+documented `.env` template.
+
+The rate-limit settings are new in `.env`, not mandatory: the defaults apply
+when nothing is configured, so an existing deployment upgrades to limited
+forms just by restarting on the new code.

@@ -54,6 +54,15 @@ class Config:
         os.getenv("TELEGRAM_LOGIN_MAX_AGE_SECONDS", "300")
     )
 
+    # Sliding-window rate limits on the public forms. They run per process and
+    # the deployment runs a single web process, so there is nowhere else for
+    # two windows to disagree. 0 disables the limit, which is only sensible on
+    # a deployment that is itself behind a limiting edge.
+    RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
+    LOGIN_ATTEMPTS_PER_WINDOW = int(os.getenv("LOGIN_ATTEMPTS_PER_WINDOW", "5"))
+    SIGNUP_ATTEMPTS_PER_WINDOW = int(os.getenv("SIGNUP_ATTEMPTS_PER_WINDOW", "10"))
+    SIGNUP_WINDOW_SECONDS = int(os.getenv("SIGNUP_WINDOW_SECONDS", "3600"))
+
     # Whether the session cookie carries the Secure flag. This cannot be
     # inferred from the request: the app talks to the reverse proxy over plain
     # HTTP on loopback, so the socket is never TLS and request.secure is always

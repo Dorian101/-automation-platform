@@ -174,6 +174,21 @@ linked. A delivery that raises is retried indefinitely — that is an outage.
 - GET /account/telegram/link — completes a Login Widget redirect
 - POST /account/telegram/unlink — removes the pairing
 
+Transport security:
+
+- every response carries the security headers: CSP locked to the app origin
+  plus `https://telegram.org`, `X-Frame-Options: DENY`, `X-Content-Type-Options:
+  nosniff`, `Referrer-Policy: no-referrer`; HSTS is added only when
+  `SESSION_COOKIE_SECURE` is on
+- `/login` and `/signup` are rate limited by an in-process sliding window
+  (`app/web/ratelimit.py`), keyed on `X-Forwarded-For` (login also per
+  username; a successful login clears its own key), answered 429 when spent
+- failed logins and the rate-limit rejections are logged; the username is
+  written with `%r` because it is caller-controlled input
+- usernames are restricted to `[A-Za-z0-9._-]`, max 32 characters, enforced at
+  the one place they enter the system (`UsersRepository.create`) — which also
+  caps what can ever appear in a log line spelling a username
+
 Bound to `WEB_HOST` and `WEB_PORT`, defaulting to 127.0.0.1:8080.
 
 ## Development rules

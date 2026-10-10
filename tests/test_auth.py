@@ -468,6 +468,177 @@ class TestSignup:
         assert signup_allowed("") is False
 
 
+class TestUsernameValidation:
+    """What a username is allowed to be.
+
+    The alphabet is enforced at the one place usernames enter the system,
+    which also means a log line can only ever contain characters that belong
+    to a username: an unrestricted name is a way to forge log entries.
+    """
+
+    async def test_rejects_a_control_character(self, signup_client, users):
+        response = await _signup(signup_client, username="ok\nspoofed")
+
+        assert response.status == 400
+        assert users.count() == 0
+
+    async def test_rejects_non_ascii(self, signup_client, users):
+        response = await _signup(signup_client, username="джон")
+
+        assert response.status == 400
+        assert users.count() == 0
+
+    async def test_rejects_an_overlong_username(self, signup_client, users):
+        response = await _signup(signup_client, username="a" * 33)
+
+        assert response.status == 400
+        assert users.count() == 0
+
+
+class TestRateLimiting:
+    """The public forms stop answering after a burst of attempts.
+
+    It is a per-process sliding window, which is all the sharing a single
+    process deployment needs. The login key includes the username, so one
+    account's typos do not lock out a whole network.
+    """
+
+    @pytest.fixture
+    def tight_login(self, monkeypatch):
+        monkeypatch.setattr(Config, "LOGIN_ATTEMPTS_PER_WINDOW", 2)
+        monkeypatch.setattr(Config, "RATE_LIMIT_WINDOW_SECONDS", 60)
+
+    async def test_login_answers_429_once_the_allowance_is_spent(
+        self,
+        anonymous_client,
+        tight_login,
+    ):
+        for expected in (401, 401, 429):
+            response = await anonymous_client.post(
+                "/login",
+                data={"username": TEST_USERNAME, "password": "not-the-password"},
+                allow_redirects=False,
+            )
+            assert response.status == expected
+
+        assert "Try again later" in await response.text()
+
+    async def test_a_successful_login_resets_the_count(
+        self,
+        anonymous_client,
+        tight_login,
+    ):
+        await anonymous_client.post(
+            "/login",
+            data={"username": TEST_USERNAME, "password": "not-the-password"},
+            allow_redirects=False,
+        )
+
+        ok = await anonymous_client.post(
+            "/login",
+            data={"username": TEST_USERNAME, "password": TEST_PASSWORD},
+            allow_redirects=False,
+        )
+
+        assert ok.status == 303
+
+        retry = await anonymous_client.post(
+            "/login",
+            data={"username": TEST_USERNAME, "password": "not-the-password"},
+            allow_redirects=False,
+        )
+
+        assert retry.status == 401
+
+    async def test_the_limit_is_keyed_per_username(
+        self,
+        anonymous_client,
+        tight_login,
+    ):
+        for _ in range(3):
+            await anonymous_client.post(
+                "/login",
+                data={"username": TEST_USERNAME, "password": "not-the-password"},
+                allow_redirects=False,
+            )
+
+        blocked = await anonymous_client.post(
+            "/login",
+            data={"username": TEST_USERNAME, "password": "not-the-password"},
+            allow_redirects=False,
+        )
+
+        assert blocked.status == 429
+
+        other = await anonymous_client.post(
+            "/login",
+            data={"username": "other-user", "password": "not-the-password"},
+            allow_redirects=False,
+        )
+
+        assert other.status == 401
+
+    async def test_signup_is_limited_per_address(
+        self,
+        signup_client,
+        users,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(Config, "SIGNUP_ATTEMPTS_PER_WINDOW", 1)
+
+        first = await _signup(signup_client, username="one")
+
+        assert first.status == 303
+
+        # A single address gets one window, session or not: logging out and
+        # trying again must still land on the limit.
+        await signup_client.post("/logout", allow_redirects=False)
+
+        second = await _signup(signup_client, username="two")
+
+        assert second.status == 429
+        assert "Try again later" in await second.text()
+        assert users.count() == 1
+
+
+class TestSecurityHeaders:
+    async def test_every_response_carries_them(self, anonymous_client):
+        response = await anonymous_client.get("/login")
+
+        assert response.headers["X-Frame-Options"] == "DENY"
+        assert response.headers["X-Content-Type-Options"] == "nosniff"
+        assert response.headers["Referrer-Policy"] == "no-referrer"
+
+        csp = response.headers["Content-Security-Policy"]
+
+        assert "frame-ancestors 'none'" in csp
+        assert "object-src 'none'" in csp
+        assert "https://telegram.org" in csp
+        assert "form-action 'self'" in csp
+
+    async def test_errors_carry_them_too(self, bare_client):
+        response = await bare_client.get("/")
+
+        assert response.status == 401
+        assert response.headers["X-Frame-Options"] == "DENY"
+
+    async def test_no_hsts_over_plain_http(self, anonymous_client):
+        response = await anonymous_client.get("/login")
+
+        assert "Strict-Transport-Security" not in response.headers
+
+    async def test_hsts_when_the_deployment_is_secure(
+        self,
+        anonymous_client,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(Config, "SESSION_COOKIE_SECURE", True)
+
+        response = await anonymous_client.get("/login")
+
+        assert response.headers["Strict-Transport-Security"].startswith("max-age=")
+
+
 class TestSignupDisabled:
     """No invite code configured is the default, and it means no sign-up.
 

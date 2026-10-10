@@ -20,6 +20,28 @@ class TestHashing:
         assert int(r) >= 8
         assert salt and digest
 
+    def test_meets_the_owasp_cost(self):
+        """OWASP's scrypt guidance calls for at least 2^17."""
+        stored = hash_password(PASSWORD)
+        n = int(stored.split("$")[1])
+
+        assert n >= 2**17
+
+    def test_hashes_made_at_the_old_cost_still_verify(self, monkeypatch):
+        """A cost bump must not invalidate every stored hash.
+
+        The parameters are recorded per password, so raising the default
+        leaves old hashes verifiable without a one-off migration.
+        """
+        import app.core.passwords as passwords
+
+        monkeypatch.setattr(passwords, "SCRYPT_N", 2**14)
+        old = hash_password(PASSWORD)
+
+        monkeypatch.setattr(passwords, "SCRYPT_N", 2**17)
+
+        assert verify_password(PASSWORD, old) is True
+
     def test_is_salted(self):
         """Two hashes of one password must not be comparable."""
         assert hash_password(PASSWORD) != hash_password(PASSWORD)

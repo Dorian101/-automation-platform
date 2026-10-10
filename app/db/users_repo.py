@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 
 from app.core.identity import WEB, Identity
@@ -9,6 +10,14 @@ from .database import Database
 # real hash when the username is unknown keeps the response time of a miss close
 # to that of a hit, so "user does not exist" cannot be told apart by timing.
 _DUMMY_HASH: str | None = None
+
+# Usernames are rejected up front, at the only place they enter the system.
+# Besides keeping the profile tidy, the alphabet also bounds what can ever be
+# written into a log line: an unrestricted name is an injection vector for
+# forged log entries, and nobody needs a newline to feel identified.
+_USERNAME_RE = re.compile(r"[A-Za-z0-9._-]+")
+
+MAX_USERNAME_LENGTH = 32
 
 
 @dataclass(frozen=True)
@@ -33,6 +42,19 @@ class UsersRepository:
 
         if not trimmed:
             raise ValueError("username must not be empty")
+
+        if len(trimmed) > MAX_USERNAME_LENGTH:
+            raise ValueError(
+                f"username must be at most {MAX_USERNAME_LENGTH} characters"
+            )
+
+        # fullmatch on a non-empty string: the class demands at least one
+        # character, which the emptiness check above has already guaranteed.
+        if _USERNAME_RE.fullmatch(trimmed) is None:
+            raise ValueError(
+                "username may only contain letters, digits, dots, dashes "
+                "and underscores"
+            )
 
         password_hash = hash_password(password)
 

@@ -26,6 +26,7 @@ from .auth import (
     signup_enabled,
     verify_access,
 )
+from .ratelimit import RateLimiter
 from .telegram_auth import TelegramAuthError, verify_login
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,27 @@ NONCE_TTL_SECONDS = 600
 # cannot leave a route behind that still needs a session to reach.
 PUBLIC_PATHS = {"/login", "/signup", "/about", "/project", "/health"}
 
+# Sent on every response, so no page or JSON answer can ever forget one. CSP
+# allows the Telegram Login Widget's script from telegram.org and inline
+# scripts and styles, which the console relies on; everything else stays
+# locked to the app's own origin. form-action 'self' is what keeps a stray
+# <form> from shipping a session cookie somewhere it does not belong.
+SECURITY_HEADERS = {
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://telegram.org; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "frame-ancestors 'none'; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
+    ),
+}
+
 
 class WebServer:
     def __init__(
@@ -82,6 +104,7 @@ class WebServer:
         self._users = UsersRepository(database)
         self._sessions = SessionsRepository(database)
         self._links = TelegramLinksRepository(database)
+        self._rate = RateLimiter()
         self._runner: web.AppRunner | None = None
 
     async def _index(self, request: web.Request) -> web.Response:
@@ -301,16 +324,41 @@ class WebServer:
         username = _form_value(form, "username")
         password = _form_value(form, "password")
 
+        if not self._rate.allow(
+            _rate_key(request, "login", username),
+            Config.LOGIN_ATTEMPTS_PER_WINDOW,
+            Config.RATE_LIMIT_WINDOW_SECONDS,
+        ):
+            logger.warning(
+                "Login rate limit reached for %r from %s",
+                username,
+                _client_ip(request),
+            )
+            return self._render_login(
+                error="Too many attempts. Try again later.",
+                username=username,
+                status=429,
+            )
+
         user = self._users.authenticate(username, password)
 
         if user is None:
             # The message does not say which half was wrong: an unknown
             # username and a wrong password must look the same from outside.
+            # The username is written with %r because it is caller-controlled
+            # input and must not be able to forge a log line.
+            logger.warning(
+                "Failed login attempt for %r from %s", username, _client_ip(request)
+            )
             return self._render_login(
                 error="Incorrect username or password.",
                 username=username,
                 status=401,
             )
+
+        # A correct password after a run of typos reloads the allowance rather
+        # than starting the next window from the typos' count.
+        self._rate.clear(_rate_key(request, "login", username))
 
         token = self._sessions.create(user.id, Config.SESSION_TTL_DAYS * DAY_SECONDS)
 
@@ -355,6 +403,18 @@ class WebServer:
         invite = _form_value(form, "invite")
         username = _form_value(form, "username")
         password = _form_value(form, "password")
+
+        if not self._rate.allow(
+            _rate_key(request, "signup"),
+            Config.SIGNUP_ATTEMPTS_PER_WINDOW,
+            Config.SIGNUP_WINDOW_SECONDS,
+        ):
+            logger.warning("Sign-up rate limit reached from %s", _client_ip(request))
+            return self._render_signup(
+                error="Too many attempts. Try again later.",
+                username=username,
+                status=429,
+            )
 
         if not signup_allowed(invite):
             return self._render_signup(
@@ -455,6 +515,10 @@ class WebServer:
 
     def build_app(self) -> web.Application:
         app = web.Application(middlewares=[self._authenticate])
+        # A response_prepare hook runs for every response aiohttp sends, even
+        # the one an exception turns into a 500 — middleware, running before
+        # the handler, would not be reached when no response is ever built.
+        app.on_response_prepare.append(_security_headers)
         app.add_routes(
             [
                 web.get("/login", self._login_form),
@@ -492,6 +556,47 @@ class WebServer:
         self._runner = None
 
         logger.info("Web interface stopped")
+
+
+async def _security_headers(request: web.Request, response: web.Response) -> None:
+    """Attach the security headers to everything leaving the app.
+
+    HSTS is added only when the Secure flag is on, which the deployment keeps
+    on for every TLS endpoint: on a plain-http prefix the header would be a
+    promise nothing honours.
+    """
+    for name, value in SECURITY_HEADERS.items():
+        response.headers.setdefault(name, value)
+
+    if Config.SESSION_COOKIE_SECURE:
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000"
+        )
+
+
+def _rate_key(request: web.Request, action: str, name: str = "") -> str:
+    """Key an attempt, binding it to the address that made it.
+
+    For login the username rides along too, so one person's typos do not lock
+    out a whole network behind the proxy. Sign-ups are keyed by address alone:
+    anyone registering is expected to hand out an invite code first.
+    """
+    return f"{action}|{_client_ip(request)}|{name.strip().lower()}"
+
+
+def _client_ip(request: web.Request) -> str:
+    """The caller's address for logging and rate limiting.
+
+    Read from the proxy's header, not the socket: every request has already
+    passed the X-Platform-Auth transport check by the time it gets here, so
+    the header can only have been written by the reverse proxy.
+    """
+    forwarded = request.headers.get("X-Forwarded-For", "")
+
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+
+    return request.remote or "unknown"
 
 
 def _render_index(

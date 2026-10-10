@@ -104,6 +104,13 @@ PROXY_URL=          # empty: api.telegram.org is reachable from Germany
 
 TELEGRAM_BOT_USERNAME=   # empty: no Telegram link button (see Telegram linking)
 TELEGRAM_LOGIN_MAX_AGE_SECONDS=300   # how long a Login Widget signature stays fresh
+
+# Rate limits on the public forms (per process; the defaults are shown).
+# 0 disables a limit, which is only sensible behind a limiting edge.
+RATE_LIMIT_WINDOW_SECONDS=60
+LOGIN_ATTEMPTS_PER_WINDOW=5
+SIGNUP_ATTEMPTS_PER_WINDOW=10
+SIGNUP_WINDOW_SECONDS=3600
 ```
 
 `app/core/config.py` calls `load_dotenv()` itself. Do not "simplify" that away
@@ -319,6 +326,8 @@ Expected shape of each:
 | `/account/telegram/link` with the header, no cookie | `303` to `/login`; `404` while linking is disabled |
 | `/api/command` with the header, no cookie | `401` |
 | `/signup` with the header, no cookie | `404` while `SIGNUP_INVITE_CODE` is unset, `200` once it is |
+| `/login` with the header, no cookie | `200` with `Content-Security-Policy`, `X-Frame-Options: DENY` headers |
+| wrong `/login` posts beyond the allowance | `429` `Too many attempts. Try again later.` |
 
 A fresh database logs `Applied 5 new migration(s)` on first start. An existing
 one that already had `001`–`004` logs `Applied 1 new migration(s)`, for
@@ -329,6 +338,14 @@ password must return `Incorrect username or password.` without saying which
 half was wrong. The login page shows a sign-up link only when
 `SIGNUP_INVITE_CODE` is set in `.env`; following it and registering should
 leave you on the index, already signed in, with a new row in `users`.
+
+Security headers land on every response, so a page should come back with
+`Content-Security-Policy`, `X-Frame-Options: DENY` and `X-Content-Type-Options:
+nosniff`, and (through Caddy) `Strict-Transport-Security`. Wrong-password posts
+are logged as `Failed login attempt for ...`; posting a deliberately wrong
+password more often than `LOGIN_ATTEMPTS_PER_WINDOW` times in
+`RATE_LIMIT_WINDOW_SECONDS` seconds begins returning `429` with
+`Too many attempts.`.
 
 ## Update
 

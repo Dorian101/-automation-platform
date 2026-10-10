@@ -14,7 +14,10 @@ import hashlib
 import hmac
 import secrets
 
-SCRYPT_N = 2**14
+# OWASP recommends at least 2^17 within scrypt's non-interactive guidance.
+# The parameter is recorded per hash, so hashes made at the old cost keep
+# verifying after this is raised.
+SCRYPT_N = 2**17
 SCRYPT_R = 8
 SCRYPT_P = 1
 DKLEN = 32
@@ -91,7 +94,9 @@ def _derive(password: str, salt: bytes, n: int, r: int, p: int) -> bytes:
         r=r,
         p=p,
         dklen=DKLEN,
-        maxmem=64 * 1024 * 1024,
+        # The default 32 MiB is below what 2^17 demands (128 MiB of working
+        # memory), and the error message scrypt raises for that is cryptic.
+        maxmem=256 * 1024 * 1024,
     )
 
 
