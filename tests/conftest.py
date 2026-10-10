@@ -29,6 +29,7 @@ from app.db.migrations import MigrationRunner
 from app.db.users_repo import UsersRepository
 from app.notifications import Notifier, TelegramChannel, WebChannel
 from app.plugins.clipboard import ClipboardPlugin
+from app.plugins.expenses import ExpensesPlugin
 from app.plugins.manager import PluginManager
 from app.plugins.notes import NotesPlugin
 from app.web.auth import AUTH_HEADER
@@ -86,6 +87,13 @@ def manager(database_with_schema):
     mgr.register(NotesPlugin(database_with_schema))
     mgr.register(ClipboardPlugin(database_with_schema))
     return mgr
+
+
+@pytest.fixture
+def expenses_manager(manager, database_with_schema):
+    """A manager that also has the spending plugin, which owns a page."""
+    manager.register(ExpensesPlugin(database_with_schema))
+    return manager
 
 
 @pytest.fixture

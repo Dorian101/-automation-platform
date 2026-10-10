@@ -1,5 +1,6 @@
 import hmac
 import html
+import json
 import logging
 import secrets
 from collections.abc import Mapping
@@ -141,6 +142,96 @@ class WebServer:
             _set_nonce_cookie(response, nonce)
 
         return response
+
+    async def _plugin_page(self, request: web.Request) -> web.Response:
+        """A plugin's own page, rendered from the description it returned.
+
+        The plugin answers with a dict; nothing here knows what a plugin
+        shows. A route only exists for a plugin that declared it, so an
+        unknown path falls through to the console rather than reaching a
+        handler that has no owner.
+        """
+        plugin = self._manager.find_by_page(request.path)
+
+        if plugin is None:
+            return _redirect("/")
+
+        identity = self._identity(request)
+
+        if identity is None:
+            return self._login_required(request)
+
+        try:
+            view = await plugin.page_view(identity)
+        except CommandError as error:
+            return web.Response(text=str(error), content_type="text/plain", status=400)
+        except Exception:
+            logger.exception("Page %s failed to build", plugin.name)
+            return web.Response(
+                text="Internal error",
+                content_type="text/plain",
+                status=500,
+            )
+
+        return _render_plugin_page(plugin.name, view)
+
+    async def _plugin_page_action(self, request: web.Request) -> web.Response:
+        """Something was done on a plugin page; answer with it redrawn.
+
+        Every value arrives as a string and is converted by the plugin, which
+        is the only place that knows what a valid amount or a valid month is.
+        The target page is named in the body rather than in the path, because
+        the action endpoint is one shared route.
+        """
+        identity = self._identity(request)
+
+        if identity is None:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+
+        try:
+            payload = await request.json()
+        except Exception:
+            return web.json_response(
+                {"error": "Request body must be JSON"},
+                status=400,
+            )
+
+        if not isinstance(payload, dict):
+            return web.json_response(
+                {"error": "Request body must be a JSON object"},
+                status=400,
+            )
+
+        page = payload.get("page", "")
+        action = payload.get("action", "")
+        body = payload.get("payload", {})
+
+        if not isinstance(page, str) or not isinstance(action, str):
+            return web.json_response(
+                {"error": "'page' and 'action' must be strings"},
+                status=400,
+            )
+
+        if not isinstance(body, dict):
+            return web.json_response(
+                {"error": "'payload' must be an object"},
+                status=400,
+            )
+
+        plugin = self._manager.find_by_page(page)
+
+        if plugin is None:
+            return web.json_response({"error": "Unknown page"}, status=404)
+
+        try:
+            view = await plugin.page_action(identity, action, body)
+        except CommandError as error:
+            return web.json_response({"error": str(error)}, status=400)
+        except Exception:
+            logger.exception("Action %s failed on %s", action, plugin.name)
+            return web.json_response({"error": "Internal error"}, status=500)
+
+        return web.json_response({"view": view})
 
     async def _telegram_link(self, request: web.Request) -> web.Response:
         """Link the signed-in account to the Telegram user in the payload."""
@@ -652,10 +743,25 @@ class WebServer:
                 web.get("/", self._index),
                 web.get("/api/commands", self._commands),
                 web.post("/api/command", self._execute),
+                web.get("/api/pages", self._pages),
+                web.post("/api/page/action", self._plugin_page_action),
                 web.get("/health", self._health),
             ],
         )
+
+        # A page route is registered per plugin that declared one, so the
+        # platform owns the path table and a plugin never adds a route to the
+        # web layer by hand. The handler resolves the plugin from the path, so
+        # it works the same whichever route reached it.
+        for plugin in self._manager.get_plugins():
+            if plugin.page:
+                app.router.add_get(plugin.page, self._plugin_page)
+
         return app
+
+    async def _pages(self, request: web.Request) -> web.Response:
+        """Every plugin that has a page, so the console can link to them."""
+        return web.json_response({"pages": self._manager.pages()})
 
     async def start(self) -> None:
         app = self.build_app()
@@ -933,6 +1039,35 @@ def _signup_link() -> str:
         return ""
 
     return '<p class="alt">No account yet? <a href="/signup">Sign up</a></p>'
+
+
+def _render_plugin_page(plugin_name: str, view: dict) -> web.Response:
+    """Build a plugin's page: a shell plus its description, nothing else.
+
+    The description is embedded as JSON and the browser paints it, so the
+    first load and every redraw after an action go through one renderer. The
+    server never draws a chart and the plugin never writes markup.
+
+    ``</`` is escaped inside the JSON so a value containing it cannot close the
+    script element; the block is ``type="application/json"``, which the browser
+    treats as data and never executes.
+    """
+    source = (TEMPLATES_DIR / "_plugin_page.html").read_text(encoding="utf-8")
+
+    payload = json.dumps(view, ensure_ascii=False).replace("</", "<\\/")
+
+    source = source.replace(
+        "__TITLE__",
+        html.escape(str(view.get("title", plugin_name))),
+    )
+    source = source.replace("__PLUGIN__", html.escape(plugin_name))
+    source = source.replace(
+        "__STYLES__",
+        (TEMPLATES_DIR / "_page_styles.html").read_text(encoding="utf-8"),
+    )
+    source = source.replace("__INITIAL_VIEW__", payload)
+
+    return web.Response(text=source, content_type="text/html")
 
 
 def _redirect(location: str) -> web.Response:

@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__ — Automation Platform</title>
+__STYLES__
+<style>
+  .pagehead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .monthpick { display: flex; gap: 0.5rem; align-items: center; }
+  .monthpick select, .monthpick button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    font: inherit;
+    font-size: 0.9rem;
+  }
+  .monthpick button { cursor: pointer; }
+  .monthpick button:hover { border-color: var(--accent); }
+  .totals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    align-items: baseline;
+    margin: 0 0 1.5rem;
+  }
+  .totals .big { font-size: 2.2rem; font-weight: 600; line-height: 1; }
+  .totals .cap { color: var(--muted); font-size: 0.85rem; }
+  .totals .delta { font-size: 0.95rem; color: var(--muted); }
+  .totals .delta.up { color: #ff8a8a; }
+  .totals .delta.down { color: #7bd88f; }
+  .bars { margin: 0 0 1.5rem; }
+  .barrow { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.45rem; }
+  .barlabel {
+    width: 9rem;
+    flex: none;
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bartrack { flex: 1; background: var(--panel); border-radius: 4px; height: 1.4rem; }
+  .barfill { height: 100%; background: var(--accent); border-radius: 4px; }
+  .barvalue {
+    width: 6.5rem;
+    flex: none;
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .formrow { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .field { display: flex; flex-direction: column; gap: 0.25rem; }
+  .field label { font-size: 0.78rem; color: var(--muted); }
+  .field input, .field select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.45rem 0.6rem;
+    font: inherit;
+    font-size: 0.9rem;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+  .btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.45rem 1rem;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+  .btn.ghost:hover { border-color: var(--accent); color: var(--text); }
+  table.data { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  table.data th {
+    text-align: left; color: var(--muted); font-weight: 600; font-size: 0.75rem;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 0.35rem 0.5rem 0.35rem 0; border-bottom: 1px solid var(--border);
+  }
+  table.data td {
+    padding: 0.45rem 0.5rem 0.45rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  table.data tbody tr:last-child td { border-bottom: none; }
+  table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .recent td:last-child, .recent th:last-child { text-align: right; width: 1%; }
+  .message { margin: 0 0 1rem; font-size: 0.9rem; }
+  .message.err { color: var(--error); }
+  .empty { color: var(--muted); font-size: 0.9rem; margin: 0 0 1.5rem; }
+</style>
+</head>
+<body>
+<main>
+  <nav>
+    <a href="/">Платформа</a>
+    <a href="/expenses" aria-current="page">__TITLE__</a>
+    <a href="/about">Обо мне</a>
+  </nav>
+
+  <div class="pagehead">
+    <h1>__TITLE__</h1>
+    <div class="monthpick">
+      <button type="button" id="prev-month" class="ghost">‹</button>
+      <select id="month"></select>
+      <button type="button" id="next-month" class="ghost">›</button>
+    </div>
+  </div>
+
+  <p class="message err" id="message" hidden></p>
+
+  <div id="root"></div>
+</main>
+
+<script type="application/json" id="initial-view">__INITIAL_VIEW__</script>
+<script>
+(function () {
+  const PLUGIN_NAME = '__PLUGIN__';
+  const root = document.getElementById('root');
+  const message = document.getElementById('message');
+  const monthSelect = document.getElementById('month');
+
+  let view = JSON.parse(document.getElementById('initial-view').textContent);
+
+  // -- drawing ------------------------------------------------------------
+  // Everything below builds DOM nodes and assigns textContent. A category
+  // name is whatever a person typed and must never be able to become markup.
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text != null) node.textContent = String(text);
+    return node;
+  }
+
+  function draw() {
+    root.textContent = '';
+    message.hidden = true;
+    drawMonths();
+    drawTotals();
+    drawChart();
+    drawTable();
+    drawForms();
+    drawRecent();
+  }
+
+  function drawMonths() {
+    monthSelect.textContent = '';
+    const options = [view.month.value].concat(view.month.available || []);
+    const seen = new Set();
+    for (const value of options) {
+      if (seen.has(value)) continue;
+      seen.add(value);
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = labelForMonth(value);
+      if (value === view.month.value) option.selected = true;
+      monthSelect.appendChild(option);
+    }
+  }
+
+  function labelForMonth(value) {
+    return value === view.month.value ? view.month.label : value;
+  }
+
+  function drawTotals() {
+    const box = el('div', 'totals');
+    const cap = el('div');
+    cap.appendChild(el('div', 'big', view.totals.current));
+    cap.appendChild(el('div', 'cap', 'Расходы за ' + view.month.label.toLowerCase()));
+    box.appendChild(cap);
+
+    if (view.totals.has_previous) {
+      const prev = el('div');
+      prev.appendChild(el('div', 'big', view.totals.previous));
+      prev.appendChild(el('div', 'cap', 'За прошлый месяц'));
+      box.appendChild(prev);
+
+      if (view.totals.change) {
+        const up = view.totals.change.trim().startsWith('+');
+        const delta = el('div', 'delta ' + (up ? 'up' : 'down'), view.totals.change);
+        box.appendChild(delta);
+      }
+    }
+    root.appendChild(box);
+  }
+
+  function drawChart() {
+    const items = view.chart.items || [];
+    if (!items.length) {
+      root.appendChild(el('p', 'empty', view.chart.empty || 'Нет данных'));
+      return;
+    }
+    const box = el('div', 'bars');
+    for (const item of items) {
+      const row = el('div', 'barrow');
+      row.appendChild(el('div', 'barlabel', item.label));
+
+      const track = el('div', 'bartrack');
+      const fill = el('div', 'barfill');
+      // share is a number the backend computed; the width is set as a style
+      // number, not parsed out of a formatted string.
+      fill.style.width = item.share + '%';
+      fill.title = item.label + ': ' + item.value;
+      track.appendChild(fill);
+      row.appendChild(track);
+
+      row.appendChild(el('div', 'barvalue', item.value + '  ' + item.share_text));
+      box.appendChild(row);
+    }
+    root.appendChild(box);
+  }
+
+  function drawTable() {
+    const table = view.table;
+    if (!table || !table.rows || !table.rows.length) return;
+    const t = el('table', 'data');
+    const thead = el('thead');
+    const hrow = el('tr');
+    for (const col of table.columns) {
+      hrow.appendChild(el('th', col.key === 'category' ? '' : 'num', col.label));
+    }
+    thead.appendChild(hrow);
+    t.appendChild(thead);
+
+    const tbody = el('tbody');
+    for (const row of table.rows) {
+      const tr = el('tr');
+      for (const col of table.columns) {
+        tr.appendChild(el('td', col.key === 'category' ? '' : 'num', row[col.key]));
+      }
+      tbody.appendChild(tr);
+    }
+    t.appendChild(tbody);
+    root.appendChild(t);
+  }
+
+  function drawForms() {
+    for (const form of view.forms || []) {
+      const h = el('h2', null, form.title);
+      root.appendChild(h);
+
+      const row = el('div', 'formrow');
+      const inputs = {};
+
+      for (const field of form.fields) {
+        const wrap = el('div', 'field');
+        const label = el('label', null, field.label);
+        const input = document.createElement(field.type === 'select' ? 'select' : 'input');
+        if (field.type !== 'select') input.type = field.type || 'text';
+        if (field.type !== 'select' && field.placeholder) input.placeholder = field.placeholder;
+        if (field.value != null) input.value = field.value;
+
+        if (field.type === 'select') {
+          for (const opt of field.options || []) {
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.label;
+            input.appendChild(option);
+          }
+        }
+
+        const id = form.id + '-' + field.name;
+        label.setAttribute('for', id);
+        input.id = id;
+        wrap.appendChild(label);
+        wrap.appendChild(input);
+        row.appendChild(wrap);
+        inputs[field.name] = input;
+      }
+
+      const submit = el('button', 'btn', form.submit);
+      row.appendChild(submit);
+      root.appendChild(row);
+
+      submit.addEventListener('click', () => {
+        const payload = {};
+        for (const [name, input] of Object.entries(inputs)) payload[name] = input.value;
+        send(form.id, payload, submit);
+      });
+    }
+  }
+
+  function drawRecent() {
+    if (!view.recent || !view.recent.length) return;
+    root.appendChild(el('h2', null, 'Последние траты'));
+
+    const t = el('table', 'data recent');
+    const thead = el('thead');
+    const hrow = el('tr');
+    for (const label of ['Дата', 'Категория', 'Сумма', '']) hrow.appendChild(el('th', label === 'Сумма' ? 'num' : '', label));
+    thead.appendChild(hrow);
+    t.appendChild(thead);
+
+    const tbody = el('tbody');
+    for (const entry of view.recent) {
+      const tr = el('tr');
+      tr.appendChild(el('td', '', entry.spent_at));
+      const cat = el('td', '', entry.category);
+      if (entry.note) cat.title = entry.note;
+      tr.appendChild(cat);
+      tr.appendChild(el('td', 'num', entry.amount));
+
+      const del = el('button', 'btn ghost', '×');
+      del.title = 'Удалить';
+      del.addEventListener('click', () => {
+        send('delete', { expense_id: String(entry.id), month: view.month.value }, del);
+      });
+      const td = el('td');
+      td.appendChild(del);
+      tr.appendChild(td);
+
+      tbody.appendChild(tr);
+    }
+    t.appendChild(tbody);
+    root.appendChild(t);
+  }
+
+  // -- talking to the plugin ---------------------------------------------
+
+  async function send(action, payload, button) {
+    if (button) button.disabled = true;
+    showMessage('', true);
+    try {
+      const response = await fetch('/api/page/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          page: PLUGIN_NAME,
+          action: action,
+          payload: payload,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        showMessage(data.error || 'Ошибка', false);
+        return;
+      }
+      view = data.view;
+      if (payload.month) view.month.value = payload.month;
+      draw();
+    } catch (err) {
+      showMessage('Не удалось связаться с сервером', false);
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  function showMessage(text, isClear) {
+    message.hidden = isClear;
+    message.textContent = isClear ? '' : text;
+  }
+
+  // -- month navigation ---------------------------------------------------
+
+  monthSelect.addEventListener('change', () => {
+    send('month', { month: monthSelect.value }, null);
+  });
+
+  document.getElementById('prev-month').addEventListener('click', () => {
+    send('month', { month: shiftMonth(view.month.value, -1) }, null);
+  });
+  document.getElementById('next-month').addEventListener('click', () => {
+    send('month', { month: shiftMonth(view.month.value, 1) }, null);
+  });
+
+  function shiftMonth(value, delta) {
+    const [year, month] = value.split('-').map(Number);
+    const total = year * 12 + (month - 1) + delta;
+    return String(total).padStart(4, '0') + '-' + String((total % 12) + 1).padStart(2, '0');
+  }
+
+  draw();
+})();
+</script>
+</body>
+</html>

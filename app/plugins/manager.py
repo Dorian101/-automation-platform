@@ -4,7 +4,7 @@ from aiogram import Router
 from aiogram.types import Message
 
 from app.core.commands import parse_command
-from app.core.identity import Identity, telegram
+from app.core.identity import WEB, Identity, telegram
 from app.core.results import CommandError, CommandResult
 
 from .base import BasePlugin
@@ -33,6 +33,30 @@ class PluginManager:
 
         return None
 
+    def find_by_page(self, page: str) -> BasePlugin | None:
+        """The plugin that owns a web page, if one does.
+
+        Matched on the declared path rather than looked up by name, so a route
+        is only reachable through the plugin that asked for it.
+        """
+        for plugin in self._plugins:
+            if plugin.page == page:
+                return plugin
+
+        return None
+
+    def pages(self) -> list[dict]:
+        """Every plugin that has a page, for the navigation."""
+        return [
+            {
+                "name": plugin.name,
+                "page": plugin.page,
+                "description": plugin.description,
+            }
+            for plugin in self._plugins
+            if plugin.page
+        ]
+
     async def execute(
         self,
         command: str,
@@ -43,6 +67,14 @@ class PluginManager:
 
         if plugin is None:
             raise CommandError(f"Unknown command: {command}")
+
+        if plugin.web_only and identity.kind != WEB:
+            # Refused here rather than inside the plugin: the transport is the
+            # router's business, and a plugin carrying that check would have to
+            # know it had two of them.
+            raise CommandError(
+                f"{command} is available on the web console only.",
+            )
 
         return await plugin.execute(command, args, identity)
 

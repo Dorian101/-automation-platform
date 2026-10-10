@@ -2,6 +2,7 @@ import logging
 
 import pytest
 
+from app.core.identity import telegram
 from app.core.results import CommandError
 from app.plugins.clipboard import ClipboardPlugin
 from app.plugins.manager import PluginManager
@@ -48,6 +49,46 @@ class TestExecute:
     async def test_error_message_comes_from_plugin(self, manager, web_identity):
         with pytest.raises(CommandError, match="Usage"):
             await manager.execute("/add", "", web_identity)
+
+
+class TestWebOnly:
+    """A plugin that only makes sense on a web page is refused in a chat.
+
+    The check belongs to the router: a plugin carrying it would have to know
+    it had two transports to keep straight.
+    """
+
+    async def test_a_web_only_plugin_is_reached_from_the_web(
+        self, expenses_manager, web_identity
+    ):
+        result = await expenses_manager.execute(
+            "/spend", "", web_identity
+        )
+
+        assert "web console" in result.text
+
+    async def test_the_same_plugin_is_refused_in_a_chat(self, expenses_manager):
+        with pytest.raises(CommandError, match="web console only"):
+            await expenses_manager.execute("/spend", "", telegram(4242))
+
+
+class TestPages:
+    def test_a_page_is_found_by_its_path(self, expenses_manager):
+        plugin = expenses_manager.find_by_page("/expenses")
+
+        assert plugin is not None
+        assert plugin.name == "expenses"
+
+    def test_an_unclaimed_path_has_no_owner(self, expenses_manager):
+        assert expenses_manager.find_by_page("/nothing") is None
+
+    def test_only_plugins_with_a_page_are_listed(self, expenses_manager):
+        pages = expenses_manager.pages()
+
+        assert [page["page"] for page in pages] == ["/expenses"]
+
+    def test_a_manager_without_pages_lists_nothing(self, manager):
+        assert manager.pages() == []
 
 
 class TestGetPlugins:
