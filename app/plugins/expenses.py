@@ -17,6 +17,7 @@ Money is Decimal from end to end. The column is NUMERIC and Python is not
 allowed to reinterpret it as a float on the way through.
 """
 
+import re
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -34,6 +35,15 @@ GUEST_CATEGORY_LIMIT = 12
 GUEST_EXPENSE_LIMIT = 100
 
 MAX_CATEGORY_NAME = 40
+
+# A month reaches the plugin as a string in a request body. `YYYY-MM` is the
+# only shape accepted, and it is checked before the value reaches the query
+# rather than by the database refusing to parse it.
+MONTH_PATTERN = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+
+
+def _is_month(value: str) -> bool:
+    return isinstance(value, str) and MONTH_PATTERN.match(value) is not None
 
 
 def _month_label(month: str) -> str:
@@ -144,6 +154,13 @@ class ExpensesPlugin(BasePlugin):
     ) -> dict:
         month = payload.get("month") or date.today().strftime("%Y-%m")
 
+        if not _is_month(month):
+            # The page is not a trusted caller and the month arrives as a
+            # string in a request body. Rejecting a malformed one here is what
+            # keeps a bad value out of the SQL, and what turns a 500 into a
+            # message somebody can act on.
+            raise CommandError("Некорректный месяц.")
+
         if action == "spend":
             self._spend(identity, payload)
         elif action == "catadd":
@@ -186,6 +203,13 @@ class ExpensesPlugin(BasePlugin):
                 "value": month,
                 "label": _month_label(month),
                 "available": self.repo.available_months(readable),
+                # The neighbours are computed here rather than in the browser.
+                # The arithmetic has to survive a year boundary, and a second
+                # implementation of it is a second chance to get it wrong —
+                # which is what happened: the page did year * 12 without
+                # dividing back, and September 2026 came out as 24320.
+                "prev": _shift_month(month, -1),
+                "next": _shift_month(month, 1),
             },
             "totals": {
                 "current": _money(total),

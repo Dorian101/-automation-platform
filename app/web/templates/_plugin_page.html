@@ -57,7 +57,16 @@ __STYLES__
     font-size: 0.9rem;
     font-variant-numeric: tabular-nums;
   }
-  .formrow { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  /* align-items: flex-end, not the flex default of stretch. Stretched, a
+     button takes the height of the tallest field in its row, so the same
+     button came out taller in the one-field form than in the four-field one. */
+  .formrow {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
   .field { display: flex; flex-direction: column; gap: 0.25rem; }
   .field label { font-size: 0.78rem; color: var(--muted); }
   .field input, .field select {
@@ -73,7 +82,9 @@ __STYLES__
   .btn {
     background: var(--accent);
     color: #fff;
-    border: none;
+    /* Transparent rather than none, so the button's box matches the inputs'
+       height once the row is aligned to their bottom edge. */
+    border: 1px solid transparent;
     border-radius: 6px;
     padding: 0.45rem 1rem;
     font: inherit;
@@ -380,23 +391,21 @@ __STYLES__
   }
 
   // -- month navigation ---------------------------------------------------
+  //
+  // The previous and next month arrive ready-made from the plugin. The page
+  // does not work them out: a year boundary is easy to get wrong, and a
+  // second copy of that arithmetic is a second chance to get it wrong too.
 
   monthSelect.addEventListener('change', () => {
     send('month', { month: monthSelect.value }, null);
   });
 
   document.getElementById('prev-month').addEventListener('click', () => {
-    send('month', { month: shiftMonth(view.month.value, -1) }, null);
+    send('month', { month: view.month.prev }, null);
   });
   document.getElementById('next-month').addEventListener('click', () => {
-    send('month', { month: shiftMonth(view.month.value, 1) }, null);
+    send('month', { month: view.month.next }, null);
   });
-
-  function shiftMonth(value, delta) {
-    const [year, month] = value.split('-').map(Number);
-    const total = year * 12 + (month - 1) + delta;
-    return String(total).padStart(4, '0') + '-' + String((total % 12) + 1).padStart(2, '0');
-  }
 
   draw();
 })();

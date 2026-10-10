@@ -57,6 +57,50 @@ class TestMonthHelpers:
         assert _shift_month("2026-05", 1) == "2026-06"
 
 
+class TestNeighbourMonths:
+    """The page is handed ready-made neighbours and works out nothing itself.
+
+    It used to compute them in the browser, where the year was multiplied by
+    twelve and never divided back — September 2026 came out as "сентябрь
+    24320", and every click after that walked further from a real date.
+    """
+
+    async def test_neighbours_come_from_the_plugin(
+        self, plugin, web_identity
+    ):
+        view = await plugin.page_action(
+            web_identity, "month", {"month": "2026-01"}
+        )
+
+        assert view["month"]["prev"] == "2025-12"
+        assert view["month"]["next"] == "2026-02"
+
+    async def test_neighbours_cross_a_year_correctly(
+        self, plugin, web_identity
+    ):
+        view = await plugin.page_action(
+            web_identity, "month", {"month": "2026-12"}
+        )
+
+        assert view["month"]["next"] == "2027-01"
+
+    async def test_a_malformed_month_is_refused_not_crashed(
+        self, plugin, web_identity
+    ):
+        """A month nobody can parse must not reach the query.
+
+        The page used to send "24320-09" after one bad click, which the
+        database cannot read as a date — a 500 for something the page caused.
+        A blank month is not in this list: blank means "not given", and the
+        current month is the right answer to that.
+        """
+        for bad in ("24320-09", "2026-13", "not-a-month", "2026-1", "2026-00"):
+            with pytest.raises(CommandError):
+                await plugin.page_action(
+                    web_identity, "month", {"month": bad}
+                )
+
+
 class TestView:
     async def test_empty_month_reports_nothing_rather_than_failing(
         self, plugin, web_identity

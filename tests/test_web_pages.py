@@ -187,6 +187,27 @@ class TestPageAction:
 
         assert response.status == 400
 
+    async def test_a_malformed_month_is_a_400_not_a_500(self, client):
+        """The browser is not trusted and the page caused this one.
+
+        It used to answer "Internal Error" for a month it had mangled itself,
+        which points a reader at the server when the fault was on the page.
+        """
+        response = await self._act(client, "month", {"month": "24320-09"})
+
+        assert response.status == 400
+        assert "месяц" in (await response.json())["error"]
+
+    async def test_the_view_carries_its_neighbouring_months(self, client):
+        body = await (await client.get("/expenses")).text()
+
+        view = _view(body)
+
+        assert view["month"]["prev"] and view["month"]["next"]
+        # The page does not recompute these; if it did, the server would have
+        # no reason to send them.
+        assert view["month"]["prev"] < view["month"]["value"]
+
 
 class TestIsolation:
     """Two accounts on the same page must not see each other's spending."""
