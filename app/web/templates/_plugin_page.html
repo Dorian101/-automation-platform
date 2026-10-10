@@ -14,7 +14,7 @@ __STYLES__
     flex-wrap: wrap;
   }
   .monthpick { display: flex; gap: 0.5rem; align-items: center; }
-  .monthpick select, .monthpick button {
+  .monthpick input, .monthpick button {
     background: var(--panel);
     color: var(--text);
     border: 1px solid var(--border);
@@ -23,6 +23,9 @@ __STYLES__
     font: inherit;
     font-size: 0.9rem;
   }
+  /* Readonly because the arrows are the navigation; browsers grey readonly
+     fields out, so the text colour is restored to match a live one. */
+  .monthpick input { text-align: center; min-width: 9rem; color: var(--text); }
   .monthpick button { cursor: pointer; }
   .monthpick button:hover { border-color: var(--accent); }
   .totals {
@@ -124,9 +127,9 @@ __STYLES__
   <div class="pagehead">
     <h1>__TITLE__</h1>
     <div class="monthpick">
-      <button type="button" id="prev-month" class="ghost">‹</button>
-      <select id="month"></select>
-      <button type="button" id="next-month" class="ghost">›</button>
+      <button type="button" id="prev-month" class="ghost" aria-label="Предыдущий месяц">‹</button>
+      <input type="text" id="month" readonly aria-label="Месяц">
+      <button type="button" id="next-month" class="ghost" aria-label="Следующий месяц">›</button>
     </div>
   </div>
 
@@ -141,7 +144,7 @@ __STYLES__
   const PAGE_PATH = '__PAGE_PATH__';
   const root = document.getElementById('root');
   const message = document.getElementById('message');
-  const monthSelect = document.getElementById('month');
+  const monthLabel = document.getElementById('month');
 
   let view = JSON.parse(document.getElementById('initial-view').textContent);
 
@@ -168,22 +171,11 @@ __STYLES__
   }
 
   function drawMonths() {
-    monthSelect.textContent = '';
-    const options = [view.month.value].concat(view.month.available || []);
-    const seen = new Set();
-    for (const value of options) {
-      if (seen.has(value)) continue;
-      seen.add(value);
-      const option = document.createElement('option');
-      option.value = value;
-      option.textContent = labelForMonth(value);
-      if (value === view.month.value) option.selected = true;
-      monthSelect.appendChild(option);
-    }
-  }
-
-  function labelForMonth(value) {
-    return value === view.month.value ? view.month.label : value;
+    // A readonly text field, not a select. A select brought its own up/down
+    // arrows, so the control showed two different ways to change the month and
+    // neither listed every month that had data. The arrows beside it are the
+    // whole navigation now.
+    monthLabel.value = view.month.label;
   }
 
   function drawTotals() {
@@ -395,10 +387,10 @@ __STYLES__
   // The previous and next month arrive ready-made from the plugin. The page
   // does not work them out: a year boundary is easy to get wrong, and a
   // second copy of that arithmetic is a second chance to get it wrong too.
-
-  monthSelect.addEventListener('change', () => {
-    send('month', { month: monthSelect.value }, null);
-  });
+  //
+  // There is no dropdown: a select carries its own up/down arrows, so the
+  // control offered two different ways to change the month. The two arrows
+  // are the whole navigation.
 
   document.getElementById('prev-month').addEventListener('click', () => {
     send('month', { month: view.month.prev }, null);

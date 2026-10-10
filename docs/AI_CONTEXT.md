@@ -290,3 +290,30 @@ Run against a dedicated `automation_platform_test` database, dropped and
 recreated per test. Covers identity, command parsing, repositories,
 migrations, plugins, the manager, notification channels, the web layer,
 accounts and sessions, password hashing, and database backups.
+
+Two modes, because a full run is about two minutes and most of it is scrypt
+hashing a password in each test rather than anything the change under review
+touched.
+
+**While working — run only what the change can break.** This is the fast mode
+and it is the default during a sprint. Pick by area:
+
+| Changed | Run |
+|---|---|
+| a plugin | its own `test_<name>_plugin.py`, plus `test_manager.py` |
+| a repository | its own `test_<name>_repo.py` |
+| a page or `/api/page/action` | `test_web_pages.py`, plus the plugin's |
+| `BasePlugin`, the manager, routing | `test_manager.py`, `test_plugins.py` |
+| the web layer or auth | `test_web.py`, `test_auth.py`, `test_web_pages.py` |
+| a migration | `test_migrations.py` plus the repository that uses it |
+
+The four files together are about a quarter of the suite and run in seconds.
+
+**Before a commit — run everything.** `uv run ruff check . && uv run pytest`
+with no selection, as AGENTS.md requires. This is what catches a change
+reaching something the fast mode never loaded, and skipping it because the
+fast mode was green is exactly how a green suite stops meaning anything.
+
+**After a full run, iterate on failures with `-x`.** The first failure is
+usually the one that explains the rest; stopping there is faster than
+collecting twenty red tests that share one cause.

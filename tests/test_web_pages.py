@@ -208,6 +208,19 @@ class TestPageAction:
         # no reason to send them.
         assert view["month"]["prev"] < view["month"]["value"]
 
+    async def test_the_month_control_is_the_two_arrows_only(self, client):
+        """A select brings its own up/down arrows.
+
+        With arrows either side of it the control offered two different ways
+        to change the month and neither listed every month holding data, so
+        the navigation is the two buttons and the label between them.
+        """
+        body = await (await client.get("/expenses")).text()
+
+        assert '<select id="month"' not in body
+        assert 'id="month"' in body and "readonly" in body
+        assert "prev-month" in body and "next-month" in body
+
 
 class TestIsolation:
     """Two accounts on the same page must not see each other's spending."""
