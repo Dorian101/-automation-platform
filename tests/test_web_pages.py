@@ -89,6 +89,20 @@ class TestPageRoute:
 
         assert pages == {"/expenses": "expenses"}
 
+    async def test_a_page_is_named_for_a_reader_not_by_path(self, client):
+        """The title is what a person sees, so it is not the plugin's name."""
+        payload = await (await client.get("/api/pages")).json()
+
+        assert payload["pages"][0]["title"] == "Расходы"
+
+    async def test_the_console_links_to_every_page(self, client):
+        """Otherwise a page exists and nothing points at it."""
+        await client.get("/api/pages")
+
+        body = await (await client.get("/")).text()
+
+        assert "/api/pages" in body
+
 
 class TestPageAction:
     async def _act(self, client, action, payload):

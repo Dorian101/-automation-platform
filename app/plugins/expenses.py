@@ -100,6 +100,7 @@ class ExpensesPlugin(BasePlugin):
     description = "Track personal spending"
     web_only = True
     page = "/expenses"
+    page_title = "Расходы"
 
     # Declared so the router can recognise them and answer "web console only"
     # in a chat instead of "unknown command" — a command this plugin refuses

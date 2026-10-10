@@ -17,6 +17,10 @@ class BasePlugin(ABC):
     # plugin with a page is not an adapter the web layer has to know about.
     page: str | None = None
 
+    # How the page is named in navigation. Falls back to the plugin name, so
+    # a plugin that has a page but no title of its own still appears.
+    page_title: str = ""
+
     # Plugins that are only worth using through the web console set this and
     # leave commands alone: a plugin that returns a payload for the analytics
     # screen has nothing to say in a chat message, and the router refuses

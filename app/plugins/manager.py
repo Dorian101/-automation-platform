@@ -51,6 +51,7 @@ class PluginManager:
             {
                 "name": plugin.name,
                 "page": plugin.page,
+                "title": plugin.page_title or plugin.name,
                 "description": plugin.description,
             }
             for plugin in self._plugins

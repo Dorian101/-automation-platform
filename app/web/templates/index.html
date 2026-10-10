@@ -145,7 +145,7 @@
     </div>
   </header>
 
-  <nav class="links">
+  <nav class="links" id="nav">
     <a href="/about">Обо мне</a>
     <a href="/project">Проект и метод</a>
   </nav>
@@ -287,6 +287,28 @@ form.addEventListener('submit', async (event) => {
     input.focus();
   }
 });
+
+// Page links come from /api/pages, so a plugin that declares a page appears
+// in the navigation without the console naming it. The label is the plugin's
+// own name rather than the path, so the URL stays an implementation detail.
+fetch('/api/pages')
+  .then((response) => response.json())
+  .then((data) => {
+    const nav = document.getElementById('nav');
+    const first = nav.querySelector('a');
+
+    for (const page of data.pages) {
+      const link = document.createElement('a');
+      link.href = page.page;
+      link.textContent = page.title || page.name;
+      link.title = page.description || '';
+      nav.insertBefore(link, first);
+    }
+  })
+  .catch(() => {
+    // Navigation is a convenience. A console that cannot list its pages is
+    // still a working console, so a failure here is silent on purpose.
+  });
 
 fetch('/api/commands')
   .then((response) => response.json())
