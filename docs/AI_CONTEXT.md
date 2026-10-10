@@ -121,13 +121,6 @@ Repositories:
 
 Schema is versioned in sql/migrations/.
 
-## Current plugins
-
-- Notes: /add, /notes, /del, /clear
-- Reminders: /remind, delivers through notification channels
-- Clipboard: /copy, /paste
-- System: /plugins, /help, /status
-
 ## Plugin contract
 
 Each plugin exposes:
@@ -139,6 +132,47 @@ Each plugin exposes:
 - execute(command, args, identity)
 - router() (optional)
 - on_startup() / on_shutdown()
+
+A plugin may also declare:
+
+- `page` — a web path it owns, or None. `PluginManager` builds the route table
+  from what plugins declared; a path no plugin claimed has no route.
+- `web_only` — refuse the command in a chat. The check is in the router, so a
+  plugin does not inspect `identity.kind`.
+- `page_view(identity)` — return a description of the page.
+- `page_action(identity, action, payload)` — handle what the page did, return
+  the same description with the change applied. Every payload value arrives as
+  a string; the plugin converts and validates.
+
+## Pages
+
+A plugin with a page answers with a description, not with markup: a title,
+forms, a chart, a table, numbers. The web layer paints what it is told and
+knows nothing about the plugin's subject, so a plugin adds a field without the
+platform growing a branch for it. The description is embedded as JSON and the
+browser paints it, so the first load and every redraw after an action go
+through one renderer. Everything reaching the page goes through `textContent`,
+so user text is never markup.
+
+Why this and not a vocabulary in the core: the core already carries a rule
+that business logic stays transport-independent. Adding a form-and-chart
+vocabulary to the core would make every plugin depend on the platform for
+something only the web has to understand. `CommandResult.data` is the
+lightweight form of the same idea for a command that wants to be structured;
+`page` is the full form.
+
+An analytics screen is a page and not a command. Recording a cost through
+commands means `/spend 320 еда`, another month means a different command, and
+a chart cannot be built from a sentence. That is the terminal problem the
+project exists to leave behind, reached from the other direction.
+
+## Current plugins
+
+- Notes: /add, /notes, /del, /clear
+- Reminders: /remind, delivers through notification channels
+- Clipboard: /copy, /paste
+- Expenses: page at /expenses, web-only
+- System: /plugins, /help, /status
 
 ## Notification layer
 
@@ -172,6 +206,11 @@ linked. A delivery that raises is retried indefinitely — that is an outage.
 - GET / — HTML console
 - GET /api/commands — plugin and command metadata
 - POST /api/command — execute a command
+- GET /api/pages — plugins that own a page, for navigation
+- POST /api/page/action — a plugin page reporting what was done; the target
+  page is named in the body because the endpoint is shared, and the answer is
+  the page description again
+- one GET route per declared page (e.g. /expenses), built at app start
 - GET /health — database health check
 - GET /account/telegram/link — completes a Login Widget redirect
 - POST /account/telegram/unlink — removes the pairing

@@ -904,3 +904,67 @@ so rename is deferred rather than half-done.
 `delete_for_user`) and 18 in `tests/test_manage_accounts.py` covering the four
 commands, including that an unknown account is refused before a password is
 read. 415 tests pass. No new `.env` setting and nothing to migrate.
+
+## 2026-10-10
+
+### Decision
+Give a plugin a page of its own, and let it declare that it is web-only
+
+### Reason
+The first analytics plugin showed that a command is the wrong shape for a
+spending breakdown. Everything arrived as a string on the way in and left as
+one on the way out: recording a cost meant `/spend 320 еда`, another month
+meant a different command, and a chart cannot be built from a sentence. That
+is the terminal problem the whole thing was meant to leave behind, reached
+from the other direction.
+
+Two ways out. The first was to teach the core a vocabulary for forms and
+charts: a small platform feature with a large surface, which every plugin
+would depend on and every addition to which would be a decision about the
+platform rather than about the plugin. The second is to let a plugin describe
+its own page and have the web layer paint the description. The second was
+chosen — it moves the same small vocabulary from the core to the one component
+that has to know it anyway, and a plugin stops being showable only if the
+platform grows a branch for it.
+
+Web-only is declared rather than checked inside the plugin, for the reason
+transport independence has always been the rule here: a plugin that inspected
+`identity.kind` would have to know it had two transports, and that knowledge
+is what the router exists to hold. The commands are still declared, so a chat
+answers "web console only" — a refused command and a missing one are different
+answers, and only the second is true.
+
+### How it is done
+- `BasePlugin.page` is a path or `None`, and the manager builds the route table
+  from what plugins declared. Matched on the path, so an unclaimed path has no
+  owner and there is nothing to leak.
+- `page_view(identity)` returns a description; `page_action(identity, action,
+  payload)` handles what the page did and returns the same description with
+  the change applied. The payload is never trusted: every value arrives as a
+  string and the plugin converts and validates.
+- The description travels as JSON and the browser paints it, so the first load
+  and every redraw go through one renderer. The server draws no chart and the
+  plugin writes no markup. Everything reaching the page goes through
+  `textContent`, so a category name is text and never becomes markup.
+- `web_only` is refused by `PluginManager.execute`, before the plugin is
+  reached.
+
+### Result
+The expenses plugin, with a bar chart, a figure table, per-category share and
+a comparison against the previous month. Both views come from one aggregation
+and cannot disagree.
+
+Money is Decimal end to end against a NUMERIC column, rounded only for
+display, so a monthly total still adds up to what was actually spent. The
+chart is scaled against the largest category rather than the total: a month
+with one dominant cost would otherwise draw every other bar as a sliver, and
+the share stays on each bar as a figure so both readings remain available.
+
+The change of month is an action like any other rather than a hidden
+parameter, so the month is a part of the same request that draws it.
+
+46 new tests, 484 in total: month arithmetic across a year boundary, a month
+number outside the twelve not being given a name, the chart and the table
+agreeing, a previous month reported only when there is one, the repository's
+storage-language errors translated into something a person can act on, the
+page refusing a guest, and two accounts isolated on one page.

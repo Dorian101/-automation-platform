@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.19.0
+v0.20.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -198,6 +198,27 @@ Implemented:
 
 ⸻
 
+Expenses
+
+Purpose:
+
+* track personal spending, with the category list the account creates for
+  itself
+
+Implemented:
+
+* a page of its own at /expenses, reachable without typing a command
+* categories created, listed and retired from the page; no code change
+* amounts are Decimal against a NUMERIC column, rounded only for display
+* spent_at is the day the money was spent, so a month follows the spending
+  and not the entry
+* monthly breakdown by category, a bar chart and a figure table built from
+  one aggregation, and a comparison against the previous month
+* web-only: the router refuses the command in a chat
+* reads widen across a linked pair; writes do not
+
+⸻
+
 ## Web interface
 
 Purpose:
@@ -213,6 +234,10 @@ Implemented:
 * GET /about, GET /project — static public documents, no session needed
 * GET /api/commands — plugin and command metadata
 * POST /api/command — command execution
+* GET /api/pages — plugins that own a page, for navigation
+* POST /api/page/action — a plugin page reporting what was done, answered
+  with the page redrawn
+* a route per plugin page (e.g. /expenses), built from what plugins declared
 * GET /health — database health check
 * WEB_HOST / WEB_PORT configuration
 
@@ -389,6 +414,11 @@ app/db/database.py
   rename would have to move rows across every table that stores a `user_id`.
 * No external integrations.
 * Web console is functional but minimal.
+* The spending page is the only analytics page. The application-tracking plugin
+  is planned on the same base but not built.
+* The demonstration page for a recruiter is planned but not built: a guest
+  namespace with its own seeded data, capped writes, and daily cleanup.
+* The console itself is still English; the plugin pages are Russian.
 
 ⸻
 
