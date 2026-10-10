@@ -74,6 +74,24 @@ class SessionsRepository:
                 )
             conn.commit()
 
+    def delete_for_user(self, user_id: int) -> int:
+        """Remove every session of a user; how many were removed.
+
+        This is how a leaked session is revoked: there is no lookup by token
+        anywhere, so ending them all is the only story that is simple enough
+        to be trusted.
+        """
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM sessions WHERE user_id = %s",
+                    (user_id,),
+                )
+                deleted = cur.rowcount
+            conn.commit()
+
+        return deleted
+
     def delete_expired(self) -> int:
         with self.database.connect() as conn:
             with conn.cursor() as cur:

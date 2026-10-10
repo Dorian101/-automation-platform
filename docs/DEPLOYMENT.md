@@ -186,6 +186,22 @@ app.manage create-user alexey`.
 The command applies pending migrations first, so it works on a fresh install
 before the service has ever started.
 
+**Administration from the host.** When a credential has leaked, these run from
+the machine with no browser involved:
+
+```bash
+python -m app.manage disable-user <username>    # stop sign-in, revoke sessions
+python -m app.manage enable-user <username>     # allow sign-in again
+python -m app.manage reset-password <username>  # new password, revoke sessions
+python -m app.manage revoke-sessions <username> # end sessions, keep password
+```
+
+`reset-password` reads the password with `getpass`, like `create-user`, and can
+be piped the same way. `disable-user` and `reset-password` revoke every live
+session of the account, so the holder of a stolen cookie is signed out at the
+same time. None of the commands delete data — a disabled account keeps its
+notes until it is enabled again. There is no rename.
+
 `SESSION_COOKIE_SECURE` must stay `true` in production. It cannot be inferred
 from the request: the app talks to Caddy over plain HTTP on loopback, so the
 socket is never TLS and `request.secure` is false even behind HTTPS. Set it to
@@ -502,7 +518,7 @@ uv run ruff check .
 uv run pytest
 ```
 
-390 tests. Run before pushing anything that touches config, auth or
+415 tests. Run before pushing anything that touches config, auth or
 migrations. The parts worth knowing about:
 
 - `tests/test_config.py` — subprocess test for the `.env` import-order bug;

@@ -142,6 +142,35 @@ class UsersRepository:
 
         return self._to_user(row)
 
+    def set_active(self, user_id: int, active: bool) -> bool:
+        """Enable or disable an account; whether a row was changed."""
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE users SET is_active = %s WHERE id = %s",
+                    (active, user_id),
+                )
+                changed = cur.rowcount
+            conn.commit()
+
+        return changed > 0
+
+    def set_password(self, user_id: int, password: str) -> None:
+        """Replace an account's password.
+
+        The password is validated by hash_password, so a short one raises
+        PasswordError before any row is touched.
+        """
+        password_hash = hash_password(password)
+
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE users SET password_hash = %s WHERE id = %s",
+                    (password_hash, user_id),
+                )
+            conn.commit()
+
     def identity_for(self, user: User) -> Identity:
         return Identity(kind=WEB, id=user.username)
 

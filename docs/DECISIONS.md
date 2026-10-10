@@ -854,3 +854,53 @@ a browser does. 390 tests pass.
 No new `.env` setting: the CSRF secret is generated per process, so a restart
 invalidates outstanding tokens and a fresh page load issues new ones. Nothing
 about an existing deployment's configuration changes.
+
+## 2026-10-10
+
+### Decision
+Add account administration to the host command line — disable/enable, reset a
+password, revoke sessions — and deliberately leave rename out.
+
+### Reason
+A leaked credential needs a response that does not depend on the browser, and
+until now the only way to disable an account was to edit SQL by hand. The four
+operations the owner asked for were disable and enable, a password reset, and a
+way to kill a session that has leaked; three of those were missing entirely.
+
+Rename is the odd one. An account's data is keyed by `web:<username>` in
+`notes`, `reminders` and `clipboard`, so a rename would silently orphan every
+row unless the same transaction rewrote all three tables — and every future
+plugin storing a `user_id` would have to be remembered too. That is a trap
+worth not setting until identity is anchored to something other than the name,
+so rename is deferred rather than half-done.
+
+### How it is done
+
+- **Disable and enable** flip `is_active` through
+  `UsersRepository.set_active`. Nothing else needed to change: `authenticate`
+  and `resolve_identity` already refuse an inactive account on every sign-in and
+  every request, so a disable takes effect immediately. Disabling also revokes
+  the account's sessions, so a disable is a complete stop rather than a state
+  the browser can keep poking.
+- **Reset password** reads the new password with `getpass`, never as an
+  argument, exactly like `create-user`. `UsersRepository.set_password` reuses
+  `hash_password`, so the same length rule applies, and the new hash is written
+  before the sessions are revoked: a password worth changing is a password worth
+  assuming is known.
+- **Revoke sessions** is `SessionsRepository.delete_for_user`, a single delete
+  by `user_id`. The table stores only token digests, so there is no per-token
+  lookup to offer and ending them all is the only story simple enough to
+  trust. The account and its data are untouched.
+- **No data is deleted** by any of the three. A disabled account keeps its
+  notes, reminders and clipboard until it is enabled again; the commands only
+  change whether it can sign in and whether it has live sessions.
+- **Logging.** All four commands write through the `manage` logger, next to the
+  web interface's audit events.
+- **No migration.** `is_active` already existed (migration `004`), so this is
+  repository methods and command-line plumbing only.
+
+### Result
+25 new tests: 7 at the repository level (`set_active`, `set_password`,
+`delete_for_user`) and 18 in `tests/test_manage_accounts.py` covering the four
+commands, including that an unknown account is refused before a password is
+read. 415 tests pass. No new `.env` setting and nothing to migrate.

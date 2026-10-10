@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.18.0
+v0.19.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -42,6 +42,8 @@ The platform is operational.
 - CSRF tokens on the state-changing forms
 - audit logging of sign-in, sign-up, sign-out and Telegram link changes
 - notification text withheld from the web logs
+- account administration from the host (disable, enable, reset a password,
+  revoke sessions)
 - deployment runbook
 
 ## Current architecture
@@ -283,6 +285,25 @@ create-user`, or through the sign-up page when `SIGNUP_INVITE_CODE` is set.
 Passwords are stored as salted scrypt hashes; only the SHA-256 of a session
 token is kept. Two web users cannot read each other's data.
 
+Administration beyond creation is done from the host, where a leaked credential
+is dealt with without a browser:
+
+* `disable-user <username>` flips `is_active` off and revokes the account's
+  live sessions; `enable-user` turns it back on. Sign-in and every request are
+  already refused for an inactive account, so disabling takes effect at once.
+* `reset-password <username>` reads a new password with `getpass` (never as an
+  argument) and revokes every session, on the assumption that a password worth
+  changing is a password worth assuming is known.
+* `revoke-sessions <username>` ends every session without touching the
+  password, which is the response when only a session leaked.
+
+None of them delete data: a disabled account keeps its notes, reminders and
+clipboard until it is enabled again. There is no `rename`: an account's data is
+keyed by `web:<username>`, so renaming would have to move rows across notes,
+reminders and clipboard, and every future plugin would have to remember to join
+in. That is deferred until identity is anchored to something other than the
+name.
+
 Identity resolution lives in app/web/auth.py and maps the session cookie to
 `Identity(WEB, username)`. That function remains the seam for user accounts —
 no plugin or repository knows about any of this.
@@ -357,14 +378,15 @@ app/db/database.py
 ## Current limitations
 
 * Sign-up is gated by one shared invite code with no approval step behind it —
-  whoever holds the code can join — and there is still no password reset and
-  no way to disable an account other than by hand in SQL.
+  whoever holds the code can join.
 * Web notifications are still dropped rather than delivered, but only for an
   account that has not linked Telegram. A linked one reaches its chat.
 * Telegram linking needs a domain registered with BotFather, so it cannot be
   tried on localhost — the button stays hidden until that is done.
 * /clear removes every note at once with no confirmation, which is right for a
   single-user tool and wrong the day there is a second one.
+* A web account cannot be renamed: its data is keyed by the username, so a
+  rename would have to move rows across every table that stores a `user_id`.
 * No external integrations.
 * Web console is functional but minimal.
 
@@ -375,8 +397,8 @@ app/db/database.py
 * add reminder to /cancel and /reminders listing;
 * call BackupManager before applying a migration, so a failed deploy has a
   dump from minutes ago rather than from last night;
-* manage accounts beyond create and list — disable, rename, reset a password,
-  and revoke a session that has leaked.
+* anchor identity to a stable key so an account can be renamed without moving
+  its data, which is what the deferred rename command needs.
 
 ⸻
 

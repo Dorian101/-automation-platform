@@ -2,6 +2,10 @@
 
     python -m app.manage create-user <username>
     python -m app.manage list-users
+    python -m app.manage disable-user <username>
+    python -m app.manage enable-user <username>
+    python -m app.manage reset-password <username>
+    python -m app.manage revoke-sessions <username>
     python -m app.manage link-telegram <username> <chat_id>
     python -m app.manage unlink-telegram <username>
     python -m app.manage list-links
@@ -14,6 +18,12 @@ when SIGNUP_INVITE_CODE is configured — an invite code rather than an open
 form is what keeps a private tool from becoming an open invitation. The
 password is never accepted as a command line argument, because arguments are
 visible to any other user on the host and end up in shell history.
+
+`disable-user`, `reset-password` and `revoke-sessions` are the response to a
+leaked credential. Disabling ends sign-in and revoking ends every live session;
+resetting a password does both, on the assumption that a password worth
+changing is a password worth assuming is known. No data is deleted by any of
+them: a disabled account keeps its notes until it is enabled again.
 
 `link-telegram` is the way out when the browser cannot reach Telegram: the
 Telegram account is the only other way in, so a wrong or revoked link would
@@ -36,6 +46,7 @@ from app.db.backup import BackupManager
 from app.db.database import Database
 from app.db.links_repo import TelegramLinksRepository
 from app.db.migrations import MigrationRunner
+from app.db.sessions_repo import SessionsRepository
 from app.db.users_repo import UsersRepository
 
 # Audit trail for the significant account actions the CLI performs, using the
@@ -79,6 +90,94 @@ def list_users(args: argparse.Namespace) -> int:
         print(f"{account.username}\t{state}")
 
     return 0
+
+
+def disable_user(args: argparse.Namespace) -> int:
+    """Turn off sign-in and end the account's live sessions."""
+    users, sessions = _ready_accounts()
+
+    account = users.get_by_username(args.username)
+
+    if account is None:
+        print(f"error: no user '{args.username}'", file=sys.stderr)
+        return 1
+
+    if not account.is_active:
+        print(f"{account.username} is already disabled")
+        return 0
+
+    users.set_active(account.id, False)
+    revoked = sessions.delete_for_user(account.id)
+
+    print(f"Disabled {account.username} ({_sessions_revoked(revoked)})")
+    logger.info("Disabled web account %r", account.username)
+    return 0
+
+
+def enable_user(args: argparse.Namespace) -> int:
+    users, _ = _ready_accounts()
+
+    account = users.get_by_username(args.username)
+
+    if account is None:
+        print(f"error: no user '{args.username}'", file=sys.stderr)
+        return 1
+
+    if account.is_active:
+        print(f"{account.username} is already active")
+        return 0
+
+    users.set_active(account.id, True)
+
+    print(f"Enabled {account.username}")
+    logger.info("Enabled web account %r", account.username)
+    return 0
+
+
+def reset_password(args: argparse.Namespace) -> int:
+    """Set a new password and end every session it might have protected."""
+    users, sessions = _ready_accounts()
+
+    account = users.get_by_username(args.username)
+
+    if account is None:
+        print(f"error: no user '{args.username}'", file=sys.stderr)
+        return 1
+
+    password = _read_password()
+
+    try:
+        users.set_password(account.id, password)
+    except PasswordError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+
+    revoked = sessions.delete_for_user(account.id)
+
+    print(f"Reset password for {account.username} ({_sessions_revoked(revoked)})")
+    logger.info("Reset password for web account %r", account.username)
+    return 0
+
+
+def revoke_sessions(args: argparse.Namespace) -> int:
+    """End every session of an account without changing its password."""
+    users, sessions = _ready_accounts()
+
+    account = users.get_by_username(args.username)
+
+    if account is None:
+        print(f"error: no user '{args.username}'", file=sys.stderr)
+        return 1
+
+    revoked = sessions.delete_for_user(account.id)
+
+    print(f"Revoked {_sessions_revoked(revoked)} for {account.username}")
+    logger.info("Revoked sessions for web account %r", account.username)
+    return 0
+
+
+def _sessions_revoked(count: int) -> str:
+    return f"{count} session(s) revoked"
 
 
 def link_telegram(args: argparse.Namespace) -> int:
@@ -224,6 +323,13 @@ def _ready_links() -> tuple[TelegramLinksRepository, UsersRepository]:
     return TelegramLinksRepository(database), UsersRepository(database)
 
 
+def _ready_accounts() -> tuple[UsersRepository, SessionsRepository]:
+    """The same, for the commands that need accounts and sessions together."""
+    database = Database()
+    MigrationRunner(database).run()
+    return UsersRepository(database), SessionsRepository(database)
+
+
 def _read_password() -> str:
     """Read the password from a prompt, or from stdin when not a terminal."""
     if sys.stdin.isatty():
@@ -257,6 +363,31 @@ def build_parser() -> argparse.ArgumentParser:
 
     listing = subparsers.add_parser("list-users", help="List web accounts")
     listing.set_defaults(func=list_users)
+
+    disable = subparsers.add_parser(
+        "disable-user",
+        help="Stop a web account from signing in",
+    )
+    disable.add_argument("username", help="Account name, matched case-insensitively")
+    disable.set_defaults(func=disable_user)
+
+    enable = subparsers.add_parser("enable-user", help="Allow sign-in again")
+    enable.add_argument("username", help="Account name, matched case-insensitively")
+    enable.set_defaults(func=enable_user)
+
+    reset = subparsers.add_parser(
+        "reset-password",
+        help="Set a new password and revoke the account's sessions",
+    )
+    reset.add_argument("username", help="Account name, matched case-insensitively")
+    reset.set_defaults(func=reset_password)
+
+    revoke = subparsers.add_parser(
+        "revoke-sessions",
+        help="End every session of a web account",
+    )
+    revoke.add_argument("username", help="Account name, matched case-insensitively")
+    revoke.set_defaults(func=revoke_sessions)
 
     link = subparsers.add_parser(
         "link-telegram",

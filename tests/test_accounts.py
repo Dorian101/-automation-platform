@@ -109,6 +109,39 @@ class TestUsers:
 
         assert users.identity_for(user) == Identity(kind=WEB, id="alexey")
 
+    def test_set_active_disables_the_account(self, users):
+        user = users.create("alexey", PASSWORD)
+
+        assert users.set_active(user.id, False) is True
+        assert users.get_by_username("alexey").is_active is False
+        assert users.authenticate("alexey", PASSWORD) is None
+
+    def test_set_active_can_enable_again(self, users):
+        user = users.create("alexey", PASSWORD)
+        users.set_active(user.id, False)
+
+        assert users.set_active(user.id, True) is True
+        assert users.authenticate("alexey", PASSWORD) is not None
+
+    def test_set_active_on_an_unknown_user_changes_nothing(self, users):
+        assert users.set_active(999999, False) is False
+
+    def test_set_password_replaces_the_old_one(self, users):
+        user = users.create("alexey", PASSWORD)
+
+        users.set_password(user.id, "a-brand-new-password")
+
+        assert users.authenticate("alexey", "a-brand-new-password") is not None
+        assert users.authenticate("alexey", PASSWORD) is None
+
+    def test_set_password_rejects_a_short_one(self, users):
+        user = users.create("alexey", PASSWORD)
+
+        with pytest.raises(PasswordError):
+            users.set_password(user.id, "short")
+
+        assert users.authenticate("alexey", PASSWORD) is not None
+
 
 class TestSessions:
     def test_round_trip(self, users, sessions):
@@ -212,6 +245,26 @@ class TestSessions:
             conn.commit()
 
         assert sessions.get_user_id(token) is None
+
+    def test_delete_for_user_removes_only_that_users_sessions(
+        self,
+        users,
+        sessions,
+    ):
+        alice = users.create("alice", PASSWORD)
+        bob = users.create("bob", PASSWORD)
+        alice_token = sessions.create(alice.id, 3600)
+        bob_token = sessions.create(bob.id, 3600)
+
+        assert sessions.delete_for_user(alice.id) == 1
+
+        assert sessions.get_user_id(alice_token) is None
+        assert sessions.get_user_id(bob_token) == bob.id
+
+    def test_delete_for_user_without_sessions_removes_nothing(self, users, sessions):
+        user = users.create("alexey", PASSWORD)
+
+        assert sessions.delete_for_user(user.id) == 0
 
 
 class TestIsolation:

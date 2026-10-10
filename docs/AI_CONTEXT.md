@@ -200,6 +200,16 @@ Transport security:
   the one place they enter the system (`UsersRepository.create`) — which also
   caps what can ever appear in a log line spelling a username
 
+Account administration lives on the command line, where a leaked credential is
+handled without a browser: `python -m app.manage disable-user|enable-user`
+flips `is_active` (and disabling revokes the account's sessions),
+`reset-password` reads a new password with `getpass` and revokes sessions, and
+`revoke-sessions` ends the sessions alone. None of them delete data. There is
+deliberately no rename: an account's data is keyed by `web:<username>`, so a
+rename would have to move rows across notes, reminders and clipboard and every
+future plugin would have to join in — deferred until identity is anchored to a
+stable key.
+
 Bound to `WEB_HOST` and `WEB_PORT`, defaulting to 127.0.0.1:8080.
 
 ## Development rules
