@@ -219,7 +219,7 @@ class ExpensesPlugin(BasePlugin):
             },
             "chart": self._chart(rows, total),
             "table": self._table(rows, total),
-            "forms": self._forms(categories, identity),
+            "forms": self._forms(categories, month),
             "recent": self._recent(readable),
         }
 
@@ -293,7 +293,7 @@ class ExpensesPlugin(BasePlugin):
             ],
         }
 
-    def _forms(self, categories: list[dict], identity: Identity) -> list[dict]:
+    def _forms(self, categories: list[dict], month: str) -> list[dict]:
         """The two forms the page offers, with the categories read live.
 
         The options come from the repository rather than from anything written
@@ -338,7 +338,14 @@ class ExpensesPlugin(BasePlugin):
                         "name": "spent_at",
                         "label": "Дата",
                         "type": "date",
-                        "value": date.today().isoformat(),
+                        # Follows the month on screen, so recording a cost
+                        # against September does not land in August.
+                        "value": self._default_date(month),
+                        # Kept when the form is redrawn. The month sets it;
+                        # a person who changes it afterwards has decided
+                        # something the month cannot know, and a redraw that
+                        # undid that would discard the decision.
+                        "sticky": True,
                     },
                     {"name": "note", "label": "Заметка", "type": "text"},
                 ],
@@ -358,6 +365,22 @@ class ExpensesPlugin(BasePlugin):
                 ],
             },
         ]
+
+    def _default_date(self, month: str) -> str:
+        """The date the form opens on, for the month currently on screen.
+
+        Today while the current month is in view — a person recording today's
+        expense should not have to rewind the form to the first of the month —
+        and the first of the month for any other, so the offered date is always
+        inside the month being looked at. Anything else would file the expense
+        into a month the reader is not looking at.
+        """
+        today = date.today()
+
+        if month == today.strftime("%Y-%m"):
+            return today.isoformat()
+
+        return f"{month}-01"
 
     def _recent(self, readable) -> list[dict]:
         entries = self.repo.recent(readable, limit=10)

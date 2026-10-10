@@ -55,9 +55,17 @@ __STYLES__
   .bartrack { flex: 1; background: var(--panel); border-radius: 4px; height: 1.4rem; }
   .barfill { height: 100%; background: var(--accent); border-radius: 4px; }
   .barvalue {
-    width: 6.5rem;
+    width: 6rem;
     flex: none;
     font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .barshare {
+    width: 3.5rem;
+    flex: none;
+    text-align: right;
+    color: var(--muted);
+    font-size: 0.82rem;
     font-variant-numeric: tabular-nums;
   }
   /* align-items: flex-end, not the flex default of stretch. Stretched, a
@@ -148,6 +156,11 @@ __STYLES__
 
   let view = JSON.parse(document.getElementById('initial-view').textContent);
 
+  // Field values a person set by hand, keyed by field id. Empty until
+  // something is changed, which is why opening the page behaves exactly as
+  // it did before this existed.
+  let stickyValues = {};
+
   // -- drawing ------------------------------------------------------------
   // Everything below builds DOM nodes and assigns textContent. A category
   // name is whatever a person typed and must never be able to become markup.
@@ -220,7 +233,11 @@ __STYLES__
       track.appendChild(fill);
       row.appendChild(track);
 
-      row.appendChild(el('div', 'barvalue', item.value + '  ' + item.share_text));
+      row.appendChild(el('div', 'barvalue', item.value));
+      // Its own element rather than a gap in the previous string: the two
+      // figures answer different questions, and run together as
+      // "320  38%" they read as one number nobody can tell apart.
+      row.appendChild(el('div', 'barshare', item.share_text));
       box.appendChild(row);
     }
     root.appendChild(box);
@@ -292,6 +309,19 @@ __STYLES__
         wrap.appendChild(input);
         row.appendChild(wrap);
         inputs[field.name] = input;
+
+        // A sticky field keeps a value the plugin did not send. The month
+        // sets the date; a person who changes it has decided something the
+        // month cannot know, and the redraw that follows every action must
+        // not undo that.
+        if (field.sticky) {
+          if (stickyValues[id] != null) {
+            input.value = stickyValues[id];
+          }
+          input.addEventListener('change', () => {
+            stickyValues[id] = input.value;
+          });
+        }
       }
 
       const submit = el('button', 'btn', form.submit);
@@ -391,11 +421,17 @@ __STYLES__
   // There is no dropdown: a select carries its own up/down arrows, so the
   // control offered two different ways to change the month. The two arrows
   // are the whole navigation.
+  //
+  // Moving the month hands the date back to it. A date picked by hand belongs
+  // to the month it was picked for, and keeping it after switching would put
+  // the next expense back into the month just left behind.
 
   document.getElementById('prev-month').addEventListener('click', () => {
+    stickyValues = {};
     send('month', { month: view.month.prev }, null);
   });
   document.getElementById('next-month').addEventListener('click', () => {
+    stickyValues = {};
     send('month', { month: view.month.next }, null);
   });
 

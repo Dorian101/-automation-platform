@@ -319,3 +319,53 @@ class TestWidenedRead:
         view = await linked.page_action(web, "month", {"month": "2026-05"})
 
         assert view["totals"]["current"] == "77"
+
+
+class TestDateFollowsTheMonth:
+    """The date field and the month filter agree unless a person says
+    otherwise."""
+
+    def _date_field(self, view, form_id="spend"):
+        for form in view["forms"]:
+            if form["id"] == form_id:
+                for field in form["fields"]:
+                    if field["name"] == "spent_at":
+                        return field
+        raise AssertionError(f"no spent_at field in {form_id}")
+
+    async def test_another_month_offers_its_first_day(self, plugin, web_identity):
+        view = await plugin.page_action(
+            web_identity, "month", {"month": "2026-09"}
+        )
+
+        assert self._date_field(view)["value"] == "2026-09-01"
+
+    async def test_the_current_month_offers_today(
+        self, plugin, web_identity
+    ):
+        today = date.today().strftime("%Y-%m")
+
+        view = await plugin.page_action(web_identity, "month", {"month": today})
+
+        assert self._date_field(view)["value"] == date.today().isoformat()
+
+    async def test_the_date_is_marked_sticky(self, plugin, web_identity):
+        """The month sets it; a hand-picked value has to survive a redraw."""
+        view = await plugin.page_action(
+            web_identity, "month", {"month": "2026-09"}
+        )
+
+        assert self._date_field(view)["sticky"] is True
+
+    async def test_the_amount_is_not_sticky(self, plugin, web_identity):
+        """Nothing to preserve about a figure that is retyped every time."""
+        view = await plugin.page_action(
+            web_identity, "month", {"month": "2026-09"}
+        )
+        amount = next(
+            field
+            for field in view["forms"][0]["fields"]
+            if field["name"] == "amount"
+        )
+
+        assert "sticky" not in amount
