@@ -798,3 +798,59 @@ documented `.env` template.
 The rate-limit settings are new in `.env`, not mandatory: the defaults apply
 when nothing is configured, so an existing deployment upgrades to limited
 forms just by restarting on the new code.
+
+## 2026-10-10
+
+### Decision
+Give the state-changing forms a CSRF token, write the account and linking
+events to the log, and stop logging the body of a web notification.
+
+### Reason
+The first sprint closed the doors that invite the cheap attacks; this one
+closes the one that turns a signed-in session into someone else's action. The
+sign-in, sign-up, sign-out and unlink forms were all submittable from any page
+that could reach the origin, and nothing recorded that a sign-in, a new
+account, a sign-out or a link change had happened — a success and an attack
+looked the same in the log. The web notification placeholder, meanwhile,
+wrote the whole message into journald, which is not a place a reminder's text
+should sit.
+
+### How it is done
+
+- **CSRF (`app/web/csrf.py`).** The two anonymous forms (sign in, sign up) use
+  a double submit: the page issues a random token in an HttpOnly, SameSite=Lax
+  `platform_csrf` cookie and echoes the same value into a hidden field, and a
+  submission is accepted only when the two match. The session-backed forms
+  (sign out, unlink) instead carry an HMAC of the session token, derived from a
+  per-process secret, so no extra state is stored and a value captured from one
+  session does not work in another. The anonymous cookie is deleted once a
+  session exists, since from then on the session-derived token is what the
+  forms use.
+- **Order.** The login and sign-up CSRF check runs before the rate limit and
+  before any scrypt work, so a forged submission is not a real attempt and does
+  not spend the allowance. A rejected anonymous submission re-renders its form
+  with a fresh token and 400; a rejected session-backed one answers 403 in
+  plain text, because reloading takes the browser back to the console where a
+  fresh token is already rendered.
+- **The CSRF cookie is not Secure.** Its value is not a secret — the identical
+  string is in the page's HTML — so it needs only to survive the same request
+  that carries the session cookie. Marking it Secure would break the forms on
+  a deployment the browser already refuses to send the session cookie to,
+  without protecting anything the session cookie's own Secure flag does not.
+- **Audit logging.** Sign-in, account creation, sign out, and Telegram linking
+  and unlinking are logged with `logger.info`, the username with `%r`; the
+  `manage` commands log `create-user`, `link-telegram` and `unlink-telegram`
+  through their own logger. Failures and rejected tokens stay at `warning`.
+- **Web notification text.** `WebChannel` logs the recipient and the message
+  length and withholds the text.
+
+### Result
+8 new tests: the console hands its forms the session-derived token, a logout
+without one is refused and leaves the account standing, a logged-out browser
+cannot drive the link button, and the web notification text never reaches the
+log. Existing tests were updated to fetch the form and echo its token, the way
+a browser does. 390 tests pass.
+
+No new `.env` setting: the CSRF secret is generated per process, so a restart
+invalidates outstanding tokens and a fresh page load issues new ones. Nothing
+about an existing deployment's configuration changes.

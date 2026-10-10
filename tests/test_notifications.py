@@ -1,4 +1,6 @@
 
+import logging
+
 from app.core.identity import WEB, Identity, telegram
 from app.notifications import Notifier, TelegramChannel, WebChannel
 
@@ -34,6 +36,19 @@ class TestWebChannel:
         channel = WebChannel()
 
         await channel.deliver(Identity(kind=WEB, id="default"), "hi")
+
+    async def test_the_text_is_withheld_from_the_log(self, caplog):
+        """The message is the user's own content and stays out of the journal."""
+        channel = WebChannel()
+
+        with caplog.at_level(logging.INFO, logger="app.notifications"):
+            await channel.deliver(
+                Identity(kind=WEB, id="default"),
+                "super-secret-note-text",
+            )
+
+        assert "super-secret-note-text" not in caplog.text
+        assert "text withheld" in caplog.text
 
 
 class TestNotifier:

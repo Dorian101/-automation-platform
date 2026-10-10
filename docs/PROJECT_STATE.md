@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.17.0
+v0.18.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -39,6 +39,9 @@ The platform is operational.
 - rate limiting on the public forms
 - security headers on every web response
 - username restrictions and failed-login logging
+- CSRF tokens on the state-changing forms
+- audit logging of sign-in, sign-up, sign-out and Telegram link changes
+- notification text withheld from the web logs
 - deployment runbook
 
 ## Current architecture
@@ -228,6 +231,13 @@ Access control:
   SESSION_COOKIE_SECURE is set
 * usernames are restricted to [A-Za-z0-9._-], at most 32 characters, and
   failed logins are logged
+* the state-changing forms carry a CSRF token (`app/web/csrf.py`): the two
+  anonymous forms use a double-submit cookie (HttpOnly `platform_csrf`, echoed
+  into a hidden field) and the session-backed forms (sign out, unlink) derive
+  a token from the session; a forged anonymous submission re-renders the form
+  with 400, a forged session-backed one is 403
+* sign-in, account creation, sign out and Telegram link/unlink are written as
+  audit events, and the text of a web notification is never logged
 
 An account can be paired with a Telegram chat, stored in `telegram_links` and
 one-to-one in both directions. The pair never moves data: web rows stay under
@@ -291,7 +301,8 @@ Implemented:
 
 * NotificationChannel interface
 * TelegramChannel — sends through the bot
-* WebChannel — placeholder that logs
+* WebChannel — placeholder that logs the recipient and message length, never
+  the text
 * Notifier — routes by identity kind, and returns whether anything was sent
 * LinkedChatResolver — a web account's notification is delivered to its paired
   Telegram chat; the only place where delivery crosses transports

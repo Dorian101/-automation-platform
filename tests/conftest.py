@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 
 # Config reads the environment exactly once, when its class body runs at import
 # time. Setting these inside a fixture would happen after every test module had
@@ -134,9 +135,18 @@ async def _login(
         {AUTH_HEADER: Config.WEB_ACCESS_TOKEN} if Config.WEB_ACCESS_TOKEN else {}
     )
 
+    # A real browser would already be sitting on the form, holding its token
+    # in a hidden field and in a cookie. Fetching the page is what gives the
+    # test client exactly that state.
+    page = await client.get("/login", headers=headers, allow_redirects=False)
+
     response = await client.post(
         "/login",
-        data={"username": username, "password": password},
+        data={
+            "username": username,
+            "password": password,
+            "csrf": await _hidden_field(page, "csrf"),
+        },
         headers=headers,
         allow_redirects=False,
     )
@@ -144,6 +154,25 @@ async def _login(
     assert response.status == expect_status, await response.text()
 
     return response
+
+
+async def _hidden_field(response, name: str) -> str:
+    """Read a hidden input's value out of a rendered form.
+
+    The test client's cookie jar has already remembered any cookie the page
+    set, so echoing the value back is enough to submit the form honestly.
+    """
+    body = await response.text()
+
+    match = _HIDDEN.search(body)
+
+    assert match, f"the form held no hidden field named {name}:\n{body[:400]}"
+    assert match.group(1) == name, f"{match.group(1)!r} is not {name!r}"
+
+    return match.group(2)
+
+
+_HIDDEN = re.compile(r'<input type="hidden" name="([^"]+)" value="([^"]*)"')
 
 
 @pytest.fixture

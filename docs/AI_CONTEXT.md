@@ -145,7 +145,9 @@ Each plugin exposes:
 `Notifier` routes a message to the channel matching the target's transport.
 
 - TelegramChannel sends through the bot
-- WebChannel is a placeholder that logs, pending a web inbox
+- WebChannel is a placeholder that logs the recipient and the message length
+  but never the text, so a notification's contents do not land in journald,
+  pending a web inbox
 
 Adding a transport means adding a channel, nothing else.
 
@@ -183,6 +185,15 @@ Transport security:
 - `/login` and `/signup` are rate limited by an in-process sliding window
   (`app/web/ratelimit.py`), keyed on `X-Forwarded-For` (login also per
   username; a successful login clears its own key), answered 429 when spent
+- state-changing form posts carry a CSRF token (`app/web/csrf.py`): the two
+  anonymous forms use a double submit — a random value in the HttpOnly
+  `platform_csrf` cookie echoed into a hidden field — and the session-backed
+  forms (sign out, unlink) use an HMAC of the session token. A rejected
+  anonymous submission re-renders the form with 400; a rejected session-backed
+  one is plain-text 403.
+- account and link changes are logged as audit events: sign-in, account
+  creation, sign out, and Telegram linking and unlinking (the `manage`
+  commands log theirs too)
 - failed logins and the rate-limit rejections are logged; the username is
   written with `%r` because it is caller-controlled input
 - usernames are restricted to `[A-Za-z0-9._-]`, max 32 characters, enforced at

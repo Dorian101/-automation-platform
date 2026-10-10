@@ -327,6 +327,7 @@ Expected shape of each:
 | `/api/command` with the header, no cookie | `401` |
 | `/signup` with the header, no cookie | `404` while `SIGNUP_INVITE_CODE` is unset, `200` once it is |
 | `/login` with the header, no cookie | `200` with `Content-Security-Policy`, `X-Frame-Options: DENY` headers |
+| `POST /login` with the header, no cookie and no `csrf` field | `400` — the form's token is missing |
 | wrong `/login` posts beyond the allowance | `429` `Too many attempts. Try again later.` |
 
 A fresh database logs `Applied 5 new migration(s)` on first start. An existing
@@ -346,6 +347,13 @@ are logged as `Failed login attempt for ...`; posting a deliberately wrong
 password more often than `LOGIN_ATTEMPTS_PER_WINDOW` times in
 `RATE_LIMIT_WINDOW_SECONDS` seconds begins returning `429` with
 `Too many attempts.`.
+
+The forms carry a CSRF token, so a post made without one is refused — the
+login and sign-up forms answer `400` with `This form has expired. Reload the
+page and try again.`, and a signed-in sign-out or unlink answers `403`. The
+changes that matter are logged as audit events: `Signed in`, `Signed out`,
+`Account created for`, and `Linked`/`Unlinked` for Telegram, so a successful
+action and an attempted one are distinguishable in `journalctl`.
 
 ## Update
 
@@ -494,21 +502,22 @@ uv run ruff check .
 uv run pytest
 ```
 
-369 tests. Run before pushing anything that touches config, auth or
+390 tests. Run before pushing anything that touches config, auth or
 migrations. The parts worth knowing about:
 
 - `tests/test_config.py` — subprocess test for the `.env` import-order bug;
   it fails if that fix is reverted, because a module-level ordering problem
   is invisible to in-process tests.
-- `tests/test_auth.py` — both layers separately: transport secret and session;
-  then the sign-up gate, a failed attempt leaving no account behind, and that
-  sign-up is off by default when no invite code is configured.
+- `tests/test_auth.py` — the transport secret and the session separately; the
+  CSRF token on the anonymous and session-backed forms, the rate limit and its
+  reset on a successful login, the sign-up gate, and that sign-up is off by
+  default when no invite code is configured.
 - `tests/test_telegram_auth.py` and `tests/test_telegram_link.py` — the Login
   Widget signature, the one-use nonce, and the link/unlink flow including the
   theft a nonce exists to block.
 - `tests/test_delivery.py` and `tests/test_notifications.py` — where a linked
-  account's reminder actually goes, and that an undeliverable one is given up
-  on after three passes.
+  account's reminder actually goes, that an undeliverable one is given up on
+  after three passes, and that a web notification's text is kept out of the log.
 - `tests/test_person.py` and `tests/test_notes_deletion.py` — reads spanning a
   linked pair, and `/del` addressed by position, never by row id.
 - `tests/test_accounts.py` — password storage, session lifetime, and that two

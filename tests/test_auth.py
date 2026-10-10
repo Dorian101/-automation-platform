@@ -4,7 +4,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from app.core.config import Config
 from app.web.auth import AUTH_HEADER, SESSION_COOKIE, signup_allowed
 from app.web.server import WebServer
-from tests.conftest import TEST_PASSWORD, TEST_USERNAME
+from tests.conftest import TEST_PASSWORD, TEST_USERNAME, _hidden_field
 
 
 def _texts(entries):
@@ -35,12 +35,52 @@ async def _signup(
     username: str = "newcomer",
     password: str = TEST_PASSWORD,
 ):
-    """Submit the registration form the way a browser behind the proxy would."""
+    """Submit the registration form the way a browser behind the proxy would.
+
+    A real browser loads the page first, which is where the CSRF token and its
+    cookie come from. A signed-in client never reaches the form — the GET
+    redirects to the console — and the POST is short-circuited the same way,
+    so an absent token is fine in exactly that case.
+    """
+    page = await client.get("/signup", allow_redirects=False)
+    csrf = await _hidden_field(page, "csrf") if page.status == 200 else ""
+
     return await client.post(
         "/signup",
-        data={"invite": invite, "username": username, "password": password},
+        data={
+            "invite": invite,
+            "username": username,
+            "password": password,
+            "csrf": csrf,
+        },
         allow_redirects=False,
     )
+
+
+async def _login_post(
+    client,
+    username: str = TEST_USERNAME,
+    password: str = "not-the-password",
+):
+    """One anonymous login attempt, with the token from a fresh form."""
+    page = await client.get("/login", allow_redirects=False)
+
+    return await client.post(
+        "/login",
+        data={
+            "username": username,
+            "password": password,
+            "csrf": await _hidden_field(page, "csrf"),
+        },
+        allow_redirects=False,
+    )
+
+
+async def _console_csrf(client) -> str:
+    """The token the console bakes into its own forms."""
+    page = await client.get("/", allow_redirects=False)
+
+    return await _hidden_field(page, "csrf")
 
 
 @pytest.fixture
@@ -251,7 +291,11 @@ class TestSessionCookie:
 
 class TestLogout:
     async def test_ends_the_session(self, client):
-        response = await client.post("/logout", allow_redirects=False)
+        response = await client.post(
+            "/logout",
+            data={"csrf": await _console_csrf(client)},
+            allow_redirects=False,
+        )
 
         assert response.status == 303
         assert response.headers["Location"] == "/login"
@@ -262,11 +306,69 @@ class TestLogout:
         assert after.headers["Location"] == "/login"
 
     async def test_survives_a_repeated_logout(self, client):
-        await client.post("/logout", allow_redirects=False)
+        await client.post(
+            "/logout",
+            data={"csrf": await _console_csrf(client)},
+            allow_redirects=False,
+        )
 
+        # The second time there is no session left to end, and ending nothing
+        # changes no state, so no token is required.
         response = await client.post("/logout", allow_redirects=False)
 
         assert response.status == 303
+
+
+class TestCsrf:
+    """Every form carries a token, tied either to the page or to the session."""
+
+    async def test_the_login_form_hands_out_a_token(self, anonymous_client):
+        body = await (await anonymous_client.get("/login")).text()
+
+        assert 'name="csrf"' in body
+
+    async def test_the_signup_form_hands_out_a_token(self, signup_client):
+        body = await (await signup_client.get("/signup")).text()
+
+        assert 'name="csrf"' in body
+
+    async def test_the_console_hands_its_forms_the_token(self, client):
+        body = await (await client.get("/")).text()
+
+        assert 'name="csrf"' in body
+
+    async def test_a_login_without_a_token_changes_nothing(self, anonymous_client):
+        response = await anonymous_client.post(
+            "/login",
+            data={"username": TEST_USERNAME, "password": TEST_PASSWORD},
+            allow_redirects=False,
+        )
+
+        assert response.status == 400
+        assert "This form has expired" in await response.text()
+
+        after = await anonymous_client.get("/", allow_redirects=False)
+
+        assert after.status == 303
+        assert after.headers["Location"] == "/login"
+
+    async def test_a_logout_without_a_token_is_refused(self, client):
+        """A captured session cookie alone must not end the session.
+
+        The submitter has the cookie but not the form the page rendered, which
+        is exactly the gap a cross-site request would come in through.
+        """
+        response = await client.post("/logout", allow_redirects=False)
+
+        assert response.status == 403
+        assert "This form has expired" in await response.text()
+
+    async def test_the_account_still_stands_after_a_refused_logout(self, client):
+        await client.post("/logout", allow_redirects=False)
+
+        after = await client.get("/", allow_redirects=False)
+
+        assert after.status == 200
 
 
 class TestDenial:
@@ -421,6 +523,7 @@ class TestSignup:
             "__ERROR_BLOCK__",
             "__USERNAME__",
             "__SIGNUP_BLOCK__",
+            "__CSRF__",
         )
 
         pages = [
@@ -514,39 +617,33 @@ class TestRateLimiting:
         tight_login,
     ):
         for expected in (401, 401, 429):
-            response = await anonymous_client.post(
-                "/login",
-                data={"username": TEST_USERNAME, "password": "not-the-password"},
-                allow_redirects=False,
-            )
+            response = await _login_post(anonymous_client)
             assert response.status == expected
 
         assert "Try again later" in await response.text()
 
     async def test_a_successful_login_resets_the_count(
         self,
-        anonymous_client,
+        secured_server,
+        create_user,
         tight_login,
+        login,
     ):
-        await anonymous_client.post(
-            "/login",
-            data={"username": TEST_USERNAME, "password": "not-the-password"},
-            allow_redirects=False,
-        )
+        """One window shared by every browser behind the proxy.
 
-        ok = await anonymous_client.post(
-            "/login",
-            data={"username": TEST_USERNAME, "password": TEST_PASSWORD},
-            allow_redirects=False,
-        )
+        Two clients on the same server instance see the same allowance, which
+        is what clearing it on success has to prove.
+        """
+        async with _client(secured_server) as first:
+            spent = await _login_post(first)
+            assert spent.status == 401
+
+            ok = await login(first)
 
         assert ok.status == 303
 
-        retry = await anonymous_client.post(
-            "/login",
-            data={"username": TEST_USERNAME, "password": "not-the-password"},
-            allow_redirects=False,
-        )
+        async with _client(secured_server) as second:
+            retry = await _login_post(second)
 
         assert retry.status == 401
 
@@ -556,25 +653,13 @@ class TestRateLimiting:
         tight_login,
     ):
         for _ in range(3):
-            await anonymous_client.post(
-                "/login",
-                data={"username": TEST_USERNAME, "password": "not-the-password"},
-                allow_redirects=False,
-            )
+            await _login_post(anonymous_client)
 
-        blocked = await anonymous_client.post(
-            "/login",
-            data={"username": TEST_USERNAME, "password": "not-the-password"},
-            allow_redirects=False,
-        )
+        blocked = await _login_post(anonymous_client)
 
         assert blocked.status == 429
 
-        other = await anonymous_client.post(
-            "/login",
-            data={"username": "other-user", "password": "not-the-password"},
-            allow_redirects=False,
-        )
+        other = await _login_post(anonymous_client, username="other-user")
 
         assert other.status == 401
 
@@ -592,7 +677,11 @@ class TestRateLimiting:
 
         # A single address gets one window, session or not: logging out and
         # trying again must still land on the limit.
-        await signup_client.post("/logout", allow_redirects=False)
+        await signup_client.post(
+            "/logout",
+            data={"csrf": await _console_csrf(signup_client)},
+            allow_redirects=False,
+        )
 
         second = await _signup(signup_client, username="two")
 

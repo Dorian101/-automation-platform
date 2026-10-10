@@ -18,7 +18,7 @@ from app.core.config import Config
 from app.db.links_repo import TelegramLinksRepository
 from app.db.users_repo import UsersRepository
 from app.web.server import LINK_NONCE_COOKIE, WebServer
-from tests.conftest import TEST_PASSWORD, TEST_USERNAME
+from tests.conftest import TEST_PASSWORD, TEST_USERNAME, _hidden_field
 
 BOT_TOKEN = "123456:ABC-DEF_token_for_tests"
 BOT_USERNAME = "example_bot"
@@ -122,6 +122,17 @@ async def link_as(client: TestClient, token: str = BOT_TOKEN, **overrides):
         params={**payload(token, **overrides), "nonce": nonce},
         allow_redirects=False,
     )
+
+
+async def csrf_from(client: TestClient) -> str:
+    """The token the console baked into its own forms.
+
+    Sign out and unlink derive from the same session, so one value serves
+    both forms.
+    """
+    page = await client.get("/")
+
+    return await _hidden_field(page, "csrf")
 
 
 class TestTheButton:
@@ -420,12 +431,31 @@ class TestOneAccountOneChat:
 
 
 class TestUnlinking:
+    async def test_without_the_token_the_button_cannot_work(
+        self,
+        signed_in,
+        links,
+        users,
+    ):
+        """A cross-site request holds no token and must change nothing."""
+        user = users.get_by_username(TEST_USERNAME)
+        links.link(user.id, CHAT_ID)
+
+        response = await signed_in.post(
+            "/account/telegram/unlink",
+            allow_redirects=False,
+        )
+
+        assert response.status == 403
+        assert links.get_by_user_id(user.id).telegram_id == CHAT_ID
+
     async def test_the_button_removes_the_link(self, signed_in, links, users):
         user = users.get_by_username(TEST_USERNAME)
         links.link(user.id, CHAT_ID)
 
         response = await signed_in.post(
             "/account/telegram/unlink",
+            data={"csrf": await csrf_from(signed_in)},
             allow_redirects=False,
         )
 
@@ -436,7 +466,11 @@ class TestUnlinking:
         user = users.get_by_username(TEST_USERNAME)
         links.link(user.id, CHAT_ID)
 
-        await signed_in.post("/account/telegram/unlink", allow_redirects=False)
+        await signed_in.post(
+            "/account/telegram/unlink",
+            data={"csrf": await csrf_from(signed_in)},
+            allow_redirects=False,
+        )
         body = await (await signed_in.get("/")).text()
 
         assert "data-telegram-login" in body
@@ -444,6 +478,7 @@ class TestUnlinking:
     async def test_unlinking_without_a_link_is_harmless(self, signed_in, links):
         response = await signed_in.post(
             "/account/telegram/unlink",
+            data={"csrf": await csrf_from(signed_in)},
             allow_redirects=False,
         )
 
@@ -460,7 +495,11 @@ class TestUnlinking:
         other = UsersRepository(database_with_schema).create("bob", TEST_PASSWORD)
         links.link(other.id, CHAT_ID)
 
-        await signed_in.post("/account/telegram/unlink", allow_redirects=False)
+        await signed_in.post(
+            "/account/telegram/unlink",
+            data={"csrf": await csrf_from(signed_in)},
+            allow_redirects=False,
+        )
 
         assert links.get_by_user_id(other.id).telegram_id == CHAT_ID
 

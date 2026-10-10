@@ -26,6 +26,15 @@ from .auth import (
     signup_enabled,
     verify_access,
 )
+from .csrf import (
+    CSRF_COOKIE,
+    CSRF_FIELD,
+    CSRF_TTL_SECONDS,
+    FORGED_FORM_MESSAGE,
+    CsrfSigner,
+    has_valid_cookie,
+    new_token,
+)
 from .ratelimit import RateLimiter
 from .telegram_auth import TelegramAuthError, verify_login
 
@@ -105,6 +114,7 @@ class WebServer:
         self._sessions = SessionsRepository(database)
         self._links = TelegramLinksRepository(database)
         self._rate = RateLimiter()
+        self._csrf = CsrfSigner()
         self._runner: web.AppRunner | None = None
 
     async def _index(self, request: web.Request) -> web.Response:
@@ -115,10 +125,14 @@ class WebServer:
         if telegram_linking_enabled() and self._links.get_by_user_id(user.id) is None:
             nonce = _new_nonce()
 
+        session_token = request.cookies.get(SESSION_COOKIE, "")
+        csrf = self._csrf.session_token(session_token) if session_token else ""
+
         body = _render_index(
             identity.id if identity else "",
             self._links.get_by_user_id(user.id) if user else None,
             nonce,
+            csrf=csrf,
         )
 
         response = web.Response(text=body, content_type="text/html")
@@ -140,12 +154,16 @@ class WebServer:
 
         payload = dict(request.query)
 
+        csrf = self._csrf.session_token(request.cookies.get(SESSION_COOKIE, ""))
+
         response: web.Response
 
         if not _nonce_matches(payload.pop("nonce", ""), request):
             # The nonce is spent either way, so a replayed URL finds nothing to
             # match even while its signature is still inside the age limit.
-            response = self._link_result(user, "Telegram sign-in expired. Try again.")
+            response = self._link_result(
+                user, "Telegram sign-in expired. Try again.", csrf=csrf
+            )
             return _clear_nonce(response)
 
         try:
@@ -155,6 +173,7 @@ class WebServer:
             response = self._link_result(
                 user,
                 "Could not verify that Telegram sign-in.",
+                csrf=csrf,
             )
             return _clear_nonce(response)
 
@@ -191,23 +210,46 @@ class WebServer:
             return self._link_result(
                 user,
                 f"That Telegram account is already linked to {name}.",
+                csrf=csrf,
             )
+
+        logger.info(
+            "Linked web account %s to Telegram chat %s",
+            user.username,
+            telegram_user.id,
+        )
 
         # Consumed on success too, so the button cannot be pressed twice with
         # two different chats by keeping the page open.
         return _clear_nonce(_redirect("/"))
 
     async def _telegram_unlink(self, request: web.Request) -> web.Response:
+        form = await request.post()
+
         user = self._current_user(request)
 
         if user is None:
             return _redirect("/login")
 
-        self._links.unlink(user.id)
+        if not self._csrf.accepts(
+            request.cookies.get(SESSION_COOKIE, ""),
+            _form_value(form, CSRF_FIELD),
+        ):
+            return _form_forged()
+
+        existing = self._links.get_by_user_id(user.id)
+
+        if existing is not None:
+            self._links.unlink(user.id)
+            logger.info(
+                "Unlinked web account %s from Telegram chat %s",
+                user.username,
+                existing.telegram_id,
+            )
 
         return _redirect("/")
 
-    def _link_result(self, user, message: str) -> web.Response:
+    def _link_result(self, user, message: str, csrf: str = "") -> web.Response:
         """Report a failed link on the page it was started from.
 
         A redirect would put the message in the URL, and nothing on the index
@@ -218,6 +260,7 @@ class WebServer:
             self._links.get_by_user_id(user.id),
             "",
             message,
+            csrf=csrf,
         )
 
         return web.Response(text=body, content_type="text/html", status=400)
@@ -324,6 +367,22 @@ class WebServer:
         username = _form_value(form, "username")
         password = _form_value(form, "password")
 
+        if not has_valid_cookie(
+            request.cookies.get(CSRF_COOKIE, ""),
+            _form_value(form, CSRF_FIELD),
+        ):
+            # Rejected before any scrypt work: a forged submission is not a
+            # real login attempt, and should not cost one.
+            logger.warning(
+                "Rejected a login without a valid CSRF token from %s",
+                _client_ip(request),
+            )
+            return self._render_login(
+                error=FORGED_FORM_MESSAGE,
+                username=username,
+                status=400,
+            )
+
         if not self._rate.allow(
             _rate_key(request, "login", username),
             Config.LOGIN_ATTEMPTS_PER_WINDOW,
@@ -364,13 +423,35 @@ class WebServer:
 
         response = _redirect("/")
         set_session_cookie(response, token)
+        # The anonymous token has done its job; the session-backed forms carry
+        # their own token derived from the session.
+        response.del_cookie(CSRF_COOKIE, path="/")
+
+        logger.info("Signed in %r from %s", user.username, _client_ip(request))
+
         return response
 
     async def _logout(self, request: web.Request) -> web.Response:
+        form = await request.post()
+
         token = request.cookies.get(SESSION_COOKIE, "")
 
-        if token:
-            self._sessions.delete(token)
+        if not token:
+            # No session to end and nothing that was asked of the cookie; the
+            # repeated logout just bounces. There is no state change here, so
+            # no CSRF check stands between a guest and a redirect.
+            response = _redirect("/login")
+            clear_session_cookie(response)
+            return response
+
+        if not self._csrf.accepts(token, _form_value(form, CSRF_FIELD)):
+            return _form_forged()
+
+        identity = self._identity(request)
+
+        self._sessions.delete(token)
+
+        logger.info("Signed out %r", identity.id if identity else "unknown session")
 
         response = _redirect("/login")
         clear_session_cookie(response)
@@ -403,6 +484,20 @@ class WebServer:
         invite = _form_value(form, "invite")
         username = _form_value(form, "username")
         password = _form_value(form, "password")
+
+        if not has_valid_cookie(
+            request.cookies.get(CSRF_COOKIE, ""),
+            _form_value(form, CSRF_FIELD),
+        ):
+            logger.warning(
+                "Rejected a sign-up without a valid CSRF token from %s",
+                _client_ip(request),
+            )
+            return self._render_signup(
+                error=FORGED_FORM_MESSAGE,
+                username=username,
+                status=400,
+            )
 
         if not self._rate.allow(
             _rate_key(request, "signup"),
@@ -450,6 +545,12 @@ class WebServer:
 
         response = _redirect("/")
         set_session_cookie(response, token)
+        response.del_cookie(CSRF_COOKIE, path="/")
+
+        logger.info(
+            "Account created for %r from %s", user.username, _client_ip(request)
+        )
+
         return response
 
     def _render_login(
@@ -458,15 +559,20 @@ class WebServer:
         username: str = "",
         status: int = 200,
     ) -> web.Response:
-        return _render_card(
+        token = new_token()
+
+        response = _render_card(
             "login.html",
             {
                 "__ERROR_BLOCK__": _error_block(error),
                 "__USERNAME__": html.escape(username),
                 "__SIGNUP_BLOCK__": _signup_link(),
+                "__CSRF__": token,
             },
             status=status,
         )
+
+        return _set_csrf_cookie(response, token)
 
     def _render_signup(
         self,
@@ -474,14 +580,19 @@ class WebServer:
         username: str = "",
         status: int = 200,
     ) -> web.Response:
-        return _render_card(
+        token = new_token()
+
+        response = _render_card(
             "signup.html",
             {
                 "__ERROR_BLOCK__": _error_block(error),
                 "__USERNAME__": html.escape(username),
+                "__CSRF__": token,
             },
             status=status,
         )
+
+        return _set_csrf_cookie(response, token)
 
     def _identity(self, request: web.Request) -> Identity | None:
         return resolve_identity(request, self._users, self._sessions)
@@ -604,6 +715,7 @@ def _render_index(
     link,
     nonce: str,
     error: str = "",
+    csrf: str = "",
 ) -> str:
     """Build the console, with the Telegram panel filled in for this account.
 
@@ -615,7 +727,8 @@ def _render_index(
     source = (TEMPLATES_DIR / "index.html").read_text(encoding="utf-8")
 
     source = source.replace("__USER__", html.escape(username))
-    source = source.replace("__TELEGRAM_BLOCK__", _telegram_panel(link, nonce))
+    source = source.replace("__CSRF__", html.escape(csrf))
+    source = source.replace("__TELEGRAM_BLOCK__", _telegram_panel(link, nonce, csrf))
     source = source.replace(
         "__ERROR_BLOCK__",
         f'<p class="error">{html.escape(error)}</p>' if error else "",
@@ -624,7 +737,7 @@ def _render_index(
     return source
 
 
-def _telegram_panel(link, nonce: str) -> str:
+def _telegram_panel(link, nonce: str, csrf: str) -> str:
     """Offer exactly one of the two things the account can do about Telegram."""
     if not telegram_linking_enabled():
         return (
@@ -638,6 +751,7 @@ def _telegram_panel(link, nonce: str) -> str:
             f"<b>{html.escape(str(link.telegram_id))}</b>. Notes and clipboard "
             "are shared both ways.</p>"
             '<form method="post" action="/account/telegram/unlink">'
+            f'<input type="hidden" name="csrf" value="{html.escape(csrf)}">'
             '<button type="submit" class="secondary">Unlink Telegram</button>'
             "</form>"
         )
@@ -657,6 +771,46 @@ def _telegram_panel(link, nonce: str) -> str:
         f'data-size="large" '
         f'data-auth-url="/account/telegram/link?nonce={nonce}">'
         "</script>"
+    )
+
+
+def _set_csrf_cookie(response: web.Response, token: str) -> web.Response:
+    """Tie the double-submit token to the browser that was handed the form.
+
+    HttpOnly and SameSite=Lax, like the session cookie itself: the value is
+    not for script to read, the page supplies it to echo back, and same-site
+    is enough because the whole point is that a *cross*-site form does not get
+    to carry cookies.
+
+    Unlike the session cookie it is not marked Secure. The value is not a
+    secret — the identical string sits in the page's HTML — so it needs only
+    to survive the same request that carries the session, and letting it ride
+    over plain http keeps the forms working on a deployment whose session
+    cookie a browser would already refuse to send there.
+    """
+    response.set_cookie(
+        CSRF_COOKIE,
+        token,
+        max_age=CSRF_TTL_SECONDS,
+        path="/",
+        httponly=True,
+        samesite="lax",
+    )
+
+    return response
+
+
+def _form_forged() -> web.Response:
+    """Answer a session-backed POST that did not carry a valid token.
+
+    Plain text rather than a re-render: unlike the anonymous forms there is no
+    form on this page to refresh, and reloading takes the browser back to the
+    console where a fresh token waits.
+    """
+    return web.Response(
+        text=FORGED_FORM_MESSAGE,
+        status=403,
+        content_type="text/plain",
     )
 
 

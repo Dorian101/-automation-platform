@@ -115,6 +115,7 @@
     <div class="account">
       <span class="who">Signed in as <b>__USER__</b></span>
       <form method="post" action="/logout">
+        <input type="hidden" name="csrf" value="__CSRF__">
         <button type="submit" class="secondary">Sign out</button>
       </form>
     </div>

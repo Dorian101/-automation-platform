@@ -38,6 +38,11 @@ from app.db.links_repo import TelegramLinksRepository
 from app.db.migrations import MigrationRunner
 from app.db.users_repo import UsersRepository
 
+# Audit trail for the significant account actions the CLI performs, using the
+# same basicConfig that main() installs, so the lines show up in the journal
+# next to the web interface's.
+logger = logging.getLogger("manage")
+
 
 def create_user(args: argparse.Namespace) -> int:
     users = _ready_database()
@@ -57,6 +62,7 @@ def create_user(args: argparse.Namespace) -> int:
         return 1
 
     print(f"Created user '{user.username}'")
+    logger.info("Created web account %r", user.username)
     return 0
 
 
@@ -131,6 +137,7 @@ def _relink(
         return 1
 
     print(f"Linked {name} to Telegram chat {chat_id}")
+    logger.info("Linked web account %s to Telegram chat %s", name, chat_id)
     return 0
 
 
@@ -148,6 +155,7 @@ def unlink_telegram(args: argparse.Namespace) -> int:
         return 0
 
     print(f"Unlinked {account.username}")
+    logger.info("Unlinked web account %s", account.username)
     return 0
 
 

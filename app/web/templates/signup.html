@@ -14,6 +14,7 @@ __STYLES__
   __ERROR_BLOCK__
 
   <form method="post" action="/signup">
+    <input type="hidden" name="csrf" value="__CSRF__">
     <label>
       Invite code
       <input type="text" name="invite" autocomplete="off" autofocus required>

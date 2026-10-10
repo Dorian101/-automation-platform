@@ -30,6 +30,9 @@ class WebChannel:
     Web users have no inbox yet, so delivery is logged instead of sent. The
     signature matches :class:`NotificationChannel`, so giving the web interface
     a real inbox is a matter of replacing this class.
+
+    The message text is deliberately left out of the log: it is the user's own
+    content — a reminder, a note — and it has no business in the journal.
     """
 
     kind = WEB
@@ -38,7 +41,11 @@ class WebChannel:
         self.logger = logging.getLogger(__name__)
 
     async def deliver(self, target: Identity, text: str) -> None:
-        self.logger.info("Dropping web notification for %s: %s", target, text)
+        self.logger.info(
+            "Dropping web notification for %s (%d chars, text withheld)",
+            target,
+            len(text),
+        )
 
 
 class Notifier:
