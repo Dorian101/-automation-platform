@@ -103,6 +103,20 @@ class TestPageRoute:
 
         assert "/api/pages" in body
 
+    async def test_the_page_embeds_its_path_not_the_plugin_name(
+        self, client
+    ):
+        """The action endpoint resolves the owning plugin by path.
+
+        Embedding the plugin name here instead made every button on the page
+        answer "Unknown page", which is exactly what it did: the page looked
+        fine and nothing on it worked.
+        """
+        body = await (await client.get("/expenses")).text()
+
+        assert "'/expenses'" in body
+        assert "'expenses'" not in body
+
 
 class TestPageAction:
     async def _act(self, client, action, payload):

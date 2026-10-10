@@ -127,7 +127,7 @@ __STYLES__
 <script type="application/json" id="initial-view">__INITIAL_VIEW__</script>
 <script>
 (function () {
-  const PLUGIN_NAME = '__PLUGIN__';
+  const PAGE_PATH = '__PAGE_PATH__';
   const root = document.getElementById('root');
   const message = document.getElementById('message');
   const monthSelect = document.getElementById('month');
@@ -264,7 +264,17 @@ __STYLES__
         if (field.value != null) input.value = field.value;
 
         if (field.type === 'select') {
-          for (const opt of field.options || []) {
+          const options = field.options || [];
+          if (!options.length) {
+            // An empty dropdown is a dead end that looks live. Saying why is
+            // the difference between "nothing works" and "add a category
+            // first", so the field is disabled rather than silently inert.
+            const empty = document.createElement('option');
+            empty.textContent = field.empty || 'Нет вариантов';
+            input.appendChild(empty);
+            input.disabled = true;
+          }
+          for (const opt of options) {
             const option = document.createElement('option');
             option.value = opt.value;
             option.textContent = opt.label;
@@ -282,6 +292,12 @@ __STYLES__
       }
 
       const submit = el('button', 'btn', form.submit);
+      // Disabled while a required choice is missing, and for the same reason:
+      // a button that accepts a submission it cannot satisfy is worse than
+      // one that says it is not ready.
+      if (form.fields.some((f) => f.required && f.type === 'select' && !(f.options || []).length)) {
+        submit.disabled = true;
+      }
       row.appendChild(submit);
       root.appendChild(row);
 
@@ -338,7 +354,7 @@ __STYLES__
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          page: PLUGIN_NAME,
+          page: PAGE_PATH,
           action: action,
           payload: payload,
         }),

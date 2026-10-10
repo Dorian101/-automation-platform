@@ -173,7 +173,7 @@ class WebServer:
                 status=500,
             )
 
-        return _render_plugin_page(plugin.name, view)
+        return _render_plugin_page(plugin.page, view)
 
     async def _plugin_page_action(self, request: web.Request) -> web.Response:
         """Something was done on a plugin page; answer with it redrawn.
@@ -1041,7 +1041,7 @@ def _signup_link() -> str:
     return '<p class="alt">No account yet? <a href="/signup">Sign up</a></p>'
 
 
-def _render_plugin_page(plugin_name: str, view: dict) -> web.Response:
+def _render_plugin_page(page_path: str, view: dict) -> web.Response:
     """Build a plugin's page: a shell plus its description, nothing else.
 
     The description is embedded as JSON and the browser paints it, so the
@@ -1058,9 +1058,12 @@ def _render_plugin_page(plugin_name: str, view: dict) -> web.Response:
 
     source = source.replace(
         "__TITLE__",
-        html.escape(str(view.get("title", plugin_name))),
+        html.escape(str(view.get("title", page_path))),
     )
-    source = source.replace("__PLUGIN__", html.escape(plugin_name))
+    # The path, not the plugin name: it is what the action endpoint looks the
+    # owning plugin up by, and sending the name there is what made every
+    # button answer "Unknown page".
+    source = source.replace("__PAGE_PATH__", html.escape(page_path))
     source = source.replace(
         "__STYLES__",
         (TEMPLATES_DIR / "_page_styles.html").read_text(encoding="utf-8"),

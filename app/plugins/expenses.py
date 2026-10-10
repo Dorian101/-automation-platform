@@ -292,6 +292,15 @@ class ExpensesPlugin(BasePlugin):
                         "label": "Категория",
                         "type": "select",
                         "options": options,
+                        # Said here rather than left to the page: the list is
+                        # empty because this account has created no category
+                        # yet, and that is a fact about the data, not about the
+                        # interface.
+                        "empty": (
+                            "Сначала добавьте категорию"
+                            if not options
+                            else ""
+                        ),
                         "required": True,
                     },
                     {
