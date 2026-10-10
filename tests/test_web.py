@@ -88,6 +88,51 @@ class TestExecuteEndpoint:
         assert response.status == 400
         assert "error" in (await response.json())["error"] or True
 
+    async def test_carries_structured_data_when_the_plugin_sends_it(self, client):
+        await client.post("/api/command", json={"command": "/add", "args": "hello"})
+
+        response = await client.post(
+            "/api/command",
+            json={"command": "/notes", "args": ""},
+        )
+
+        payload = await response.json()
+
+        assert payload["result"] == "1. hello"
+        assert payload["data"]["kind"] == "rows"
+        assert payload["data"]["rows"] == [{"position": 1, "text": "hello"}]
+
+    async def test_omits_data_when_the_plugin_sends_none(self, client):
+        """A plugin with nothing structured to say keeps the old response shape.
+
+        `data` is absent rather than null so a consumer written before the
+        field existed keeps parsing the body without a single change.
+        """
+        response = await client.post(
+            "/api/command",
+            json={"command": "/add", "args": "hello"},
+        )
+
+        payload = await response.json()
+
+        assert payload["result"] == "Saved"
+        assert "data" not in payload
+
+    async def test_structured_data_never_carries_a_row_id(self, client):
+        """The note id stays out of the payload as well as out of the text.
+
+        It is a global sequence, so anything the console draws from it is
+        something another account's row count could be inferred from.
+        """
+        await client.post("/api/command", json={"command": "/add", "args": "hello"})
+
+        response = await client.post("/api/command", json={"command": "/notes"})
+
+        payload = await response.json()
+
+        for row in payload["data"]["rows"]:
+            assert "id" not in row
+
     async def test_unknown_command_is_400(self, client):
         response = await client.post(
             "/api/command",

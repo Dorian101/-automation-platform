@@ -68,6 +68,30 @@
     font-size: 0.9rem;
   }
   #output.error { color: var(--error); }
+  #rendered:empty { display: none; }
+  #rendered { margin-top: 0.9rem; }
+  #rendered table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  #rendered th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    padding: 0.4rem 0.6rem 0.4rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  #rendered td {
+    padding: 0.45rem 0.6rem 0.45rem 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  #rendered tbody tr:last-child td { border-bottom: none; }
+  #rendered tbody tr:hover { background: var(--bg); }
   .plugin { margin-bottom: 0.9rem; }
   .plugin:last-child { margin-bottom: 0; }
   .plugin-name { font-weight: 600; }
@@ -145,6 +169,7 @@
   <div class="panel">
     <h2>Output</h2>
     <div id="output">Ready.</div>
+    <div id="rendered"></div>
   </div>
 
   <div class="panel">
@@ -157,7 +182,69 @@
 const form = document.getElementById('form');
 const input = document.getElementById('input');
 const output = document.getElementById('output');
+const rendered = document.getElementById('rendered');
 const send = document.getElementById('send');
+
+// Draws the structured payload when the plugin sent one, and nothing when it
+// did not. A plugin that returns no data leaves the box with just its text,
+// exactly as before this existed — nothing here is required for a result to
+// be readable.
+function render(payload) {
+  rendered.textContent = '';
+
+  if (!payload) return;
+
+  if (payload.kind === 'rows') {
+    renderRows(payload);
+    return;
+  }
+
+  // An unknown kind is not an error. The core does not know the vocabulary,
+  // so a plugin is free to send something this page has not grown a painter
+  // for yet; the text above is still the answer, and this stays silent rather
+  // than showing an empty frame where the reader expects content.
+}
+
+function renderRows(payload) {
+  const columns = Array.isArray(payload.columns) ? payload.columns : [];
+  const rows = Array.isArray(payload.rows) ? payload.rows : [];
+
+  if (!columns.length || !rows.length) return;
+
+  const table = document.createElement('table');
+
+  // Every value goes in through textContent, never innerHTML: a note is
+  // whatever someone typed, and it must not be able to become markup.
+  const head = document.createElement('thead');
+  const headRow = document.createElement('tr');
+
+  for (const column of columns) {
+    const cell = document.createElement('th');
+    cell.textContent = column.label != null ? column.label : column.key;
+    headRow.appendChild(cell);
+  }
+
+  head.appendChild(headRow);
+  table.appendChild(head);
+
+  const body = document.createElement('tbody');
+
+  for (const row of rows) {
+    const tableRow = document.createElement('tr');
+
+    for (const column of columns) {
+      const cell = document.createElement('td');
+      const value = row[column.key];
+      cell.textContent = value == null ? '' : String(value);
+      tableRow.appendChild(cell);
+    }
+
+    body.appendChild(tableRow);
+  }
+
+  table.appendChild(body);
+  rendered.appendChild(table);
+}
 
 function parseInput(raw) {
   const trimmed = raw.trim();
@@ -174,6 +261,7 @@ form.addEventListener('submit', async (event) => {
   send.disabled = true;
   output.classList.remove('error');
   output.textContent = 'Running…';
+  rendered.textContent = '';
 
   try {
     const response = await fetch('/api/command', {
@@ -188,6 +276,7 @@ form.addEventListener('submit', async (event) => {
       output.textContent = data.error || 'Request failed';
     } else {
       output.textContent = data.result;
+      render(data.data);
       input.value = '';
     }
   } catch (err) {

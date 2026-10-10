@@ -341,7 +341,15 @@ class WebServer:
                 status=500,
             )
 
-        return web.json_response({"result": result.text})
+        # data is included only when the plugin produced it, so a response
+        # from a plugin that has nothing structured to say keeps the exact
+        # shape it had before the field existed.
+        body = {"result": result.text}
+
+        if result.data is not None:
+            body["data"] = result.data
+
+        return web.json_response(body)
 
     async def _health(self, request: web.Request) -> web.Response:
         try:
