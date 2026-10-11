@@ -31,6 +31,15 @@ def web_server(pages_manager, database_with_schema):
 
 
 @pytest.fixture
+async def client_for_nav(web_server, create_user, login):
+    """A signed-in browser, for the menu an account holder is shown."""
+    test_server = TestServer(web_server.build_app())
+    async with TestClient(test_server) as client:
+        await login(client)
+        yield client
+
+
+@pytest.fixture
 async def visitor(web_server):
     """A browser that has never signed in — what a resume link arrives as."""
     test_server = TestServer(web_server.build_app())
@@ -330,3 +339,50 @@ class TestProjectPage:
         body = await (await visitor.get("/project")).text()
 
         assert "&gt;350" not in body
+
+
+class TestGuestMenu:
+    """A guest is offered only what they can reach.
+
+    The one that matters: `/expenses` answers a visitor with a login form, so
+    a menu pointing there would walk the reader into a wall — on the very
+    pages meant to be open.
+    """
+
+    async def test_it_points_the_plugin_pages_at_the_demonstration(
+        self, visitor
+    ):
+        body = await (await visitor.get("/demo/expenses")).text()
+
+        assert 'href="/demo/expenses"' in body
+        assert 'href="/demo/applications"' in body
+
+    async def test_it_does_not_link_to_the_login_wall(self, visitor):
+        body = await (await visitor.get("/demo")).text()
+
+        assert 'href="/"' not in body
+
+    async def test_it_still_offers_the_pages_that_need_no_account(
+        self, visitor
+    ):
+        body = await (await visitor.get("/demo")).text()
+
+        assert 'href="/about"' in body
+        assert 'href="/project"' in body
+        assert 'href="/demo"' in body
+
+    async def test_the_menu_is_there_without_scripting(self, visitor):
+        """A <details> opens itself; a fetched menu does not."""
+        body = await (await visitor.get("/demo")).text()
+
+        assert "<details class=\"menu\"" in body
+        assert "api/pages" not in body
+
+
+class TestSignedInMenu:
+    async def test_it_includes_the_console_and_the_pages(self, client_for_nav):
+        body = await (await client_for_nav.get("/")).text()
+
+        assert 'href="/"' in body
+        assert 'href="/expenses"' in body
+        assert 'href="/demo"' in body

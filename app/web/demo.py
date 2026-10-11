@@ -38,7 +38,7 @@ from aiohttp import web
 from app.core.identity import Identity, guest
 from app.core.results import CommandError
 
-from .pages import render_demo_landing, render_plugin_page
+from .pages import nav, render_demo_landing, render_plugin_page
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +130,7 @@ class DemoService:
             ]
 
         return web.Response(
-            text=render_demo_landing(links),
+            text=render_demo_landing(links, self._nav()),
             content_type="text/html",
         )
 
@@ -151,7 +151,7 @@ class DemoService:
 
         view = await self._view(plugin, identity)
 
-        body = render_plugin_page(page_path, view, demo=True)
+        body = render_plugin_page(page_path, view, self._nav(), demo=True)
 
         response = web.Response(text=body, content_type="text/html")
         set_guest_cookie(response, token)
@@ -247,6 +247,15 @@ class DemoService:
             return None
 
         return body
+
+    def _nav(self) -> str:
+        """The guest's navigation, always the guest's.
+
+        Takes no request and resolves nothing: what a guest may be offered is
+        a fixed answer, decided by the prefix and not by whoever happens to
+        be holding the cookie.
+        """
+        return nav("", self._manager.pages(), guest=True)
 
     # -- routes -------------------------------------------------------------
 

@@ -23,10 +23,65 @@ TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 SESSION_ACTION_URL = "/api/page/action"
 DEMO_ACTION_URL = "/demo/api/action"
 
+DEMO_PREFIX = "/demo"
+
+# The links that exist on every page, in the order they are read: what can be
+# used first, what can be read afterwards.
+STATIC_LINKS = (("/about", "Обо мне"), ("/project", "Проект и метод"))
+
+
+def nav(current: str, pages: list[dict], guest: bool) -> str:
+    """The one navigation, built from what the plugins actually declare.
+
+    Five hand-written copies of this block is how the menu on the spending
+    page lost its link to the applications page while the one on `/about`
+    kept it: nothing but a copy to forget.
+
+    A guest is offered only what they can reach. Their menu points the plugin
+    pages at the demonstration's copies, because `/expenses` answers a visitor
+    with a login form — the one place on the site that must not send a
+    reader into a wall.
+
+    Rendered into the page rather than fetched by script, so the links are
+    there with JavaScript disabled and there is no state to keep in step.
+    """
+    items = []
+
+    if guest:
+        items.append((DEMO_PREFIX, "Демонстрация"))
+    else:
+        items.append(("/", "Платформа"))
+
+    for page in pages:
+        target = page["page"]
+        items.append(
+            (f"{DEMO_PREFIX}{target}" if guest else target, page["title"] or target)
+        )
+
+    if not guest:
+        items.append((DEMO_PREFIX, "Демонстрация"))
+
+    items.extend(STATIC_LINKS)
+
+    links = []
+    for href, title in items:
+        # `aria-current` is the whole of "you are here": it is what a reader
+        # looks at and what a screen reader announces, and it costs nothing.
+        mark = ' aria-current="page"' if href == current else ""
+        links.append(f'<a href="{html.escape(href)}"{mark}>{html.escape(title)}</a>')
+
+    return (
+        '<details class="menu">'
+        '<summary>Меню</summary>'
+        f'<nav class="menuitems">{"".join(links)}</nav>'
+        "</details>"
+    )
+
 
 def render_plugin_page(
     page_path: str,
     view: dict,
+    nav_html: str,
     demo: bool = False,
 ) -> str:
     """Build the whole page for one plugin description.
@@ -45,6 +100,7 @@ def render_plugin_page(
     # owning plugin up by, and sending the name there is what made every
     # button answer "Unknown page".
     source = source.replace("__PAGE_PATH__", html.escape(page_path))
+    source = source.replace("__NAV__", nav_html)
     source = source.replace(
         "__ACTION_URL__",
         DEMO_ACTION_URL if demo else SESSION_ACTION_URL,
@@ -62,13 +118,15 @@ def render_plugin_page(
     return source
 
 
-def render_demo_landing(links: list[dict]) -> str:
+def render_demo_landing(links: list[dict], nav_html: str) -> str:
     """The front door to the demonstration.
 
     Lists the pages that exist rather than naming any, so a plugin added later
     appears here without this being edited.
     """
     source = (TEMPLATES_DIR / "_demo.html").read_text(encoding="utf-8")
+
+    source = source.replace("__NAV__", nav_html)
 
     source = source.replace(
         "__STYLES__",

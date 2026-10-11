@@ -227,7 +227,6 @@ linked. A delivery that raises is retried indefinitely — that is an outage.
 - GET / — HTML console
 - GET /api/commands — plugin and command metadata
 - POST /api/command — execute a command
-- GET /api/pages — plugins that own a page, for navigation
 - POST /api/page/action — a plugin page reporting what was done; the target
   page is named in the body because the endpoint is shared, and the answer is
   the page description again
@@ -271,6 +270,26 @@ deliberately no rename: an account's data is keyed by `web:<username>`, so a
 rename would have to move rows across notes, reminders and clipboard and every
 future plugin would have to join in — deferred until identity is anchored to a
 stable key.
+
+## Navigation
+
+One navigation, rendered into every page by `pages.nav()`, built from what the
+plugins declare. Five hand-written copies of the menu block is how the one on
+the spending page lost its link to the applications page while the one on
+`/about` kept it: nothing but a copy to forget.
+
+Rendered server-side rather than fetched, so the links are there with
+scripting disabled. `GET /api/pages` existed to feed the fetched version and
+was removed with it.
+
+A `<details>` that opens itself. No script, no state, and a menu that costs
+the same space whether there are four sections or twenty.
+
+A guest is offered a different menu: the plugin pages point at the
+demonstration's copies, because `/expenses` answers a visitor with a login
+form. The demonstration is the only part of the site reachable without
+signing in, so walking a reader from it into a wall is the last thing its menu
+should do.
 
 ## The demonstration
 

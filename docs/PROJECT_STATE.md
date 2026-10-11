@@ -258,7 +258,6 @@ Implemented:
 * GET /about, GET /project — static public documents, no session needed
 * GET /api/commands — plugin and command metadata
 * POST /api/command — command execution
-* GET /api/pages — plugins that own a page, for navigation
 * POST /api/page/action — a plugin page reporting what was done, answered
   with the page redrawn
 * a route per plugin page (e.g. /expenses, /applications), built from what

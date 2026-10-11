@@ -82,26 +82,25 @@ class TestPageRoute:
 
         assert response.status == 404
 
-    async def test_pages_endpoint_lists_the_owned_pages(self, client):
-        payload = await (await client.get("/api/pages")).json()
+    async def test_every_page_is_in_the_menu(self, client):
+        """Otherwise a plugin exists a visitor cannot find."""
+        for path in ("/", "/expenses", "/applications", "/about", "/project"):
+            body = await (await client.get(path)).text()
 
-        pages = {page["page"]: page["name"] for page in payload["pages"]}
+            assert 'href="/expenses"' in body, path
+            assert 'href="/applications"' in body, path
 
-        assert pages == {"/expenses": "expenses", "/applications": "applications"}
-
-    async def test_a_page_is_named_for_a_reader_not_by_path(self, client):
-        """The title is what a person sees, so it is not the plugin's name."""
-        payload = await (await client.get("/api/pages")).json()
-
-        assert payload["pages"][0]["title"] == "Расходы"
-
-    async def test_the_console_links_to_every_page(self, client):
-        """Otherwise a page exists and nothing points at it."""
-        await client.get("/api/pages")
-
+    async def test_the_menu_is_one_render_not_a_fetch(self, client):
+        """Server-rendered, so it is there with scripting turned off."""
         body = await (await client.get("/")).text()
 
-        assert "/api/pages" in body
+        assert "api/pages" not in body
+        assert "<details class=\"menu\"" in body
+
+    async def test_the_current_page_is_marked(self, client):
+        body = await (await client.get("/expenses")).text()
+
+        assert '<a href="/expenses" aria-current="page">Расходы</a>' in body
 
     async def test_the_page_embeds_its_path_not_the_plugin_name(
         self, client

@@ -36,7 +36,7 @@ from .csrf import (
     new_token,
 )
 from .demo import DemoService, is_public_demo_path
-from .pages import render_plugin_page
+from .pages import nav, render_plugin_page
 from .ratelimit import RateLimiter
 from .telegram_auth import TelegramAuthError, verify_login
 
@@ -135,6 +135,7 @@ class WebServer:
             identity.id if identity else "",
             self._links.get_by_user_id(user.id) if user else None,
             nonce,
+            self._nav(request),
             csrf=csrf,
         )
 
@@ -175,7 +176,7 @@ class WebServer:
                 status=500,
             )
 
-        return _render_plugin_page(plugin.page, view)
+        return _render_plugin_page(plugin.page, view, self._nav(request))
 
     async def _plugin_page_action(self, request: web.Request) -> web.Response:
         """Something was done on a plugin page; answer with it redrawn.
@@ -255,7 +256,10 @@ class WebServer:
             # The nonce is spent either way, so a replayed URL finds nothing to
             # match even while its signature is still inside the age limit.
             response = self._link_result(
-                user, "Telegram sign-in expired. Try again.", csrf=csrf
+                user,
+                "Telegram sign-in expired. Try again.",
+                self._nav(request),
+                csrf=csrf,
             )
             return _clear_nonce(response)
 
@@ -266,6 +270,7 @@ class WebServer:
             response = self._link_result(
                 user,
                 "Could not verify that Telegram sign-in.",
+                self._nav(request),
                 csrf=csrf,
             )
             return _clear_nonce(response)
@@ -303,6 +308,7 @@ class WebServer:
             return self._link_result(
                 user,
                 f"That Telegram account is already linked to {name}.",
+                self._nav(request),
                 csrf=csrf,
             )
 
@@ -342,7 +348,13 @@ class WebServer:
 
         return _redirect("/")
 
-    def _link_result(self, user, message: str, csrf: str = "") -> web.Response:
+    def _link_result(
+        self,
+        user,
+        message: str,
+        nav_html: str,
+        csrf: str = "",
+    ) -> web.Response:
         """Report a failed link on the page it was started from.
 
         A redirect would put the message in the URL, and nothing on the index
@@ -352,6 +364,7 @@ class WebServer:
             user.username,
             self._links.get_by_user_id(user.id),
             "",
+            nav_html,
             message,
             csrf=csrf,
         )
@@ -382,10 +395,10 @@ class WebServer:
         return user
 
     async def _about(self, request: web.Request) -> web.Response:
-        return _render_page("about.html")
+        return _render_page("about.html", self._nav(request))
 
     async def _project(self, request: web.Request) -> web.Response:
-        return _render_page("project.html")
+        return _render_page("project.html", self._nav(request))
 
     async def _commands(self, request: web.Request) -> web.Response:
         plugins = [
@@ -695,6 +708,19 @@ class WebServer:
 
         return _set_csrf_cookie(response, token)
 
+    def _nav(self, request: web.Request) -> str:
+        """The navigation for whoever is asking.
+
+        Built per request rather than once at startup because it is not the
+        same for everyone: a guest is offered the demonstration's copies of
+        the plugin pages, since the real ones answer them with a login form.
+        """
+        return nav(
+            request.path,
+            self._manager.pages(),
+            guest=self._identity(request) is None,
+        )
+
     def _identity(self, request: web.Request) -> Identity | None:
         return resolve_identity(request, self._users, self._sessions)
 
@@ -745,7 +771,6 @@ class WebServer:
                 web.get("/", self._index),
                 web.get("/api/commands", self._commands),
                 web.post("/api/command", self._execute),
-                web.get("/api/pages", self._pages),
                 web.post("/api/page/action", self._plugin_page_action),
                 web.get("/health", self._health),
             ],
@@ -765,10 +790,6 @@ class WebServer:
         self._demo.install(app)
 
         return app
-
-    async def _pages(self, request: web.Request) -> web.Response:
-        """Every plugin that has a page, so the console can link to them."""
-        return web.json_response({"pages": self._manager.pages()})
 
     async def start(self) -> None:
         app = self.build_app()
@@ -835,6 +856,7 @@ def _render_index(
     username: str,
     link,
     nonce: str,
+    nav_html: str,
     error: str = "",
     csrf: str = "",
 ) -> str:
@@ -848,6 +870,7 @@ def _render_index(
     source = (TEMPLATES_DIR / "index.html").read_text(encoding="utf-8")
 
     source = source.replace("__USER__", html.escape(username))
+    source = source.replace("__NAV__", nav_html)
     source = source.replace("__CSRF__", html.escape(csrf))
     source = source.replace("__TELEGRAM_BLOCK__", _telegram_panel(link, nonce, csrf))
     source = source.replace(
@@ -1012,7 +1035,7 @@ def _render_card(
     return web.Response(text=source, content_type="text/html", status=status)
 
 
-def _render_page(template: str, status: int = 200) -> web.Response:
+def _render_page(template: str, nav_html: str, status: int = 200) -> web.Response:
     """Render one of the public document pages.
 
     They take no arguments and read nothing: a page that has to work without
@@ -1021,6 +1044,7 @@ def _render_page(template: str, status: int = 200) -> web.Response:
     is the signal to reconsider whether it belongs in PUBLIC_PATHS at all.
     """
     source = (TEMPLATES_DIR / template).read_text(encoding="utf-8")
+    source = source.replace("__NAV__", nav_html)
     source = source.replace(
         "__PAGE_STYLES__",
         (TEMPLATES_DIR / "_page_styles.html").read_text(encoding="utf-8"),
@@ -1048,7 +1072,7 @@ def _signup_link() -> str:
     return '<p class="alt">No account yet? <a href="/signup">Sign up</a></p>'
 
 
-def _render_plugin_page(page_path: str, view: dict) -> web.Response:
+def _render_plugin_page(page_path: str, view: dict, nav_html: str) -> web.Response:
     """Build a plugin's page.
 
     The painting lives in :mod:`app.web.pages`, which the demonstration uses
@@ -1056,7 +1080,7 @@ def _render_plugin_page(page_path: str, view: dict) -> web.Response:
     front of them.
     """
     return web.Response(
-        text=render_plugin_page(page_path, view),
+        text=render_plugin_page(page_path, view, nav_html),
         content_type="text/html",
     )
 
