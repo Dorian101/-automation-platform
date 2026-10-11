@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.20.0
+v0.21.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -214,8 +214,32 @@ Implemented:
   and not the entry
 * monthly breakdown by category, a bar chart and a figure table built from
   one aggregation, and a comparison against the previous month
+* the date field follows the month on screen, and keeps a value the reader
+  typed by hand
 * web-only: the router refuses the command in a chat
 * reads widen across a linked pair; writes do not
+
+⸻
+
+Applications
+
+Purpose:
+
+* track job applications and see where the pipeline narrows
+
+Implemented:
+
+* a page of its own at /applications, on the same base as the spending page
+* statuses are a state machine: each stage declares which stages may follow
+  it, the row's buttons are drawn from that declaration and the server
+  enforces it, so a move that is not offered is a move that is refused
+* the funnel is one group-by; each rung counts the stage and every stage
+  after it, as a share of everything ever sent
+* rejections are reported beside the funnel rather than drawn as a rung
+* silence is counted only while an answer is outstanding, from five days;
+  age stays on every row
+* a date in the future is refused
+* web-only; reads widen across a linked pair, writes do not
 
 ⸻
 
@@ -237,7 +261,8 @@ Implemented:
 * GET /api/pages — plugins that own a page, for navigation
 * POST /api/page/action — a plugin page reporting what was done, answered
   with the page redrawn
-* a route per plugin page (e.g. /expenses), built from what plugins declared
+* a route per plugin page (e.g. /expenses, /applications), built from what
+  plugins declared
 * GET /health — database health check
 * WEB_HOST / WEB_PORT configuration
 
@@ -417,7 +442,8 @@ app/db/database.py
 * The spending page is the only analytics page. The application-tracking plugin
   is planned on the same base but not built.
 * The demonstration page for a recruiter is planned but not built: a guest
-  namespace with its own seeded data, capped writes, and daily cleanup.
+  namespace with its own seeded data, capped writes, and daily cleanup. Both
+  analytics plugins exist and are ready to be shown there.
 * The console itself is still English; the plugin pages are Russian.
 
 ⸻

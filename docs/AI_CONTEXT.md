@@ -172,7 +172,28 @@ project exists to leave behind, reached from the other direction.
 - Reminders: /remind, delivers through notification channels
 - Clipboard: /copy, /paste
 - Expenses: page at /expenses, web-only
+- Applications: page at /applications, web-only, statuses are a state machine
 - System: /plugins, /help, /status
+
+## Statuses as a state machine
+
+`STAGES` in the applications plugin is the single declaration: each stage
+carries its label and the stages it may move to. The buttons on a row are
+drawn from it and `_set_stage` checks against it, so the page cannot offer a
+move the server would refuse, and a stale page cannot talk the server into
+skipping a stage. `offer` and `rejected` are terminal.
+
+The funnel is one `counts_by_status` group-by, and the arithmetic that matters
+is that a rung counts the stage **and every stage after it**. A status is the
+stage an application is in now, so an application at `interview` has already
+been answered; counting occupied stages reported 2 answered out of 2 still
+waiting — a hundred percent out of four where half had progressed. The
+denominator is everything ever sent, rejections included, because a rejection
+is an outcome of having applied; excluding it flatters every later stage.
+
+A repository that enforced transitions would be deciding something about the
+feature rather than about storage. It stores and reads; the schema's CHECK is
+what keeps a stored stage real on any path that writes one.
 
 ## Notification layer
 
@@ -301,8 +322,7 @@ and it is the default during a sprint. Pick by area:
 | Changed | Run |
 |---|---|
 | a plugin | its own `test_<name>_plugin.py`, plus `test_manager.py` |
-| a repository | its own `test_<name>_repo.py` |
-| a page or `/api/page/action` | `test_web_pages.py`, plus the plugin's |
+| a repository | its own `test_<name>_repo.py` || a page or `/api/page/action` | `test_web_pages.py`, plus the plugin's |
 | `BasePlugin`, the manager, routing | `test_manager.py`, `test_plugins.py` |
 | the web layer or auth | `test_web.py`, `test_auth.py`, `test_web_pages.py` |
 | a migration | `test_migrations.py` plus the repository that uses it |

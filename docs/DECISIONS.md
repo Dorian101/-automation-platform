@@ -968,3 +968,69 @@ number outside the twelve not being given a name, the chart and the table
 agreeing, a previous month reported only when there is one, the repository's
 storage-language errors translated into something a person can act on, the
 page refusing a guest, and two accounts isolated on one page.
+
+## 2026-10-11
+
+### Decision
+Model job application stages as a state machine, and draw the funnel from
+the stages reached rather than the stages occupied
+
+### Reason
+The tracker was going to be a table with a status column, and the status
+column was going to be free text. That is a small decision with a large
+consequence: a free status can be set to anything, including back to the
+opening one, and every conversion percentage above it stops meaning anything.
+It is also the part of the schema most likely to come up on an interview, so
+it was worth getting right rather than leaving to a dropdown.
+
+Each stage declares which stages may follow it. `offer` and `rejected` are
+terminal — an offer has nowhere to go, and a rejection stays in the list
+because its count is part of what the funnel reports. The buttons on each row
+are drawn from the same declaration the server enforces, so a move that is
+not offered is a move that is refused, and a stale page cannot talk the server
+into skipping a stage.
+
+The funnel's arithmetic was wrong on the first attempt and a test caught it
+before anything was deployed. A status is the stage an application is in
+*now*, so an application at `interview` has already been answered. Counting
+occupied stages therefore reported 2 answered out of 2 still waiting — a
+hundred percent, out of four applications where half had progressed. The
+figure that was wanted is how many reached a stage, so each rung is the sum of
+that stage and every stage after it. The denominator is everything ever sent,
+rejections included: a rejection is an outcome of having applied, so it
+belongs in what the shares are of, and excluding it would flatter every later
+stage. It is drawn beside the funnel rather than in it — an exit, not a rung,
+and a bar there would mean the widths no longer lined up.
+
+Silence is counted only while an answer is outstanding. Days accumulated past
+a reply would grow for ever on a row that can never change again and would
+say nothing about what is waiting; age stays on every row, because that is a
+fact about the application while silence is about waiting. Five days, chosen
+as a way of separating "waiting" from "forgotten" rather than as a judgement
+about anyone's prospects.
+
+### How it is done
+- `STAGES` in the plugin is the single declaration: label, and the stages it
+  may move to. The row's buttons are drawn from it and `_set_stage` checks
+  against it, so the two cannot disagree.
+- The repository enforces nothing about transitions — that is the plugin's
+  business, not storage's. The schema's CHECK is what keeps a stored stage
+  real on any path that writes one, the same bargain as the positive amount
+  on expenses.
+- `counts_by_status` is the whole of the funnel's arithmetic. Shares and
+  percentages are derived in the plugin, so the chart and the table cannot
+  disagree.
+
+### Result
+The applications page at `/applications`: a funnel, a table with the moves
+each row allows, silence flagged from five days, and a form that refuses a
+date in the future — it would sit in the list counting days that have not
+happened.
+
+Reads widen across a linked pair like every other read. Writes do not.
+
+40 new tests, 537 in total. Among them: every legal move and every refused
+one, a full run through the pipeline, the funnel arithmetic including the bug
+that found it, one account's applications invisible to another, and the
+machine enforced over the wire rather than only by which buttons are drawn.
+
