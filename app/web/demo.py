@@ -35,10 +35,12 @@ from collections.abc import Mapping
 
 from aiohttp import web
 
+from app.core.config import Config
 from app.core.identity import Identity, guest
 from app.core.results import CommandError
 
 from .pages import nav, render_demo_landing, render_plugin_page
+from .ratelimit import RateLimiter, client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -114,11 +116,59 @@ class DemoService:
     def __init__(self, manager, database):
         self._manager = manager
         self._database = database
+        self._rate = RateLimiter()
+
+    # -- the limit ----------------------------------------------------------
+
+    def _limited(self, request: web.Request) -> web.Response | None:
+        """Refuse the request when the address has had its allowance.
+
+        Applied to the pages and not only to the actions, because the pages
+        are where the writing happens: a namespace is seeded on arrival, so a
+        plain page load with a fresh cookie costs about two dozen rows. Rate
+        limiting the submits alone would have left the cheaper path open.
+
+        Keyed on the address rather than on the guest, because the guest is a
+        caller-controlled cookie and a new one costs nothing to mint — which
+        is exactly what the caps inside the plugins do not stop.
+        """
+        allowed = self._rate.allow(
+            f"demo|{client_ip(request)}",
+            Config.DEMO_ATTEMPTS_PER_WINDOW,
+            Config.DEMO_WINDOW_SECONDS,
+        )
+
+        if allowed:
+            return None
+
+        logger.warning(
+            "Demonstration rate limit reached from %s", client_ip(request)
+        )
+
+        if request.path.startswith("/demo/api/"):
+            return web.json_response(
+                {"error": "Слишком много запросов. Попробуйте позже."},
+                status=429,
+            )
+
+        return web.Response(
+            text=(
+                "<p>Слишком много запросов с этого адреса. "
+                "Попробуйте через час.</p>"
+            ),
+            content_type="text/html",
+            status=429,
+        )
 
     # -- pages --------------------------------------------------------------
 
     async def landing(self, request: web.Request) -> web.Response:
         """The front door: what this is, and the things to look at."""
+        limited = self._limited(request)
+
+        if limited is not None:
+            return limited
+
         links = [
                 {
                     "page": plugin.page,
@@ -136,6 +186,11 @@ class DemoService:
 
     async def page(self, request: web.Request) -> web.Response:
         """A plugin's page, rendered for a guest."""
+        limited = self._limited(request)
+
+        if limited is not None:
+            return limited
+
         # The route captures the segment without its leading slash, while a
         # plugin declares "/expenses". It goes through `find_by_page`, so a
         # segment that names no plugin simply has no owner and 404s — the
@@ -160,6 +215,11 @@ class DemoService:
 
     async def action(self, request: web.Request) -> web.Response:
         """Something was done on a guest page; answer with it redrawn."""
+        limited = self._limited(request)
+
+        if limited is not None:
+            return limited
+
         payload = await self._payload(request)
 
         if payload is None:

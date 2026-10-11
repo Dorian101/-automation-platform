@@ -17,6 +17,26 @@ and no further.
 import time
 from collections import defaultdict, deque
 
+from aiohttp import web
+
+
+def client_ip(request: web.Request) -> str:
+    """The caller's address, for logging and for rate limiting.
+
+    Read from the proxy's header, not the socket: every request has already
+    passed the X-Platform-Auth transport check by the time it gets here, so
+    the header can only have been written by the reverse proxy.
+
+    Lives here rather than in `server.py` because the demonstration needs it
+    too, and importing the other way round would be a cycle.
+    """
+    forwarded = request.headers.get("X-Forwarded-For", "")
+
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+
+    return request.remote or "unknown"
+
 
 class RateLimiter:
     def __init__(self) -> None:

@@ -63,6 +63,21 @@ class Config:
     SIGNUP_ATTEMPTS_PER_WINDOW = int(os.getenv("SIGNUP_ATTEMPTS_PER_WINDOW", "10"))
     SIGNUP_WINDOW_SECONDS = int(os.getenv("SIGNUP_WINDOW_SECONDS", "3600"))
 
+    # The public demonstration, which writes on every page load rather than
+    # only on a submit: an empty guest namespace is seeded on arrival, so a
+    # request that creates a fresh cookie costs about two dozen rows. The caps
+    # inside a plugin are per namespace, and a namespace is defined by a
+    # caller-controlled cookie, so without a limit on the request rate the
+    # allowance is per visit rather than per visitor.
+    #
+    # Counted per address and over an hour rather than per minute: a person
+    # reads a few pages and enters a couple of rows, while the number that
+    # matters is how many namespaces one address can fill between cleanups.
+    # 200 is roughly an order of magnitude above a real visit, which bounds a
+    # single address to a few thousand rows an hour.
+    DEMO_ATTEMPTS_PER_WINDOW = int(os.getenv("DEMO_ATTEMPTS_PER_WINDOW", "200"))
+    DEMO_WINDOW_SECONDS = int(os.getenv("DEMO_WINDOW_SECONDS", "3600"))
+
     # Whether the session cookie carries the Secure flag. This cannot be
     # inferred from the request: the app talks to the reverse proxy over plain
     # HTTP on loopback, so the socket is never TLS and request.secure is always

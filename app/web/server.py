@@ -37,7 +37,7 @@ from .csrf import (
 )
 from .demo import DemoService, is_public_demo_path
 from .pages import menu_styles, nav, render_plugin_page
-from .ratelimit import RateLimiter
+from .ratelimit import RateLimiter, client_ip
 from .telegram_auth import TelegramAuthError, verify_login
 
 logger = logging.getLogger(__name__)
@@ -489,7 +489,7 @@ class WebServer:
             # real login attempt, and should not cost one.
             logger.warning(
                 "Rejected a login without a valid CSRF token from %s",
-                _client_ip(request),
+                client_ip(request),
             )
             return self._render_login(
                 error=FORGED_FORM_MESSAGE,
@@ -505,7 +505,7 @@ class WebServer:
             logger.warning(
                 "Login rate limit reached for %r from %s",
                 username,
-                _client_ip(request),
+                client_ip(request),
             )
             return self._render_login(
                 error="Too many attempts. Try again later.",
@@ -521,7 +521,7 @@ class WebServer:
             # The username is written with %r because it is caller-controlled
             # input and must not be able to forge a log line.
             logger.warning(
-                "Failed login attempt for %r from %s", username, _client_ip(request)
+                "Failed login attempt for %r from %s", username, client_ip(request)
             )
             return self._render_login(
                 error="Incorrect username or password.",
@@ -541,7 +541,7 @@ class WebServer:
         # their own token derived from the session.
         response.del_cookie(CSRF_COOKIE, path="/")
 
-        logger.info("Signed in %r from %s", user.username, _client_ip(request))
+        logger.info("Signed in %r from %s", user.username, client_ip(request))
 
         return response
 
@@ -605,7 +605,7 @@ class WebServer:
         ):
             logger.warning(
                 "Rejected a sign-up without a valid CSRF token from %s",
-                _client_ip(request),
+                client_ip(request),
             )
             return self._render_signup(
                 error=FORGED_FORM_MESSAGE,
@@ -618,7 +618,7 @@ class WebServer:
             Config.SIGNUP_ATTEMPTS_PER_WINDOW,
             Config.SIGNUP_WINDOW_SECONDS,
         ):
-            logger.warning("Sign-up rate limit reached from %s", _client_ip(request))
+            logger.warning("Sign-up rate limit reached from %s", client_ip(request))
             return self._render_signup(
                 error="Too many attempts. Try again later.",
                 username=username,
@@ -662,7 +662,7 @@ class WebServer:
         response.del_cookie(CSRF_COOKIE, path="/")
 
         logger.info(
-            "Account created for %r from %s", user.username, _client_ip(request)
+            "Account created for %r from %s", user.username, client_ip(request)
         )
 
         return response
@@ -834,22 +834,7 @@ def _rate_key(request: web.Request, action: str, name: str = "") -> str:
     out a whole network behind the proxy. Sign-ups are keyed by address alone:
     anyone registering is expected to hand out an invite code first.
     """
-    return f"{action}|{_client_ip(request)}|{name.strip().lower()}"
-
-
-def _client_ip(request: web.Request) -> str:
-    """The caller's address for logging and rate limiting.
-
-    Read from the proxy's header, not the socket: every request has already
-    passed the X-Platform-Auth transport check by the time it gets here, so
-    the header can only have been written by the reverse proxy.
-    """
-    forwarded = request.headers.get("X-Forwarded-For", "")
-
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-
-    return request.remote or "unknown"
+    return f"{action}|{client_ip(request)}|{name.strip().lower()}"
 
 
 def _render_index(

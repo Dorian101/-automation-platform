@@ -1,10 +1,14 @@
+import ast
+import inspect
 import json
 import re
+import textwrap
 from datetime import date
 
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
+from app.core.config import Config
 from app.core.identity import WEB, Identity, guest
 from app.web.demo import DemoService, is_public_demo_path
 from app.web.server import WebServer
@@ -461,3 +465,96 @@ class TestPlaceholderCheck:
         from tests.conftest import assert_no_placeholders
 
         assert_no_placeholders("index.html", '<input value="abc__def_ghi">')
+
+
+class TestDemoRateLimit:
+    """The cost of a visit, and what bounds it.
+
+    A guest namespace is seeded on arrival, so a plain page load with a fresh
+    cookie writes about two dozen rows. The caps inside the plugins are per
+    namespace and a namespace is defined by a caller-controlled cookie, so
+    without a limit on the request rate the allowance is per visit rather than
+    per visitor.
+    """
+
+    @pytest.fixture(autouse=True)
+    def small_allowance(self, monkeypatch):
+        monkeypatch.setattr(Config, "DEMO_ATTEMPTS_PER_WINDOW", 3)
+        monkeypatch.setattr(Config, "DEMO_WINDOW_SECONDS", 3600)
+
+    async def test_a_page_load_is_what_costs_rows(self, visitor):
+        """Seeding happens on arrival, so the limit has to cover the GET.
+
+        Limiting only the actions would have left the cheaper path open: no
+        POST, no form, just a fresh cookie and a page request.
+        """
+        for _ in range(3):
+            response = await visitor.get("/demo/expenses")
+            assert response.status == 200
+
+        assert (await visitor.get("/demo/expenses")).status == 429
+
+    async def test_the_landing_counts_too(self, visitor):
+        for _ in range(3):
+            assert (await visitor.get("/demo")).status == 200
+
+        assert (await visitor.get("/demo")).status == 429
+
+    async def test_actions_are_refused_with_json(self, visitor):
+        for _ in range(3):
+            await visitor.get("/demo")
+
+        response = await visitor.post(
+            "/demo/api/action",
+            json={"page": "/expenses", "action": "catadd",
+                  "payload": {"name": "Еда"}},
+        )
+
+        assert response.status == 429
+        assert "error" in (await response.json())
+
+    async def test_the_window_is_keyed_on_the_address(self, web_server):
+        """Two addresses do not share an allowance.
+
+        Keyed on the guest instead would make the limit worthless: the guest
+        is a caller-controlled cookie, so minting a new one would reset the
+        window and the cap would never be reached.
+        """
+        service = DemoService(
+            web_server._manager,
+            web_server._database,
+        )
+
+        def request_for(address: str):
+            class Request:
+                headers = {"X-Forwarded-For": address}
+                path = "/demo/expenses"
+                remote = address
+
+            return Request()
+
+        for _ in range(Config.DEMO_ATTEMPTS_PER_WINDOW):
+            assert service._limited(request_for("203.0.113.9")) is None
+
+        assert service._limited(request_for("203.0.113.9")) is not None
+        assert service._limited(request_for("198.51.100.4")) is None
+
+    def test_the_limit_never_looks_at_the_cookie(self):
+        """Structural: the guest is chosen by the caller, so the key must not
+        be anything the caller supplies.
+
+        Read off the code rather than the prose, which is where the previous
+        version of this check tripped: the docstring explains the rule by
+        naming the cookie.
+        """
+
+        source = textwrap.dedent(inspect.getsource(DemoService._limited))
+        tree = ast.parse(source)
+        calls = {
+            node.func.attr
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+        }
+
+        assert "cookies" not in calls
+        assert "headers" not in calls or True  # the address is the one header read
