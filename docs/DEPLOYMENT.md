@@ -459,6 +459,67 @@ journalctl -u automation-platform-backup.service -n 20 --no-pager
 systemctl list-timers automation-platform-backup.timer
 ```
 
+## Demonstration cleanup
+
+The public demonstration at `/demo` gives every visitor a namespace of their
+own, and none of them is an account: no row in `users`, no session, no
+password. What a visitor enters lives under `web:guest:<token>`, so clearing
+them is a delete by prefix.
+
+`/etc/systemd/system/automation-platform-guests.service`:
+
+```ini
+[Unit]
+Description=Automation Platform demonstration cleanup
+After=postgresql.service
+
+[Service]
+Type=oneshot
+User=automation
+WorkingDirectory=/opt/automation-platform
+ExecStart=/opt/automation-platform/.venv/bin/python -m app.manage prune-guests
+```
+
+`/etc/systemd/system/automation-platform-guests.timer`:
+
+```ini
+[Unit]
+Description=Daily Automation Platform demonstration cleanup
+
+[Timer]
+OnCalendar=*-*-* 05:23:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+An hour after the backup, and at an odd minute, so neither job is the thing
+that is running when the box is busiest.
+
+```bash
+systemctl daemon-reload && systemctl enable --now automation-platform-guests.timer
+systemctl start automation-platform-guests.service
+journalctl -u automation-platform-guests.service -n 20 --no-pager
+systemctl list-timers automation-platform-guests.timer
+```
+
+Running it by hand is the check: open `/demo/expenses` first, add something,
+run the job, and confirm the namespace is empty. **That is expected and not a
+fault** — a demonstration is seeded again on the next arrival, so a visitor
+who comes back finds the sample data rather than their own. Only what they
+entered is gone, which is the whole promise of the page.
+
+It reports a count per table:
+
+```
+expenses: 4
+expense_categories: 2
+job_applications: 1
+```
+
+All zeros is a normal result for a day nobody opened the demonstration.
+
 ### Restore
 
 Verified against a scratch database: tables, ownership, recorded migrations

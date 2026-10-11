@@ -304,3 +304,29 @@ class TestReachableFromTheResume:
         body = await (await visitor.get("/about")).text()
 
         assert "вымышленные" in body
+
+
+class TestProjectPage:
+    """The résumé points at the demonstration; the project page explains it."""
+
+    async def test_it_links_to_the_demonstration(self, visitor):
+        body = await (await visitor.get("/project")).text()
+
+        assert 'href="/demo"' in body
+
+    async def test_it_names_the_agents_file(self, visitor):
+        body = await (await visitor.get("/project")).text()
+
+        assert "AGENTS.md" in body
+
+    async def test_it_credits_the_source_of_the_rules(self, visitor):
+        body = await (await visitor.get("/project")).text()
+
+        assert "andrej-karpathy-skills" in body
+
+    async def test_its_claims_match_the_suite(self, visitor):
+        """A number on a public page that the repository contradicts is the
+        kind of thing a reader who opens the source will find."""
+        body = await (await visitor.get("/project")).text()
+
+        assert "&gt;350" not in body
