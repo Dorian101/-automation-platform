@@ -138,12 +138,14 @@ class ApplicationsPlugin(BasePlugin):
         silent = sum(1 for e in entries if self._silent_days(e) is not None)
 
         return {
-            "total": len(entries),
-            "waiting": waiting,
-            "silent": silent,
-            "silent_note": (
-                f"молчат дольше {SILENCE_DAYS} дн." if silent else ""
-            ),
+            "items": [
+                {"value": len(entries), "caption": "Всего откликов"},
+                {"value": waiting, "caption": "Ждут ответа"},
+                {
+                    "value": silent,
+                    "caption": f"Молчат дольше {SILENCE_DAYS} дн.",
+                },
+            ],
         }
 
     def _funnel(self, counts: dict[str, int]) -> dict:
@@ -232,6 +234,29 @@ class ApplicationsPlugin(BasePlugin):
                         {"status": target, "label": _label(target)}
                         for target in _next_stages(entry["status"])
                     ],
+                    # The buttons on a row, drawn from the same declaration
+                    # the server enforces. A terminal stage produces none, so
+                    # there is nothing on screen offering a move that would be
+                    # refused.
+                    "actions": [
+                        *[
+                            {
+                                "action": "stage",
+                                "label": _label(target),
+                                "params": {
+                                    "id": str(entry["id"]),
+                                    "status": target,
+                                },
+                            }
+                            for target in _next_stages(entry["status"])
+                        ],
+                        {
+                            "action": "delete",
+                            "label": "Удалить",
+                            "kind": "ghost",
+                            "params": {"id": str(entry["id"])},
+                        },
+                    ],
                 }
             )
 
@@ -240,11 +265,13 @@ class ApplicationsPlugin(BasePlugin):
                 {"key": "company", "label": "Компания"},
                 {"key": "role", "label": "Роль"},
                 {"key": "applied_at", "label": "Дата"},
-                {"key": "age_days", "label": "Дней"},
+                {"key": "age_days", "label": "Дней", "num": True},
                 {"key": "status_label", "label": "Статус"},
-                {"key": "silent_days", "label": "Молчание"},
+                {"key": "silent_days", "label": "Молчание", "num": True},
             ],
             "rows": rows,
+            "actions": "actions",
+            "empty": "Откликов пока нет",
         }
 
     def _silent_days(self, entry: dict) -> int | None:

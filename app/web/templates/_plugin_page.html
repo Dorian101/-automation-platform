@@ -122,19 +122,46 @@ __STYLES__
   .message { margin: 0 0 1rem; font-size: 0.9rem; }
   .message.err { color: var(--error); }
   .empty { color: var(--muted); font-size: 0.9rem; margin: 0 0 1.5rem; }
+  .funnel { margin: 0 0 1.5rem; }
+  .fnrow { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.45rem; }
+  .fnlabel {
+    width: 12rem;
+    flex: none;
+    font-size: 0.9rem;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .fntrack { flex: 1; background: var(--panel); border-radius: 4px; height: 1.6rem; }
+  .fnfill { height: 100%; background: var(--accent); border-radius: 4px; min-width: 2px; }
+  .fnvalue {
+    width: 7rem;
+    flex: none;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .fnshare { color: var(--muted); font-size: 0.82rem; margin-left: 0.4rem; }
+  table.data tr.flagged { background: rgba(255, 107, 107, 0.07); }
+  table.data td.acts { text-align: right; white-space: nowrap; }
+  table.data td.acts .btn {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.78rem;
+    margin-left: 0.3rem;
+  }
+  .hint { color: var(--muted); font-size: 0.85rem; margin: 0.5rem 0 1.5rem; }
 </style>
 </head>
 <body>
 <main>
   <nav>
     <a href="/">Платформа</a>
-    <a href="/expenses" aria-current="page">__TITLE__</a>
     <a href="/about">Обо мне</a>
   </nav>
 
   <div class="pagehead">
     <h1>__TITLE__</h1>
-    <div class="monthpick">
+    <div class="monthpick" id="monthpick" hidden>
       <button type="button" id="prev-month" class="ghost" aria-label="Предыдущий месяц">‹</button>
       <input type="text" id="month" readonly aria-label="Месяц">
       <button type="button" id="next-month" class="ghost" aria-label="Следующий месяц">›</button>
@@ -153,6 +180,7 @@ __STYLES__
   const root = document.getElementById('root');
   const message = document.getElementById('message');
   const monthLabel = document.getElementById('month');
+  const monthpick = document.getElementById('monthpick');
 
   let view = JSON.parse(document.getElementById('initial-view').textContent);
 
@@ -162,8 +190,25 @@ __STYLES__
   let stickyValues = {};
 
   // -- drawing ------------------------------------------------------------
+  // -- drawing ------------------------------------------------------------
   // Everything below builds DOM nodes and assigns textContent. A category
-  // name is whatever a person typed and must never be able to become markup.
+  // name, a company, a note — whatever a person typed — must never be able to
+  // become markup.
+
+  // Every section is drawn only if the description carries it, and every word
+  // on screen comes from the description too. The page has no idea what it is
+  // looking at: the applications plugin has no month and no chart, and the
+  // spending plugin has no funnel. Hardcoding either one here is what left the
+  // applications page blank — the first thing it did was read view.month.label,
+  // which that page does not have, and the whole render stopped.
+  const SECTIONS = [
+    ['totals', drawTotals],
+    ['funnel', drawFunnel],
+    ['chart', drawChart],
+    ['table', drawTable],
+    ['list', drawList],
+    ['forms', drawForms],
+  ];
 
   function el(tag, className, text) {
     const node = document.createElement(tag);
@@ -175,59 +220,110 @@ __STYLES__
   function draw() {
     root.textContent = '';
     message.hidden = true;
-    drawMonths();
-    drawTotals();
-    drawChart();
-    drawTable();
-    drawForms();
-    drawRecent();
-  }
 
-  function drawMonths() {
-    // A readonly text field, not a select. A select brought its own up/down
-    // arrows, so the control showed two different ways to change the month and
-    // neither listed every month that had data. The arrows beside it are the
-    // whole navigation now.
-    monthLabel.value = view.month.label;
-  }
+    // The month control is part of the page, not of a section, but it is
+    // still only shown when the description has a month to show.
+    const hasMonth = view.month != null;
+    monthpick.hidden = !hasMonth;
 
-  function drawTotals() {
-    const box = el('div', 'totals');
-    const cap = el('div');
-    cap.appendChild(el('div', 'big', view.totals.current));
-    cap.appendChild(el('div', 'cap', 'Расходы за ' + view.month.label.toLowerCase()));
-    box.appendChild(cap);
-
-    if (view.totals.has_previous) {
-      const prev = el('div');
-      prev.appendChild(el('div', 'big', view.totals.previous));
-      prev.appendChild(el('div', 'cap', 'За прошлый месяц'));
-      box.appendChild(prev);
-
-      if (view.totals.change) {
-        const up = view.totals.change.trim().startsWith('+');
-        const delta = el('div', 'delta ' + (up ? 'up' : 'down'), view.totals.change);
-        box.appendChild(delta);
-      }
+    if (hasMonth) {
+      monthLabel.value = view.month.label;
     }
+
+    for (const [key, painter] of SECTIONS) {
+      if (view[key] != null) painter(view[key]);
+    }
+  }
+
+  function drawTotals(totals) {
+    // A list of figures with their captions, in the order given. Spending
+    // sends a month and a comparison; applications sends counts. Neither
+    // shape is assumed here.
+    const items = totals.items || [];
+
+    if (!items.length) return;
+
+    const box = el('div', 'totals');
+
+    for (const item of items) {
+      const cell = el('div');
+      cell.appendChild(el('div', 'big', item.value));
+      cell.appendChild(el('div', 'cap', item.caption));
+      box.appendChild(cell);
+    }
+
+    if (totals.delta) {
+      // Up or down is sent as a direction, not inferred from the sign of a
+      // string: "+12%" and "−12%" are both readings, and which one is the
+      // good news is a question about spending that this page cannot answer.
+      box.appendChild(
+        el('div', 'delta ' + (totals.delta.direction || ''), totals.delta.text),
+      );
+    }
+
     root.appendChild(box);
   }
 
-  function drawChart() {
-    const items = view.chart.items || [];
+  function drawFunnel(funnel) {
+    const items = funnel.items || [];
+
     if (!items.length) {
-      root.appendChild(el('p', 'empty', view.chart.empty || 'Нет данных'));
+      root.appendChild(el('p', 'empty', funnel.empty || 'Нет данных'));
       return;
     }
+
+    const box = el('div', 'funnel');
+
+    for (const item of items) {
+      const row = el('div', 'fnrow');
+      row.appendChild(el('div', 'fnlabel', item.label));
+
+      const track = el('div', 'fntrack');
+      const fill = el('div', 'fnfill');
+      // A number the backend computed, so the width is a number and not a
+      // figure parsed back out of a formatted string.
+      fill.style.width = (item.share || 0) + '%';
+      track.appendChild(fill);
+      row.appendChild(track);
+
+      const value = el('div', 'fnvalue', item.count);
+      value.appendChild(el('span', 'fnshare', item.share_text));
+      row.appendChild(value);
+
+      box.appendChild(row);
+    }
+
+    root.appendChild(box);
+
+    if (funnel.rejected && funnel.rejected.count) {
+      // Beside the funnel rather than in it: a rejection is an exit, and a
+      // bar there would mean the widths no longer lined up.
+      root.appendChild(
+        el(
+          'p',
+          'hint',
+          funnel.rejected.label + ': ' + funnel.rejected.count,
+        ),
+      );
+    }
+  }
+
+  function drawChart(chart) {
+    const items = chart.items || [];
+
+    if (!items.length) {
+      root.appendChild(el('p', 'empty', chart.empty || 'Нет данных'));
+      return;
+    }
+
     const box = el('div', 'bars');
+
     for (const item of items) {
       const row = el('div', 'barrow');
       row.appendChild(el('div', 'barlabel', item.label));
 
       const track = el('div', 'bartrack');
       const fill = el('div', 'barfill');
-      // share is a number the backend computed; the width is set as a style
-      // number, not parsed out of a formatted string.
       fill.style.width = item.share + '%';
       fill.title = item.label + ': ' + item.value;
       track.appendChild(fill);
@@ -238,33 +334,79 @@ __STYLES__
       // figures answer different questions, and run together as
       // "320  38%" they read as one number nobody can tell apart.
       row.appendChild(el('div', 'barshare', item.share_text));
+
       box.appendChild(row);
     }
+
     root.appendChild(box);
   }
 
-  function drawTable() {
-    const table = view.table;
-    if (!table || !table.rows || !table.rows.length) return;
+  // A table, drawn from its own description: which columns, which rows, and
+  // what may be done to each row. Alignment comes from the column rather than
+  // from its name, so a table of categories and a table of companies are the
+  // same renderer.
+  function drawTable(table, title) {
+    const rows = table.rows || [];
+
+    if (!rows.length) {
+      if (table.empty) root.appendChild(el('p', 'empty', table.empty));
+      return;
+    }
+
+    if (title) root.appendChild(el('h2', null, title));
+
     const t = el('table', 'data');
     const thead = el('thead');
     const hrow = el('tr');
+
     for (const col of table.columns) {
-      hrow.appendChild(el('th', col.key === 'category' ? '' : 'num', col.label));
+      hrow.appendChild(el('th', col.num ? 'num' : '', col.label));
     }
+
+    if (table.actions) hrow.appendChild(el('th', ''));
     thead.appendChild(hrow);
     t.appendChild(thead);
 
     const tbody = el('tbody');
-    for (const row of table.rows) {
+
+    for (const row of rows) {
       const tr = el('tr');
-      for (const col of table.columns) {
-        tr.appendChild(el('td', col.key === 'category' ? '' : 'num', row[col.key]));
+
+      if (row.silent) {
+        // Set by the plugin, which is the only place that knows a row has
+        // been waiting too long.
+        tr.className = 'flagged';
       }
+
+      for (const col of table.columns) {
+        tr.appendChild(el('td', col.num ? 'num' : '', row[col.key]));
+      }
+
+      if (table.actions) {
+        const cell = el('td', 'acts');
+        for (const action of row[table.actions] || []) {
+          const button = el(
+            'button',
+            'btn ' + (action.kind || ''),
+            action.label,
+          );
+          button.addEventListener('click', () => {
+            send(action.action, action.params || {}, button);
+          });
+          cell.appendChild(button);
+        }
+        tr.appendChild(cell);
+      }
+
       tbody.appendChild(tr);
     }
+
     t.appendChild(tbody);
     root.appendChild(t);
+  }
+
+  function drawList(list) {
+    drawTable(list, list.title);
   }
 
   function drawForms() {
@@ -340,41 +482,6 @@ __STYLES__
         send(form.id, payload, submit);
       });
     }
-  }
-
-  function drawRecent() {
-    if (!view.recent || !view.recent.length) return;
-    root.appendChild(el('h2', null, 'Последние траты'));
-
-    const t = el('table', 'data recent');
-    const thead = el('thead');
-    const hrow = el('tr');
-    for (const label of ['Дата', 'Категория', 'Сумма', '']) hrow.appendChild(el('th', label === 'Сумма' ? 'num' : '', label));
-    thead.appendChild(hrow);
-    t.appendChild(thead);
-
-    const tbody = el('tbody');
-    for (const entry of view.recent) {
-      const tr = el('tr');
-      tr.appendChild(el('td', '', entry.spent_at));
-      const cat = el('td', '', entry.category);
-      if (entry.note) cat.title = entry.note;
-      tr.appendChild(cat);
-      tr.appendChild(el('td', 'num', entry.amount));
-
-      const del = el('button', 'btn ghost', '×');
-      del.title = 'Удалить';
-      del.addEventListener('click', () => {
-        send('delete', { expense_id: String(entry.id), month: view.month.value }, del);
-      });
-      const td = el('td');
-      td.appendChild(del);
-      tr.appendChild(td);
-
-      tbody.appendChild(tr);
-    }
-    t.appendChild(tbody);
-    root.appendChild(t);
   }
 
   // -- talking to the plugin ---------------------------------------------

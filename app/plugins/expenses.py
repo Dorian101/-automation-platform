@@ -212,31 +212,54 @@ class ExpensesPlugin(BasePlugin):
                 "next": _shift_month(month, 1),
             },
             "totals": {
-                "current": _money(total),
-                "previous": _money(previous),
-                "change": self._change(total, previous),
-                "has_previous": previous > 0,
+                # A list of figures with their own captions rather than named
+                # fields like `current` and `previous`. The page draws what it
+                # is given, so a second plugin with a different set of figures
+                # does not need a second shape, and this one did not get to
+                # decide what the other looked like.
+                "items": [
+                    {
+                        "value": _money(total),
+                        "caption": f"Расходы за {_month_label(month).lower()}",
+                    },
+                    *(
+                        [
+                            {
+                                "value": _money(previous),
+                                "caption": "За прошлый месяц",
+                            }
+                        ]
+                        if previous > 0
+                        else []
+                    ),
+                ],
+                "delta": self._change(total, previous),
             },
             "chart": self._chart(rows, total),
             "table": self._table(rows, total),
+            "list": self._recent(readable, month),
             "forms": self._forms(categories, month),
-            "recent": self._recent(readable),
         }
 
-    def _change(self, total: Decimal, previous: Decimal) -> str:
+    def _change(self, total: Decimal, previous: Decimal) -> dict | None:
         """How this month compares with the last one.
 
-        Shown against spending rather than phrased as good or bad: whether a
-        month is over or under depends on a budget this tool does not hold, and
-        a report that editorialises it is reporting something it was not asked.
+        Returned as text plus a direction rather than a formatted string, so
+        the page decides the colour and does not have to read the sign out of
+        it. Nothing here says whether more or less is good: that depends on a
+        budget this tool does not hold, and a report that editorialises it is
+        reporting something it was not asked.
         """
         if previous <= 0:
-            return ""
+            return None
 
         delta = (total - previous) / previous * 100
         sign = "+" if delta >= 0 else "−"
 
-        return f"{sign}{abs(delta):.1f}% к прошлому месяцу"
+        return {
+            "text": f"{sign}{abs(delta):.1f}% к прошлому месяцу",
+            "direction": "up" if delta >= 0 else "down",
+        }
 
     def _chart(self, rows: list[dict], total: Decimal) -> dict:
         """A bar per category, sized against the largest one.
@@ -278,10 +301,11 @@ class ExpensesPlugin(BasePlugin):
         return {
             "columns": [
                 {"key": "category", "label": "Категория"},
-                {"key": "count", "label": "Трат"},
-                {"key": "total", "label": "Сумма"},
-                {"key": "share", "label": "Доля"},
+                {"key": "count", "label": "Трат", "num": True},
+                {"key": "total", "label": "Сумма", "num": True},
+                {"key": "share", "label": "Доля", "num": True},
             ],
+            "empty": "В этом месяце трат нет",
             "rows": [
                 {
                     "category": row["category"],
@@ -382,19 +406,42 @@ class ExpensesPlugin(BasePlugin):
 
         return f"{month}-01"
 
-    def _recent(self, readable) -> list[dict]:
+    def _recent(self, readable, month: str) -> dict:
+        """The last entries, as a table the page can draw and act on.
+
+        Deleting is a row action rather than a button the page invents: the
+        page would have to know what a removable row is, and every other
+        plugin with a removable row would then need the same special case.
+        """
         entries = self.repo.recent(readable, limit=10)
 
-        return [
-            {
-                "id": entry["id"],
-                "amount": _money(entry["amount"]),
-                "spent_at": entry["spent_at"].isoformat(),
-                "category": entry["category"],
-                "note": entry["note"] or "",
-            }
-            for entry in entries
-        ]
+        return {
+            "title": "Последние траты",
+            "columns": [
+                {"key": "spent_at", "label": "Дата"},
+                {"key": "category", "label": "Категория"},
+                {"key": "note", "label": "Заметка"},
+                {"key": "amount", "label": "Сумма", "num": True},
+            ],
+            "rows": [
+                {
+                    "spent_at": entry["spent_at"].isoformat(),
+                    "category": entry["category"],
+                    "note": entry["note"] or "",
+                    "amount": _money(entry["amount"]),
+                    "actions": [
+                        {
+                            "action": "delete",
+                            "label": "Удалить",
+                            "kind": "ghost",
+                            "params": {"expense_id": str(entry["id"]), "month": month},
+                        }
+                    ],
+                }
+                for entry in entries
+            ],
+            "actions": "actions",
+        }
 
     # -- actions ------------------------------------------------------------
 

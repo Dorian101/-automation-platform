@@ -11,6 +11,15 @@ OTHER = Identity(kind=WEB, id="someone-else")
 THIS_MONTH = date.today().strftime("%Y-%m")
 
 
+def _total(view, index: int) -> str:
+    """The value of the nth figure in the totals row.
+
+    Totals are a list of labelled figures rather than named fields, so that
+    the page draws whatever a plugin sends instead of knowing what to expect.
+    """
+    return view["totals"]["items"][index]["value"]
+
+
 @pytest.fixture
 def plugin(database_with_schema):
     return ExpensesPlugin(database_with_schema)
@@ -108,8 +117,11 @@ class TestView:
         view = await plugin.page_view(web_identity)
 
         assert view["chart"]["items"] == []
-        assert view["totals"]["current"] == "0"
-        assert view["totals"]["has_previous"] is False
+        assert _total(view, 0) == "0"
+        # Only one figure: there is no previous month to compare against, so
+        # a second cell and an empty delta would both be saying nothing.
+        assert len(view["totals"]["items"]) == 1
+        assert view["totals"]["delta"] is None
 
     async def test_chart_orders_and_shares_match_the_table(
         self, plugin, web_identity, food
@@ -129,7 +141,7 @@ class TestView:
         # The chart and the table come from one aggregation, so the largest
         # bar is always the largest total and the shares always add up.
         assert view["chart"]["items"][0]["share"] == 100.0
-        assert view["totals"]["current"] == "400"
+        assert _total(view, 0) == "400"
         assert sum(
             float(item["share_text"].rstrip("%"))
             for item in view["chart"]["items"]
@@ -143,8 +155,21 @@ class TestView:
 
         view = await plugin.page_action(web_identity, "month", {"month": "2026-05"})
 
-        assert view["totals"]["previous"] == "100"
-        assert "50.0%" in view["totals"]["change"]
+        assert _total(view, 1) == "100"
+        assert "50.0%" in view["totals"]["delta"]["text"]
+        assert view["totals"]["delta"]["direction"] == "up"
+
+    async def test_a_direction_is_sent_rather_than_a_signed_string(
+        self, plugin, web_identity, food
+    ):
+        """The page colours the delta; it must not read the sign out of a
+        formatted string to decide whether that is up or down."""
+        plugin.repo.add(web_identity, food, Decimal("200"), date(2026, 4, 10))
+        plugin.repo.add(web_identity, food, Decimal("100"), date(2026, 5, 10))
+
+        view = await plugin.page_action(web_identity, "month", {"month": "2026-05"})
+
+        assert view["totals"]["delta"]["direction"] == "down"
 
     async def test_first_month_has_no_change_figure(
         self, plugin, web_identity, food
@@ -153,7 +178,7 @@ class TestView:
 
         view = await plugin.page_action(web_identity, "month", {"month": "2026-05"})
 
-        assert view["totals"]["change"] == ""
+        assert view["totals"]["delta"] is None
 
     async def test_another_accounts_spending_is_absent(
         self, plugin, web_identity, food
@@ -162,7 +187,7 @@ class TestView:
 
         view = await plugin.page_action(OTHER, "month", {"month": "2026-05"})
 
-        assert view["totals"]["current"] == "0"
+        assert _total(view, 0) == "0"
         assert view["chart"]["items"] == []
 
 
@@ -318,7 +343,7 @@ class TestWidenedRead:
 
         view = await linked.page_action(web, "month", {"month": "2026-05"})
 
-        assert view["totals"]["current"] == "77"
+        assert _total(view, 0) == "77"
 
 
 class TestDateFollowsTheMonth:

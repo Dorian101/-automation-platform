@@ -117,6 +117,30 @@ class TestPageRoute:
         assert "'/expenses'" in body
         assert "'expenses'" not in body
 
+    async def test_sections_are_drawn_only_when_the_description_has_them(
+        self, client
+    ):
+        """A plugin that sends no month, chart or funnel must still render.
+
+        The applications page sent none of them, and the renderer read
+        `view.month.label` before drawing anything — so one missing key threw
+        and the page came up blank. This asserts the guard that prevents it:
+        sections go through one list, each behind a presence check.
+        """
+        body = await (await client.get("/applications")).text()
+
+        assert "SECTIONS" in body
+        assert "if (view[key] != null)" in body
+
+    async def test_a_page_without_a_month_hides_the_month_control(
+        self, client
+    ):
+        """The arrows are spending's; applications has no month to move."""
+        body = await (await client.get("/applications")).text()
+
+        assert 'id="monthpick" hidden' in body
+        assert "hasMonth" in body
+
 
 class TestPageAction:
     async def _act(self, client, action, payload):
@@ -171,7 +195,7 @@ class TestPageAction:
         assert response.status == 200
         view = (await response.json())["view"]
         assert view["title"] == "Расходы"
-        assert view["recent"][0]["amount"] == "320"
+        assert view["list"]["rows"][0]["amount"] == "320"
 
     async def test_a_plugin_error_comes_back_as_400(self, client):
         response = await self._act(client, "catadd", {"name": ""})
@@ -372,6 +396,6 @@ class TestIsolation:
             first_view = (await act(first, "month", {"month": month}))["view"]
             second_view = (await act(second, "month", {"month": month}))["view"]
 
-        assert first_view["totals"]["current"] == "500"
-        assert second_view["totals"]["current"] == "0"
+        assert first_view["totals"]["items"][0]["value"] == "500"
+        assert second_view["totals"]["items"][0]["value"] == "0"
         assert second_view["chart"]["items"] == []

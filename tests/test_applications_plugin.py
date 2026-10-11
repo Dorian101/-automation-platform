@@ -384,4 +384,4 @@ class TestIsolation:
         view = await plugin.page_view(OTHER)
 
         assert view["table"]["rows"] == []
-        assert view["totals"]["total"] == 0
+        assert view["totals"]["items"][0]["value"] == 0
