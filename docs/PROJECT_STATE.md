@@ -463,6 +463,13 @@ app/db/database.py
   bounds that in practice.
 * The console itself is still English; the plugin pages and the demonstration
   are Russian.
+* Every plugin with a page lands on the public demonstration automatically,
+  because both the menu and the landing page read `PluginManager.pages()`
+  without filtering. That is right for the two plugins that exist; it stops
+  being right for the first plugin that should stay private. The fix is a
+  `demo` flag on the plugin, defaulting to not shown — deliberately not added
+  before there is a plugin to exclude, since one value that is always the same
+  carries no distinction.
 
 ⸻
 
