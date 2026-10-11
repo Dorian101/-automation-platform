@@ -451,18 +451,23 @@ app/db/database.py
   single-user tool and wrong the day there is a second one.
 * A web account cannot be renamed: its data is keyed by the username, so a
   rename would have to move rows across every table that stores a `user_id`.
-* No external integrations.
+* No external integrations. The demonstration is the only thing that writes
+  without a session, and it is capped and rate limited rather than closed.
 * Web console is functional but minimal.
-* The spending page is the only analytics page. The application-tracking plugin
-  is planned on the same base but not built.
-* The demonstration namespace is cleaned only when the timer is installed on
-  the host; the command exists but nothing runs it yet.
-* Guest writes are capped (12 categories, 100 expenses, 25 applications) but
-  the caps are per namespace and a visitor can mint namespaces without limit,
-  so a determined visitor can still fill the disk. The daily prune is what
-  bounds that in practice.
+* The demonstration namespace is pruned by a systemd timer on the host, daily
+  at 05:23. This is the one place where the repository and the machine can
+  disagree, and it did — see the note below about what the docs miss.
+* Guest writes are capped (12 categories, 100 expenses, 25 applications), and
+  the whole demonstration is rate limited to 200 requests an hour per address.
+  Neither is a wall: a visitor with proxy addresses gets past the limit, and
+  the caps are per namespace, so a determined attacker can still add rows.
+  Both raise the price rather than forbid it, which is the right size of
+  answer for a personal site and should be said as such.
 * The console itself is still English; the plugin pages and the demonstration
   are Russian.
+* A migration is applied only after a dump, and a failed dump stops the
+  application from starting. A host without `pg_dump` therefore cannot boot
+  once a migration is pending.
 * Every plugin with a page lands on the public demonstration automatically,
   because both the menu and the landing page read `PluginManager.pages()`
   without filtering. That is right for the two plugins that exist; it stops
@@ -476,10 +481,22 @@ app/db/database.py
 ## Potential tasks:
 
 * add reminder to /cancel and /reminders listing;
-* call BackupManager before applying a migration, so a failed deploy has a
-  dump from minutes ago rather than from last night;
+* webhook receiver, so something outside can drive the platform; the cost is a
+  public endpoint that writes, which is the same shape as the demonstration
+  and wants the same limits;
+* a `demo` flag on the plugin, before a third page plugin exists — see the
+  limitation above;
 * anchor identity to a stable key so an account can be renamed without moving
   its data, which is what the deferred rename command needs.
+
+On the documents themselves: `PROJECT_STATE.md` is edited at the end of a
+sprint, which means it describes the code as of that moment and nothing about
+the machine. Two entries here had already gone false — the applications plugin
+was listed as unbuilt, and the guest cleanup as never scheduled — and neither
+was caught by a test. The public page `/project` had gone false the same way,
+and more visibly. Anything that depends on the host (a timer, an env var, an
+installed binary) is a claim that can rot silently; check it against the server
+before trusting it.
 
 ⸻
 

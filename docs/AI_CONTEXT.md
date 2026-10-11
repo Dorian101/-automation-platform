@@ -308,8 +308,31 @@ fails on the appearance of a call; it is crude and it is the cheapest guard
 against a hole that would not otherwise show up as a failure.
 
 Namespaces are seeded on arrival, so `prune-guests` can run at any time. The
-seed is the plugin's own `seed_demo`. Guests are capped per namespace, counted
-against the database rather than in the process.
+seed is the plugin's own `seed_demo`.
+
+Two limits, and the reason for both is that **a namespace is defined by a
+caller-controlled cookie**. The caps inside the plugins are therefore per
+namespace — per visit, not per visitor, since minting a cookie costs nothing.
+And a namespace is seeded on arrival, so a plain page load writes about two
+dozen rows with no POST involved. Hence the rate limit, applied to the whole
+demonstration rather than to the actions only, and keyed on the address rather
+than the guest for the same reason. 200 an hour, which is about an order of
+magnitude above a real visit.
+
+Neither limit forbids anything. They raise the price of abuse, and that is
+the right size of answer here — say so rather than claiming protection.
+
+## Migrations and the dump
+
+`MigrationRunner` takes an optional backup manager. `app/main.py` passes one,
+so a deploy carrying a migration dumps the database first; nothing is dumped
+when nothing is pending. One dump per run rather than one per file, because
+what is wanted on a failure is the state before any of them landed.
+
+A failed dump **stops the run**. The database is not touched and the
+application does not start. A host without `pg_dump` therefore cannot boot
+once a migration is pending — the deliberate cost of not applying a schema
+change with no way back.
 
 Bound to `WEB_HOST` and `WEB_PORT`, defaulting to 127.0.0.1:8080.
 
