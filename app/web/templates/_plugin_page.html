@@ -14,6 +14,10 @@ __STYLES__
     flex-wrap: wrap;
   }
   .monthpick { display: flex; gap: 0.5rem; align-items: center; }
+  /* The hidden attribute loses to any author `display` rule, and this element
+     sets one — without this, `monthpick.hidden = true` would leave the arrows
+     on screen for a page that has no month to move. */
+  [hidden] { display: none !important; }
   .monthpick input, .monthpick button {
     background: var(--panel);
     color: var(--text);

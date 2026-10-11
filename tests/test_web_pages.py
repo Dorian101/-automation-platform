@@ -141,6 +141,18 @@ class TestPageRoute:
         assert 'id="monthpick" hidden' in body
         assert "hasMonth" in body
 
+    async def test_hidden_survives_a_display_rule(self, client):
+        """`hidden` loses to any author `display`.
+
+        `.monthpick` sets `display: flex`, which is exactly what happened: the
+        attribute was set, the script believed the element was gone, and the
+        arrows stayed on screen on a page with no month. A browser cannot be
+        asked about this from a test, so the guard is asserted instead.
+        """
+        body = await (await client.get("/applications")).text()
+
+        assert "[hidden] { display: none !important; }" in body
+
 
 class TestPageAction:
     async def _act(self, client, action, payload):
