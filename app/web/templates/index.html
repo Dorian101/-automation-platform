@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Automation Platform</title>
+<title>Платформа автоматизации</title>
+<meta name="description" content="Личный кабинет платформы автоматизации: заметки, напоминания и буфер обмена, теми же командами, что и в Telegram-боте.">
+<meta name="robots" content="noindex, follow">
 <style>
   :root {
     --bg: #14161a;
@@ -134,14 +136,14 @@ __MENU_STYLES__
 <main>
   <header class="topbar">
     <div>
-      <h1>Automation Platform</h1>
-      <p class="sub">Web interface &mdash; the same commands the Telegram bot accepts.</p>
+      <h1>Платформа автоматизации</h1>
+      <p class="sub">Веб-интерфейс &mdash; те же команды, что принимает Telegram-бот.</p>
     </div>
     <div class="account">
-      <span class="who">Signed in as <b>__USER__</b></span>
+      <span class="who">Вы вошли как <b>__USER__</b></span>
       <form method="post" action="/logout">
         <input type="hidden" name="csrf" value="__CSRF__">
-        <button type="submit" class="secondary">Sign out</button>
+        <button type="submit" class="secondary">Выйти</button>
       </form>
     </div>
   </header>
@@ -156,23 +158,23 @@ __MENU_STYLES__
   </div>
 
   <div class="panel">
-    <h2>Command</h2>
+    <h2>Команда</h2>
     <form id="form">
       <input type="text" id="input" placeholder="/add buy milk" autocomplete="off" autofocus>
-      <button type="submit" id="send">Run</button>
+      <button type="submit" id="send">Выполнить</button>
     </form>
-    <p class="hint">Notes are stored per transport and read across a linked pair.</p>
+    <p class="hint">Заметки хранятся раздельно по каналам и читаются вместе при связанной паре.</p>
   </div>
 
   <div class="panel">
-    <h2>Output</h2>
-    <div id="output">Ready.</div>
+    <h2>Результат</h2>
+    <div id="output">Готово.</div>
     <div id="rendered"></div>
   </div>
 
   <div class="panel">
-    <h2>Available commands</h2>
-    <div id="commands">Loading&hellip;</div>
+    <h2>Доступные команды</h2>
+    <div id="commands">Загрузка&hellip;</div>
   </div>
 </main>
 
@@ -258,7 +260,7 @@ form.addEventListener('submit', async (event) => {
 
   send.disabled = true;
   output.classList.remove('error');
-  output.textContent = 'Running…';
+  output.textContent = 'Выполняю…';
   rendered.textContent = '';
 
   try {
@@ -271,7 +273,7 @@ form.addEventListener('submit', async (event) => {
 
     if (!response.ok) {
       output.classList.add('error');
-      output.textContent = data.error || 'Request failed';
+      output.textContent = data.error || 'Запрос не выполнен';
     } else {
       output.textContent = data.result;
       render(data.data);
@@ -279,7 +281,7 @@ form.addEventListener('submit', async (event) => {
     }
   } catch (err) {
     output.classList.add('error');
-    output.textContent = 'Could not reach the server';
+    output.textContent = 'Нет связи с сервером';
   } finally {
     send.disabled = false;
     input.focus();
@@ -321,7 +323,7 @@ fetch('/api/commands')
     }
   })
   .catch(() => {
-    document.getElementById('commands').textContent = 'Failed to load commands.';
+    document.getElementById('commands').textContent = 'Не удалось загрузить список команд.';
   });
 </script>
 </body>

@@ -99,7 +99,7 @@ def _next_stages(status: str) -> tuple[str, ...]:
 class ApplicationsPlugin(BasePlugin):
     name = "applications"
     version = "0.1.0"
-    description = "Track job applications"
+    description = "Отклики на вакансии"
     web_only = True
     page = "/applications"
     page_title = "Отклики"

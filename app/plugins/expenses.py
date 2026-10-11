@@ -107,7 +107,7 @@ def _money(value: Decimal) -> str:
 class ExpensesPlugin(BasePlugin):
     name = "expenses"
     version = "0.1.0"
-    description = "Track personal spending"
+    description = "Личные расходы"
     web_only = True
     page = "/expenses"
     page_title = "Расходы"

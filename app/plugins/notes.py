@@ -9,12 +9,12 @@ from .base import BasePlugin
 class NotesPlugin(BasePlugin):
     name = "notes"
     version = "1.2.0"
-    description = "Store personal notes"
+    description = "Личные заметки"
     commands = {
-        "/add": "Add a new note",
-        "/notes": "Show all notes",
-        "/del": "Delete a note by number",
-        "/clear": "Delete every note",
+        "/add": "Добавить заметку",
+        "/notes": "Показать заметки",
+        "/del": "Удалить заметку по номеру",
+        "/clear": "Удалить все заметки",
     }
 
     def __init__(self, database: Database | None = None, persons=None):

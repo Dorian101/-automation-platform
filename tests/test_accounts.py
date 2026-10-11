@@ -75,7 +75,7 @@ class TestUsers:
             users.create("ALEXEY", "another-password")
 
     def test_empty_username_is_rejected(self, users):
-        with pytest.raises(ValueError, match="must not be empty"):
+        with pytest.raises(ValueError, match="не может быть пустым"):
             users.create("   ", PASSWORD)
 
     def test_short_password_is_rejected(self, users):

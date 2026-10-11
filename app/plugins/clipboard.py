@@ -11,10 +11,10 @@ from .base import BasePlugin
 class ClipboardPlugin(BasePlugin):
     name = "clipboard"
     version = "1.1.0"
-    description = "Store and retrieve clipboard entries"
+    description = "Буфер обмена"
     commands = {
-        "/copy": "Save text to clipboard",
-        "/paste": "Get last copied text",
+        "/copy": "Сохранить текст в буфер",
+        "/paste": "Показать последний текст",
     }
 
     def __init__(self, database: Database | None = None, persons=None):

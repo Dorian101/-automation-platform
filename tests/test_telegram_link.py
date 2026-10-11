@@ -158,8 +158,8 @@ class TestTheButton:
         body = await (await signed_in.get("/")).text()
 
         assert str(CHAT_ID) in body
-        assert "Unlink Telegram" in body
-        assert "Link Telegram" not in body
+        assert "Отвязать Telegram" in body
+        assert "Привязать Telegram" not in body
 
     async def test_a_linked_page_hands_out_no_nonce(self, signed_in, links, users):
         """No second nonce while already linked: nothing to link."""
@@ -174,8 +174,8 @@ class TestTheButton:
 
         body = await (await signed_in.get("/")).text()
 
-        assert "Link Telegram" not in body
-        assert "not configured" in body
+        assert "Привязать Telegram" not in body
+        assert "не настроена" in body
 
     async def test_hidden_when_no_bot_token(self, signed_in, monkeypatch):
         """A button that cannot verify anything is worse than none."""
@@ -183,8 +183,8 @@ class TestTheButton:
 
         body = await (await signed_in.get("/")).text()
 
-        assert "Link Telegram" not in body
-        assert "not configured" in body
+        assert "Привязать Telegram" not in body
+        assert "не настроена" in body
 
     async def test_the_page_leaves_no_placeholder(self, signed_in):
         """The console, rendered from index.html, substitutes everything.

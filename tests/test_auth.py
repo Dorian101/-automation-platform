@@ -15,7 +15,7 @@ TOKEN = "s3cret-token-value"
 
 INVITE_CODE = "correct-horse-invite"
 
-WRONG_CREDENTIALS_MESSAGE = "Incorrect username or password."
+WRONG_CREDENTIALS_MESSAGE = "Неверное имя пользователя или пароль."
 
 
 def _proxy_headers() -> dict[str, str]:
@@ -345,7 +345,7 @@ class TestCsrf:
         )
 
         assert response.status == 400
-        assert "This form has expired" in await response.text()
+        assert "Форма устарела" in await response.text()
 
         after = await anonymous_client.get("/", allow_redirects=False)
 
@@ -361,7 +361,7 @@ class TestCsrf:
         response = await client.post("/logout", allow_redirects=False)
 
         assert response.status == 403
-        assert "This form has expired" in await response.text()
+        assert "Форма устарела" in await response.text()
 
     async def test_the_account_still_stands_after_a_refused_logout(self, client):
         await client.post("/logout", allow_redirects=False)
@@ -435,7 +435,7 @@ class TestSignup:
         response = await signup_client.get("/signup")
 
         assert response.status == 200
-        assert "Invite code" in await response.text()
+        assert "Инвайт-код" in await response.text()
 
     async def test_still_needs_the_proxy_secret(self, with_signup, bare_client):
         response = await bare_client.get("/signup")
@@ -450,7 +450,7 @@ class TestSignup:
         response = await _signup(signup_client, invite="not-the-code")
 
         assert response.status == 403
-        assert "Invalid invite code." in await response.text()
+        assert "Неверный инвайт-код." in await response.text()
         assert users.count() == 0
 
     async def test_valid_invite_code_creates_the_account_and_signs_in(
@@ -487,14 +487,14 @@ class TestSignup:
         response = await _signup(signup_client, password="short")
 
         assert response.status == 400
-        assert "at least 8 characters" in await response.text()
+        assert "не короче 8 символов" in await response.text()
         assert users.count() == 0
 
     async def test_blank_username_is_reported(self, signup_client, users):
         response = await _signup(signup_client, username="   ")
 
         assert response.status == 400
-        assert "must not be empty" in await response.text()
+        assert "не может быть пустым" in await response.text()
         assert users.count() == 0
 
     async def test_taken_username_is_reported(self, signup_client, users):
@@ -503,7 +503,7 @@ class TestSignup:
         response = await _signup(signup_client, username=TEST_USERNAME.upper())
 
         assert response.status == 409
-        assert "taken" in await response.text()
+        assert "уже занято" in await response.text()
         assert users.count() == 1
 
     async def test_login_page_offers_the_link(self, guest_client, with_signup):
@@ -620,7 +620,7 @@ class TestRateLimiting:
             response = await _login_post(anonymous_client)
             assert response.status == expected
 
-        assert "Try again later" in await response.text()
+        assert "Попробуйте позже" in await response.text()
 
     async def test_a_successful_login_resets_the_count(
         self,
@@ -686,7 +686,7 @@ class TestRateLimiting:
         second = await _signup(signup_client, username="two")
 
         assert second.status == 429
-        assert "Try again later" in await second.text()
+        assert "Попробуйте позже" in await second.text()
         assert users.count() == 1
 
 

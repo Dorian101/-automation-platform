@@ -1,8 +1,10 @@
 import hmac
 import html
 import logging
+import os
 import secrets
 from collections.abc import Mapping
+from datetime import date
 from pathlib import Path
 
 from aiohttp import web
@@ -76,7 +78,32 @@ NONCE_TTL_SECONDS = 600
 # /signup is listed even though it answers 404 when no invite code is
 # configured: it is the page itself that decides, so that turning sign-up off
 # cannot leave a route behind that still needs a session to reach.
-PUBLIC_PATHS = {"/login", "/signup", "/about", "/project", "/health"}
+#
+# /robots.txt and /sitemap.xml are fetched by a crawler that has no session and
+# cannot have one. Left out of this set they answered a redirect to the login
+# form, which a search engine reads as "nothing to see here" — the pages it
+# was meant to publish were not reachable from anywhere on the site, so it had
+# no way to find them.
+PUBLIC_PATHS = {
+    "/login",
+    "/signup",
+    "/about",
+    "/project",
+    "/health",
+    "/robots.txt",
+    "/sitemap.xml",
+}
+
+# The public address of the site, for the sitemap. There is no request to read
+# a host from: the app sits behind a reverse proxy, so the Host header is
+# whatever the proxy says and cannot be trusted to be the public name. One
+# setting beats guessing from an untrusted header.
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://automationplatformlebedev.ru").rstrip("/")
+
+# What a search engine is allowed to index. Everything else on this site either
+# needs a session or is the console itself, and there is nothing in the
+# console a reader would want in an index anyway.
+INDEXABLE_PATHS = ("/about", "/project", "/demo")
 
 # Sent on every response, so no page or JSON answer can ever forget one. CSP
 # allows the Telegram Login Widget's script from telegram.org and inline
@@ -307,7 +334,7 @@ class WebServer:
 
             return self._link_result(
                 user,
-                f"That Telegram account is already linked to {name}.",
+                f"Этот Telegram-аккаунт уже привязан к {name}.",
                 self._nav(request),
                 csrf=csrf,
             )
@@ -401,6 +428,18 @@ class WebServer:
         return _render_page("project.html", self._nav(request))
 
     async def _commands(self, request: web.Request) -> web.Response:
+        """The commands worth typing.
+
+        A plugin that owns a page is left out. Its commands exist only so the
+        router can refuse them with "web console only" rather than "unknown
+        command", and listing them here would offer somebody something that
+        cannot work: the page is in the menu, and the two say the same thing
+        twice.
+
+        The filter is here rather than in the page because the answer is a
+        fact about the plugin, and a page that hid what it was given would
+        need to know the rule to hide it.
+        """
         plugins = [
             {
                 "name": plugin.name,
@@ -409,6 +448,7 @@ class WebServer:
                 "commands": plugin.commands,
             }
             for plugin in self._manager.get_plugins()
+            if not plugin.web_only and plugin.commands
         ]
 
         return web.json_response({"plugins": plugins})
@@ -456,6 +496,53 @@ class WebServer:
             body["data"] = result.data
 
         return web.json_response(body)
+
+    async def _robots(self, request: web.Request) -> web.Response:
+        """Tell a crawler where it may look.
+
+        A crawler arrives with no session and cannot get one, so this route
+        has to exist and has to be public — served as text/plain, because a
+        crawler reads the body and ignores the content type it would prefer.
+        """
+        lines = [
+            "User-agent: *",
+            "Allow: " + "\nAllow: ".join(INDEXABLE_PATHS),
+            # Everything else is either behind a session or the console. Saying
+            # so is clearer than leaving a crawler to work through a login form
+            # and conclude the site is empty.
+            "Disallow: /",
+        ]
+
+        return web.Response(
+            text="\n".join(lines) + "\n",
+            content_type="text/plain",
+        )
+
+    async def _sitemap(self, request: web.Request) -> web.Response:
+        """The public pages, listed.
+
+        Written by hand rather than by a library: there are three of them, and
+        the routes are already named in ``INDEXABLE_PATHS`` beside the robots
+        file that points here. A generated sitemap would need the public host
+        name from somewhere, and there is nowhere trustworthy to read it from
+        behind the proxy — see ``PUBLIC_BASE_URL``.
+        """
+        today = date.today().isoformat()
+
+        entries = "".join(
+            f"<url><loc>{PUBLIC_BASE_URL}{path}</loc>"
+            f"<lastmod>{today}</lastmod></url>"
+            for path in INDEXABLE_PATHS
+        )
+
+        return web.Response(
+            text=(
+                '<?xml version="1.0" encoding="UTF-8"?>'
+                '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+                f"{entries}</urlset>"
+            ),
+            content_type="application/xml",
+        )
 
     async def _health(self, request: web.Request) -> web.Response:
         try:
@@ -508,7 +595,7 @@ class WebServer:
                 client_ip(request),
             )
             return self._render_login(
-                error="Too many attempts. Try again later.",
+                error="Слишком много попыток. Попробуйте позже.",
                 username=username,
                 status=429,
             )
@@ -524,7 +611,7 @@ class WebServer:
                 "Failed login attempt for %r from %s", username, client_ip(request)
             )
             return self._render_login(
-                error="Incorrect username or password.",
+                error="Неверное имя пользователя или пароль.",
                 username=username,
                 status=401,
             )
@@ -620,14 +707,14 @@ class WebServer:
         ):
             logger.warning("Sign-up rate limit reached from %s", client_ip(request))
             return self._render_signup(
-                error="Too many attempts. Try again later.",
+                error="Слишком много попыток. Попробуйте позже.",
                 username=username,
                 status=429,
             )
 
         if not signup_allowed(invite):
             return self._render_signup(
-                error="Invalid invite code.",
+                error="Неверный инвайт-код.",
                 username=username,
                 status=403,
             )
@@ -645,7 +732,7 @@ class WebServer:
             )
         except UniqueViolation:
             return self._render_signup(
-                error="That username is taken.",
+                error="Это имя уже занято.",
                 username=username,
                 status=409,
             )
@@ -772,6 +859,8 @@ class WebServer:
                 web.get("/api/commands", self._commands),
                 web.post("/api/command", self._execute),
                 web.post("/api/page/action", self._plugin_page_action),
+                web.get("/robots.txt", self._robots),
+                web.get("/sitemap.xml", self._sitemap),
                 web.get("/health", self._health),
             ],
         )
@@ -871,18 +960,17 @@ def _telegram_panel(link, nonce: str, csrf: str) -> str:
     """Offer exactly one of the two things the account can do about Telegram."""
     if not telegram_linking_enabled():
         return (
-            '<p class="hint">Telegram linking is not configured on this '
-            "deployment.</p>"
+            '<p class="hint">Привязка Telegram на этом сервере не настроена.</p>'
         )
 
     if link is not None:
         return (
-            f'<p class="hint">Reminders reach Telegram chat '
-            f"<b>{html.escape(str(link.telegram_id))}</b>. Notes and clipboard "
-            "are shared both ways.</p>"
+            f'<p class="hint">Напоминания приходят в Telegram-чат '
+            f"<b>{html.escape(str(link.telegram_id))}</b>. Заметки и буфер обмена "
+            "доступны с обеих сторон.</p>"
             '<form method="post" action="/account/telegram/unlink">'
             f'<input type="hidden" name="csrf" value="{html.escape(csrf)}">'
-            '<button type="submit" class="secondary">Unlink Telegram</button>'
+            '<button type="submit" class="secondary">Отвязать Telegram</button>'
             "</form>"
         )
 
@@ -1056,7 +1144,7 @@ def _signup_link() -> str:
     if not signup_enabled():
         return ""
 
-    return '<p class="alt">No account yet? <a href="/signup">Sign up</a></p>'
+    return '<p class="alt">Нет аккаунта? <a href="/signup">Регистрация</a></p>'
 
 
 def _render_plugin_page(page_path: str, view: dict, nav_html: str) -> web.Response:

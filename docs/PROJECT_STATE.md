@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.22.0
+v0.23.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -463,8 +463,11 @@ app/db/database.py
   the caps are per namespace, so a determined attacker can still add rows.
   Both raise the price rather than forbid it, which is the right size of
   answer for a personal site and should be said as such.
-* The console itself is still English; the plugin pages and the demonstration
-  are Russian.
+* The interface is Russian and there is one language, not a switch. Adding a
+  second means an i18n layer that does not exist yet; the strings are already
+  in one place per template, which is what such a layer would need.
+* `app.manage` output is still English on purpose — it is read in a shell and
+  in the journal, not in a browser.
 * A migration is applied only after a dump, and a failed dump stops the
   application from starting. A host without `pg_dump` therefore cannot boot
   once a migration is pending.

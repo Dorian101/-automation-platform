@@ -25,9 +25,9 @@ MAX_DROPPED_ATTEMPTS = 3
 class RemindersPlugin(BasePlugin):
     name = "reminders"
     version = "1.2.0"
-    description = "Schedule reminders"
+    description = "Напоминания"
     commands = {
-        "/remind": "Create a reminder",
+        "/remind": "Создать напоминание",
     }
 
     def __init__(self, notifier: Notifier, database: Database | None = None):

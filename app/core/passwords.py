@@ -36,7 +36,7 @@ class PasswordError(ValueError):
 def hash_password(password: str) -> str:
     if len(password) < MIN_PASSWORD_LENGTH:
         raise PasswordError(
-            f"password must be at least {MIN_PASSWORD_LENGTH} characters"
+            f"пароль должен быть не короче {MIN_PASSWORD_LENGTH} символов"
         )
 
     salt = secrets.token_bytes(SALT_BYTES)

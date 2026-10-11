@@ -56,7 +56,7 @@ class TestCommandsEndpoint:
 
         notes = next(p for p in payload["plugins"] if p["name"] == "notes")
 
-        assert notes["commands"]["/add"] == "Add a new note"
+        assert notes["commands"]["/add"] == "Добавить заметку"
 
 
 class TestExecuteEndpoint:
@@ -138,7 +138,7 @@ class TestIndexEndpoint:
 
         assert response.status == 200
         assert response.content_type == "text/html"
-        assert "Automation Platform" in await response.text()
+        assert "Платформа автоматизации" in await response.text()
 
 
 class TestHealthEndpoint:

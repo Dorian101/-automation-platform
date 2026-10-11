@@ -41,19 +41,19 @@ class UsersRepository:
         trimmed = username.strip()
 
         if not trimmed:
-            raise ValueError("username must not be empty")
+            raise ValueError("имя пользователя не может быть пустым")
 
         if len(trimmed) > MAX_USERNAME_LENGTH:
             raise ValueError(
-                f"username must be at most {MAX_USERNAME_LENGTH} characters"
+                f"имя пользователя длиннее {MAX_USERNAME_LENGTH} символов"
             )
 
         # fullmatch on a non-empty string: the class demands at least one
         # character, which the emptiness check above has already guaranteed.
         if _USERNAME_RE.fullmatch(trimmed) is None:
             raise ValueError(
-                "username may only contain letters, digits, dots, dashes "
-                "and underscores"
+                "имя пользователя может содержать только латинские буквы, "
+                "цифры, точки, дефисы и подчёркивания"
             )
 
         password_hash = hash_password(password)

@@ -56,7 +56,7 @@ class TestHashing:
         assert verify_password("not-the-password", hash_password(PASSWORD)) is False
 
     def test_rejects_a_short_password(self):
-        with pytest.raises(PasswordError, match="at least"):
+        with pytest.raises(PasswordError, match="не короче"):
             hash_password("short")
 
 

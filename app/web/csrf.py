@@ -26,7 +26,7 @@ CSRF_TTL_SECONDS = 600
 
 #: The answer the session-backed handlers return for a bad token. Public so
 #: that tests assert against the same words.
-FORGED_FORM_MESSAGE = "This form has expired. Reload the page and try again."
+FORGED_FORM_MESSAGE = "Форма устарела. Обновите страницу и попробуйте снова."
 
 
 class CsrfSigner:

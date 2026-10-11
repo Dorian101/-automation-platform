@@ -1,33 +1,48 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign in &mdash; Automation Platform</title>
+<meta name="description" content="Вход в личный кабинет платформы автоматизации. Проект открыт для просмотра без регистрации.">
+<meta name="robots" content="noindex, follow">
+<title>Вход — Платформа автоматизации</title>
 __STYLES__
 </head>
 <body>
 <main class="card">
-  <h1>Automation Platform</h1>
-  <p class="sub">Sign in to continue.</p>
+  <h1>Платформа автоматизации</h1>
+  <p class="sub">Вход в личный кабинет.</p>
 
   __ERROR_BLOCK__
 
   <form method="post" action="/login">
     <input type="hidden" name="csrf" value="__CSRF__">
     <label>
-      Username
+      Имя пользователя
       <input type="text" name="username" value="__USERNAME__"
              autocomplete="username" autofocus required>
     </label>
     <label>
-      Password
+      Пароль
       <input type="password" name="password" autocomplete="current-password" required>
     </label>
-    <button type="submit">Sign in</button>
+    <button type="submit">Войти</button>
   </form>
 
   __SIGNUP_BLOCK__
+
+  <!-- The one route out of a page that otherwise only offers a form.
+       A crawler arriving at the domain lands here — / redirects to this —
+       and finds these three links or nothing at all: the public pages are
+       reachable from nowhere else on the site, so without them a search
+       engine has no way to find them. Also the honest answer to somebody
+       who typed the address and wanted the project rather than the
+       account. -->
+  <p class="alt">
+    <a href="/about">Обо мне</a> ·
+    <a href="/project">Проект и метод</a> ·
+    <a href="/demo">Демонстрация</a>
+  </p>
 </main>
 </body>
 </html>

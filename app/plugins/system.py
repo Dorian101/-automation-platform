@@ -8,11 +8,11 @@ from .manager import PluginManager
 class SystemPlugin(BasePlugin):
     name = "system"
     version = "1.1.0"
-    description = "System commands"
+    description = "Системные команды"
     commands = {
-        "/plugins": "Show loaded plugins",
-        "/help": "Show available commands",
-        "/status": "Show platform status",
+        "/plugins": "Показать плагины",
+        "/help": "Показать список команд",
+        "/status": "Показать состояние",
     }
 
     def __init__(self, manager: PluginManager, users=None, links=None):
