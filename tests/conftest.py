@@ -28,6 +28,7 @@ from app.db.database import Database
 from app.db.migrations import MigrationRunner
 from app.db.users_repo import UsersRepository
 from app.notifications import Notifier, TelegramChannel, WebChannel
+from app.plugins.applications import ApplicationsPlugin
 from app.plugins.clipboard import ClipboardPlugin
 from app.plugins.expenses import ExpensesPlugin
 from app.plugins.manager import PluginManager
@@ -90,10 +91,20 @@ def manager(database_with_schema):
 
 
 @pytest.fixture
-def expenses_manager(manager, database_with_schema):
-    """A manager that also has the spending plugin, which owns a page."""
+def pages_manager(manager, database_with_schema):
+    """A manager holding every plugin that owns a web page.
+
+    Expenses and applications are registered together so a test about page
+    routing sees the real shape of the route table rather than a single
+    plugin's view of it.
+    """
     manager.register(ExpensesPlugin(database_with_schema))
+    manager.register(ApplicationsPlugin(database_with_schema))
     return manager
+
+
+# Kept under the old name so the spending tests read as they were written.
+expenses_manager = pages_manager
 
 
 @pytest.fixture

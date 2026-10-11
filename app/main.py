@@ -15,6 +15,7 @@ from app.notifications import (
     TelegramChannel,
     WebChannel,
 )
+from app.plugins.applications import ApplicationsPlugin
 from app.plugins.clipboard import ClipboardPlugin
 from app.plugins.expenses import ExpensesPlugin
 from app.plugins.manager import PluginManager
@@ -62,6 +63,7 @@ async def main() -> None:
     manager.register(RemindersPlugin(notifier, database))
     manager.register(ClipboardPlugin(database, persons=persons))
     manager.register(ExpensesPlugin(database, persons=persons))
+    manager.register(ApplicationsPlugin(database, persons=persons))
     manager.register(
         SystemPlugin(manager, users=users, links=links)
     )

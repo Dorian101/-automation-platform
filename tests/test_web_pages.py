@@ -87,7 +87,7 @@ class TestPageRoute:
 
         pages = {page["page"]: page["name"] for page in payload["pages"]}
 
-        assert pages == {"/expenses": "expenses"}
+        assert pages == {"/expenses": "expenses", "/applications": "applications"}
 
     async def test_a_page_is_named_for_a_reader_not_by_path(self, client):
         """The title is what a person sees, so it is not the plugin's name."""
@@ -220,6 +220,79 @@ class TestPageAction:
         assert '<select id="month"' not in body
         assert 'id="month"' in body and "readonly" in body
         assert "prev-month" in body and "next-month" in body
+
+
+class TestApplicationsPage:
+    async def test_the_page_is_served(self, client):
+        response = await client.get("/applications")
+
+        assert response.status == 200
+
+        view = _view(await response.text())
+
+        assert view["title"] == "Отклики"
+        assert view["funnel"]["kind"] == "funnel"
+
+    async def test_it_is_protected_from_a_guest(self, guest):
+        response = await guest.get("/applications", allow_redirects=False)
+
+        assert response.status == 303
+        assert response.headers["Location"] == "/login"
+
+    async def test_an_application_can_be_added_and_moved(self, client):
+        added = await client.post(
+            "/api/page/action",
+            json={
+                "page": "/applications",
+                "action": "add",
+                "payload": {"company": "Ромашка", "role": "BI-аналитик"},
+            },
+        )
+        assert added.status == 200
+
+        view = (await added.json())["view"]
+        row = view["table"]["rows"][0]
+
+        assert row["company"] == "Ромашка"
+        assert row["status"] == "applied"
+
+        moved = await client.post(
+            "/api/page/action",
+            json={
+                "page": "/applications",
+                "action": "stage",
+                "payload": {"id": str(row["id"]), "status": "answered"},
+            },
+        )
+
+        assert moved.status == 200
+        assert (await moved.json())["view"]["table"]["rows"][0]["status"] == (
+            "answered"
+        )
+
+    async def test_an_illegal_stage_is_refused_over_the_wire(self, client):
+        """The machine is enforced server-side, not only by which buttons are
+        drawn — a stale page must not be able to skip a stage."""
+        added = await client.post(
+            "/api/page/action",
+            json={
+                "page": "/applications",
+                "action": "add",
+                "payload": {"company": "Ромашка", "role": "BI"},
+            },
+        )
+        row = (await added.json())["view"]["table"]["rows"][0]
+
+        response = await client.post(
+            "/api/page/action",
+            json={
+                "page": "/applications",
+                "action": "stage",
+                "payload": {"id": str(row["id"]), "status": "offer"},
+            },
+        )
+
+        assert response.status == 400
 
 
 class TestIsolation:

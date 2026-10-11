@@ -85,7 +85,7 @@ class TestPages:
     def test_only_plugins_with_a_page_are_listed(self, expenses_manager):
         pages = expenses_manager.pages()
 
-        assert [page["page"] for page in pages] == ["/expenses"]
+        assert [page["page"] for page in pages] == ["/expenses", "/applications"]
 
     def test_a_manager_without_pages_lists_nothing(self, manager):
         assert manager.pages() == []
