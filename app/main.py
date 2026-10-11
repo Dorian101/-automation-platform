@@ -5,6 +5,7 @@ from app.bot.error_handler import register_error_handler
 from app.core.config import Config
 from app.core.logger import setup_logger
 from app.core.person import PersonResolver
+from app.db.backup import BackupManager
 from app.db.database import Database
 from app.db.links_repo import TelegramLinksRepository
 from app.db.migrations import MigrationRunner
@@ -41,7 +42,11 @@ async def main() -> None:
     dp = create_dispatcher()
 
     database = Database()
-    MigrationRunner(database).run()
+    # A backup manager here and nowhere else: this is the one path that
+    # changes the schema on a running system, so it is the one that gets a
+    # dump before it does. The management commands apply migrations too, but
+    # by hand, on a host an operator is sitting in front of.
+    MigrationRunner(database, backup=BackupManager()).run()
 
     register_error_handler(dp)
 

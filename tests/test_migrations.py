@@ -161,3 +161,95 @@ class TestUserIdentityMigration:
             "idx_reminders_user_id",
             "idx_clipboard_user_id",
         }
+
+
+class RecordingBackup:
+    """A backup manager that records calls instead of shelling out."""
+
+    def __init__(self, fail: bool = False):
+        self.names: list[str] = []
+        self._fail = fail
+
+    def create_backup(self, name: str) -> Path:
+        self.names.append(name)
+
+        if self._fail:
+            raise RuntimeError("pg_dump: could not connect to server")
+
+        return Path(f"/tmp/{name}.sql")
+
+
+class TestBackupBeforeMigrating:
+    def test_a_fresh_database_is_backed_up_before_anything_is_applied(
+        self, database
+    ):
+        backup = RecordingBackup()
+
+        MigrationRunner(database, backup=backup).run()
+
+        assert backup.names == ["pre_migration"]
+
+    def test_one_dump_covers_the_whole_run(self, database):
+        """A deploy brings several files; what is wanted on failure is the
+        database as it was before any of them landed."""
+        backup = RecordingBackup()
+
+        MigrationRunner(database, backup=backup).run()
+
+        assert len(backup.names) == 1
+
+    def test_a_database_with_nothing_pending_is_not_backed_up(
+        self, database
+    ):
+        """Otherwise every restart dumps the database for nothing."""
+        MigrationRunner(database).run()
+        backup = RecordingBackup()
+
+        MigrationRunner(database, backup=backup).run()
+
+        assert backup.names == []
+
+    def test_without_a_backup_manager_nothing_is_written(
+        self, database
+    ):
+        """The tests and the management commands run without one."""
+        MigrationRunner(database).run()
+
+    def test_a_failed_backup_stops_the_run(self, database):
+        """Applying a migration with no way back is the worse mistake.
+
+        On a host where pg_dump works this failure means something real — no
+        disk, no database — and the error says what instead of surfacing
+        later as lost rows.
+        """
+        import pytest
+
+        backup = RecordingBackup(fail=True)
+
+        with pytest.raises(RuntimeError, match="without a backup"):
+            MigrationRunner(database, backup=backup).run()
+
+    def test_a_failed_backup_leaves_the_schema_alone(self, database):
+        """The point of stopping: nothing may have landed."""
+        import pytest
+
+        with pytest.raises(RuntimeError):
+            MigrationRunner(database, backup=RecordingBackup(fail=True)).run()
+
+        with database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables
+                        WHERE table_name = 'expenses'
+                    )
+                """)
+                assert cur.fetchone()[0] is False
+
+    def test_the_failure_says_which_migration_is_waiting(self, database):
+        import pytest
+
+        backup = RecordingBackup(fail=True)
+
+        with pytest.raises(RuntimeError, match="pg_dump"):
+            MigrationRunner(database, backup=backup).run()
