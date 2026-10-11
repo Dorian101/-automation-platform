@@ -8,6 +8,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from app.core.identity import WEB, Identity, guest
 from app.web.demo import DemoService, is_public_demo_path
 from app.web.server import WebServer
+from tests.conftest import assert_no_placeholders
 
 
 def _view(body: str) -> dict:
@@ -77,9 +78,10 @@ class TestLanding:
         assert "/demo/applications" in body
 
     async def test_no_placeholder_survives(self, visitor):
+        """The same check as the console, and the same reason for its shape."""
         body = await (await visitor.get("/demo")).text()
 
-        assert "__" not in body.replace("__pycache__", "")
+        assert_no_placeholders("_demo.html", body)
 
 
 class TestGuestPage:
@@ -423,3 +425,39 @@ class TestMenuIsStyledEverywhere:
 
         assert ".menu > summary" not in document_styles
         assert ".menu > summary" in pages.menu_styles()
+
+
+class TestPlaceholderCheck:
+    """The check itself, since a test that cannot fail is worse than none.
+
+    The version this replaced searched the rendered page for `__`. The page
+    carries a CSRF token and a link nonce, both random and both drawn from
+    alphabets containing `_`, so that rule failed about once every hundred
+    runs for a reason that had nothing to do with substitutions.
+    """
+
+    def test_it_reads_the_names_from_the_template(self):
+        from tests.conftest import template_placeholders
+
+        found = template_placeholders("index.html")
+
+        assert "__CSRF__" in found
+        assert "__USER__" in found
+
+    def test_it_ignores_a_lowercase_pair(self):
+        """Otherwise `__pycache__` in a path reads as a leftover."""
+        from tests.conftest import template_placeholders
+
+        assert "__pycache__" not in template_placeholders("index.html")
+
+    def test_it_catches_an_unsubstituted_placeholder(self):
+        from tests.conftest import assert_no_placeholders
+
+        with pytest.raises(AssertionError, match="__CSRF__"):
+            assert_no_placeholders("index.html", '<input value="__CSRF__">')
+
+    def test_it_accepts_a_token_that_happens_to_contain_the_pair(self):
+        """The whole point: the old rule failed here."""
+        from tests.conftest import assert_no_placeholders
+
+        assert_no_placeholders("index.html", '<input value="abc__def_ghi">')

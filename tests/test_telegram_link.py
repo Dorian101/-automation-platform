@@ -18,7 +18,12 @@ from app.core.config import Config
 from app.db.links_repo import TelegramLinksRepository
 from app.db.users_repo import UsersRepository
 from app.web.server import LINK_NONCE_COOKIE, WebServer
-from tests.conftest import TEST_PASSWORD, TEST_USERNAME, _hidden_field
+from tests.conftest import (
+    TEST_PASSWORD,
+    TEST_USERNAME,
+    _hidden_field,
+    assert_no_placeholders,
+)
 
 BOT_TOKEN = "123456:ABC-DEF_token_for_tests"
 BOT_USERNAME = "example_bot"
@@ -182,10 +187,16 @@ class TestTheButton:
         assert "not configured" in body
 
     async def test_the_page_leaves_no_placeholder(self, signed_in):
-        for path in ("/",):
-            body = await (await signed_in.get(path)).text()
+        """The console, rendered from index.html, substitutes everything.
 
-            assert "__" not in body.replace("__pycache__", ""), path
+        Checked by name against the template rather than by searching the page
+        for `__`: the page carries a CSRF token and a link nonce, both random
+        and both in alphabets that contain `_`, so the substring test failed
+        about once in a hundred runs for a reason that was not a substitution.
+        """
+        body = await (await signed_in.get("/")).text()
+
+        assert_no_placeholders("index.html", body)
 
     async def test_a_guest_is_sent_to_login_rather_than_offered_a_button(
         self,

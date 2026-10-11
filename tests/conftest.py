@@ -3,6 +3,7 @@
 import logging
 import os
 import re
+from pathlib import Path
 
 # Config reads the environment exactly once, when its class body runs at import
 # time. Setting these inside a fixture would happen after every test module had
@@ -202,3 +203,37 @@ def web_identity():
 @pytest.fixture
 def notifier():
     return Notifier([TelegramChannel(bot=None), WebChannel()])
+
+
+# A template placeholder: double underscores around an upper-case name. The
+# case is what keeps `__pycache__` and a docstring's `__init__` out of it.
+_PLACEHOLDER = re.compile(r"__[A-Z][A-Z_]*__")
+
+
+def template_placeholders(name: str) -> set[str]:
+    """Every substitution a template asks for.
+
+    Read from the template rather than listed here, so a placeholder added
+    later is covered without remembering to add it to a test.
+
+    Naming the placeholders is the point. Searching the rendered page for
+    `__` instead also matches the random values rendered into it: the CSRF
+    token is urlsafe base64 and the link nonce is urlsafe random, and both
+    alphabets contain `_`. Roughly one page render in a hundred carries a
+    `__` inside one of them, which made a page-with-no-placeholder test fail
+    about once every hundred runs for a reason that had nothing to do with
+    substitutions.
+    """
+    source = (
+        Path(__file__).resolve().parent.parent / "app" / "web" / "templates" / name
+    ).read_text(encoding="utf-8")
+
+    return set(_PLACEHOLDER.findall(source))
+
+
+def assert_no_placeholders(name: str, body: str) -> None:
+    """Fail on any substitution the renderer left behind."""
+    for placeholder in sorted(template_placeholders(name)):
+        assert placeholder not in body, (
+            f"{placeholder} survived into the page rendered from {name}"
+        )
