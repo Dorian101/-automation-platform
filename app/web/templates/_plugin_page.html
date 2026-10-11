@@ -153,6 +153,8 @@ __STYLES__
     font-size: 0.78rem;
     margin-left: 0.3rem;
   }
+  table.data a { color: var(--accent); font-size: 0.82rem; }
+  table.data a:hover { text-decoration: underline; }
   .hint { color: var(--muted); font-size: 0.85rem; margin: 0.5rem 0 1.5rem; }
 </style>
 </head>
@@ -383,7 +385,7 @@ __STYLES__
       }
 
       for (const col of table.columns) {
-        tr.appendChild(el('td', col.num ? 'num' : '', row[col.key]));
+        tr.appendChild(cellFor(col, row));
       }
 
       if (table.actions) {
@@ -407,6 +409,35 @@ __STYLES__
 
     t.appendChild(tbody);
     root.appendChild(t);
+  }
+
+  // A cell is either text or a link, decided by the column rather than by
+  // what the value happens to look like.
+  //
+  // The href goes in through setAttribute and is re-checked here: the plugin
+  // refuses anything that is not http(s) on the way in, and this is the second
+  // time it is worth refusing, since an href the browser will follow is not
+  // the same thing as a string in a column. `noopener` is what keeps the page
+  // that opens from reaching back through window.opener.
+  function cellFor(col, row) {
+    const value = row[col.key];
+
+    if (col.link && value) {
+      if (!/^https?:\/\//i.test(value)) {
+        return el('td', '', '');
+      }
+
+      const td = el('td');
+      const anchor = document.createElement('a');
+      anchor.href = value;
+      anchor.textContent = 'Открыть';
+      anchor.target = '_blank';
+      anchor.rel = 'noopener noreferrer';
+      td.appendChild(anchor);
+      return td;
+    }
+
+    return el('td', col.num ? 'num' : '', value);
   }
 
   function drawList(list) {

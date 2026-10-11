@@ -385,3 +385,83 @@ class TestIsolation:
 
         assert view["table"]["rows"] == []
         assert view["totals"]["items"][0]["value"] == 0
+
+
+class TestUrl:
+    """A stored link is an href the browser will follow.
+
+    That makes the scheme part of the input rather than a detail: a
+    `javascript:` URL clicked from this table would run in the page's own
+    context, so it is refused at the point the value enters.
+    """
+
+    async def _add(self, plugin, identity, url):
+        await plugin.page_action(
+            identity,
+            "add",
+            {
+                "company": "Ромашка",
+                "role": "BI-аналитик",
+                "url": url,
+            },
+        )
+
+    async def test_a_https_link_is_stored(self, plugin, web_identity):
+        await self._add(plugin, web_identity, "https://hh.ru/vacancy/1")
+
+        row = _row(await plugin.page_view(web_identity), "Ромашка")
+
+        assert row["url"] == "https://hh.ru/vacancy/1"
+
+    async def test_http_is_allowed_too(self, plugin, web_identity):
+        await self._add(plugin, web_identity, "http://example.com/job")
+
+        row = _row(await plugin.page_view(web_identity), "Ромашка")
+
+        assert row["url"] == "http://example.com/job"
+
+    async def test_no_link_is_fine(self, plugin, web_identity):
+        await self._add(plugin, web_identity, "")
+
+        row = _row(await plugin.page_view(web_identity), "Ромашка")
+
+        assert row["url"] == ""
+
+    async def test_a_javascript_url_is_refused(self, plugin, web_identity):
+        with pytest.raises(CommandError):
+            await self._add(
+                plugin, web_identity, "javascript:alert(document.cookie)"
+            )
+
+    async def test_a_scheme_is_not_enough_on_its_own(self, plugin, web_identity):
+        for bad in (
+            "javascript:alert(1)",
+            "data:text/html,<script>alert(1)</script>",
+            "vbscript:msgbox(1)",
+            "file:///etc/passwd",
+            "//example.com/job",
+            "hh.ru/vacancy/1",
+        ):
+            with pytest.raises(CommandError):
+                await self._add(plugin, web_identity, bad)
+
+    async def test_the_check_does_not_depend_on_case(self, plugin, web_identity):
+        await self._add(plugin, web_identity, "HTTPS://hh.ru/vacancy/1")
+
+        row = _row(await plugin.page_view(web_identity), "Ромашка")
+
+        assert row["url"] == "HTTPS://hh.ru/vacancy/1"
+
+    async def test_an_overlong_link_is_refused(self, plugin, web_identity):
+        with pytest.raises(CommandError):
+            await self._add(plugin, web_identity, "https://x.ru/" + "a" * 500)
+
+    async def test_the_url_column_is_marked_as_a_link(
+        self, plugin, web_identity
+    ):
+        """How the cell is drawn is the column's business, not the value's."""
+        view = await plugin.page_view(web_identity)
+        columns = {c["key"]: c for c in view["table"]["columns"]}
+
+        assert columns["url"]["link"] is True
+        assert columns["company"].get("link") is None

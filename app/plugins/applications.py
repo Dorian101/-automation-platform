@@ -53,6 +53,14 @@ SILENCE_DAYS = 5
 
 MAX_COMPANY = 80
 MAX_ROLE = 80
+MAX_URL = 500
+
+# A link on the page is an href, and an href the browser will act on. Only
+# these two schemes are ever rendered; `javascript:` in particular would run
+# in the page's own context when clicked, which is the stored-XSS a link that
+# a person can click turns into. Checked on the way in, because that is the
+# last point at which the value can still be refused.
+ALLOWED_SCHEMES = ("http://", "https://")
 
 
 def _label(status: str) -> str:
@@ -264,6 +272,14 @@ class ApplicationsPlugin(BasePlugin):
             "columns": [
                 {"key": "company", "label": "Компания"},
                 {"key": "role", "label": "Роль"},
+                {
+                    "key": "url",
+                    "label": "Ссылка",
+                    # Drawn as an anchor. `rel="noopener noreferrer"` matters
+                    # on a target="_blank" link: without it the page opened
+                    # can reach this one through window.opener.
+                    "link": True,
+                },
                 {"key": "applied_at", "label": "Дата"},
                 {"key": "age_days", "label": "Дней", "num": True},
                 {"key": "status_label", "label": "Статус"},
@@ -344,6 +360,18 @@ class ApplicationsPlugin(BasePlugin):
 
         if len(company) > MAX_COMPANY or len(role) > MAX_ROLE:
             raise CommandError("Слишком длинное название.")
+
+        if url:
+            if len(url) > MAX_URL:
+                raise CommandError("Слишком длинная ссылка.")
+
+            if not url.lower().startswith(ALLOWED_SCHEMES):
+                # Said as what is wrong with the link, not as a warning about
+                # safety: a person pasting from a browser should never hit
+                # this, and one who did should be told which part to fix.
+                raise CommandError(
+                    "Ссылка должна начинаться с http:// или https://",
+                )
 
         if applied_at:
             try:

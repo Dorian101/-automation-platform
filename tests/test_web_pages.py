@@ -153,6 +153,21 @@ class TestPageRoute:
 
         assert "[hidden] { display: none !important; }" in body
 
+    async def test_a_rendered_link_is_re_checked_and_not_a_referrer(
+        self, client
+    ):
+        """An href is followed by the browser, so it is checked again here.
+
+        The plugin refuses a non-http scheme on the way in; this is the second
+        refusal, because a value in a column is not the same thing as a value
+        a browser will navigate to. `noopener` keeps the page that opens from
+        reaching back through window.opener.
+        """
+        body = await (await client.get("/applications")).text()
+
+        assert "noopener noreferrer" in body
+        assert "test(value)" in body
+
 
 class TestPageAction:
     async def _act(self, client, action, payload):
