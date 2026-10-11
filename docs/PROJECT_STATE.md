@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.21.0
+v0.22.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -263,8 +263,23 @@ Implemented:
   with the page redrawn
 * a route per plugin page (e.g. /expenses, /applications), built from what
   plugins declared
+* GET /demo — public demonstration: landing, plugin pages and actions,
+  reachable without a session
 * GET /health — database health check
 * WEB_HOST / WEB_PORT configuration
+
+Demonstration:
+
+* /demo, /demo/expenses, /demo/applications and POST /demo/api/action are
+  public; the rest still needs a session
+* a visitor is `web:guest:<token>` from a cookie — never a row in `users`,
+  never a password, never a session
+* a guest namespace is seeded on arrival, so the cleanup can run at any time
+* writes are capped per guest
+* the page states that the data is invented
+* /about links to it, so a reader arrives from a résumé without being asked
+  to register
+* `python -m app.manage prune-guests` deletes every guest namespace
 
 Access control:
 
@@ -441,10 +456,14 @@ app/db/database.py
 * Web console is functional but minimal.
 * The spending page is the only analytics page. The application-tracking plugin
   is planned on the same base but not built.
-* The demonstration page for a recruiter is planned but not built: a guest
-  namespace with its own seeded data, capped writes, and daily cleanup. Both
-  analytics plugins exist and are ready to be shown there.
-* The console itself is still English; the plugin pages are Russian.
+* The demonstration namespace is cleaned only when the timer is installed on
+  the host; the command exists but nothing runs it yet.
+* Guest writes are capped (12 categories, 100 expenses, 25 applications) but
+  the caps are per namespace and a visitor can mint namespaces without limit,
+  so a determined visitor can still fill the disk. The daily prune is what
+  bounds that in practice.
+* The console itself is still English; the plugin pages and the demonstration
+  are Russian.
 
 ⸻
 

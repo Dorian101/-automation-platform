@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Демонстрация — Automation Platform</title>
+__STYLES__
+<style>
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1rem;
+    margin: 0 0 2rem;
+  }
+  .card {
+    display: block;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.1rem 1.25rem;
+    text-decoration: none;
+  }
+  .card:hover { border-color: var(--accent); text-decoration: none; }
+  .card b { display: block; color: var(--text); font-size: 1.05rem; margin-bottom: 0.35rem; }
+  .card span { color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
+</style>
+</head>
+<body>
+<main>
+  <nav>
+    <a href="/about">Обо мне</a>
+    <a href="/project">Проект и метод</a>
+    <a href="/" aria-current="page">Демонстрация</a>
+  </nav>
+
+  <h1>Демонстрация платформы</h1>
+  <p class="lede">Одна и та же платформа, что и в личном кабинете: те же
+  плагины, тот же код, те же расчёты. Всё, что вы введёте, живёт в отдельной
+  временной области и удаляется ежедневно.</p>
+
+  <div class="note">
+    <p><strong>Все данные здесь вымышленные.</strong> Компании, вакансии,
+    суммы и расходы придуманы для примера — ничьи настоящие цифры не
+    показываются. Можно свободно добавлять свои записи и смотреть, как
+    меняются итоги: ничего не сломается, и ничего не останется.</p>
+  </div>
+
+  <h2>Что можно посмотреть</h2>
+  <div class="cards">__CARDS__</div>
+
+  <footer>
+    Полное устройство проекта — на странице
+    <a href="/project">проект и метод</a>.
+  </footer>
+</main>
+</body>
+</html>

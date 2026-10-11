@@ -55,6 +55,21 @@ class BasePlugin(ABC):
         """Called before the platform stops."""
         return None
 
+    async def seed_demo(self, identity: Identity) -> None:
+        """Fill an empty namespace with something worth looking at.
+
+        Used by the demonstration page, which shows a visitor a plugin with no
+        data in it rather than an empty table. It is the plugin's own call:
+        what would be sensible to show is a fact about the plugin, and asking
+        the demonstration page to invent expenses or applications would make
+        it know about both.
+
+        Called only when the namespace is already empty, so it never overwrites
+        what a visitor has entered. The default does nothing, which is right
+        for a plugin with nothing to show.
+        """
+        return None
+
     def router(self) -> Router:
         """Return transport-specific handlers owned by this plugin.
 

@@ -1,0 +1,306 @@
+import json
+import re
+from datetime import date
+
+import pytest
+from aiohttp.test_utils import TestClient, TestServer
+
+from app.core.identity import WEB, Identity, guest
+from app.web.demo import DemoService, is_public_demo_path
+from app.web.server import WebServer
+
+
+def _view(body: str) -> dict:
+    match = re.search(
+        r'<script type="application/json" id="initial-view">(.*?)</script>',
+        body,
+        re.S,
+    )
+    assert match, "page did not embed its description"
+    return json.loads(match.group(1))
+
+
+@pytest.fixture
+def web_server(pages_manager, database_with_schema):
+    return WebServer(
+        manager=pages_manager,
+        database=database_with_schema,
+        host="127.0.0.1",
+        port=0,
+    )
+
+
+@pytest.fixture
+async def visitor(web_server):
+    """A browser that has never signed in — what a resume link arrives as."""
+    test_server = TestServer(web_server.build_app())
+    async with TestClient(test_server) as client:
+        yield client
+
+
+class TestPublicPaths:
+    def test_the_demonstration_is_public(self):
+        assert is_public_demo_path("/demo") is True
+        assert is_public_demo_path("/demo/expenses") is True
+        assert is_public_demo_path("/demo/api/action") is True
+
+    def test_nothing_else_is_public_by_accident(self):
+        """A bare prefix test would have opened `/demoted`."""
+        for path in ("/demoted", "/demo2", "/", "/expenses", "/admin"):
+            assert is_public_demo_path(path) is False
+
+
+class TestLanding:
+    async def test_reachable_without_a_session(self, visitor):
+        response = await visitor.get("/demo")
+
+        assert response.status == 200
+
+    async def test_says_the_data_is_invented(self, visitor):
+        body = await (await visitor.get("/demo")).text()
+
+        assert "вымышленные" in body
+
+    async def test_lists_the_plugin_pages(self, visitor):
+        body = await (await visitor.get("/demo")).text()
+
+        assert "/demo/expenses" in body
+        assert "/demo/applications" in body
+
+    async def test_no_placeholder_survives(self, visitor):
+        body = await (await visitor.get("/demo")).text()
+
+        assert "__" not in body.replace("__pycache__", "")
+
+
+class TestGuestPage:
+    async def test_a_page_is_reachable_without_a_session(self, visitor):
+        response = await visitor.get("/demo/expenses")
+
+        assert response.status == 200
+
+    async def test_it_carries_the_demonstration_banner(self, visitor):
+        body = await (await visitor.get("/demo/expenses")).text()
+
+        assert "__IS_DEMO__" not in body
+        assert "true" in body
+
+    async def test_an_empty_namespace_is_filled_on_arrival(self, visitor):
+        """Seeding on arrival is what lets the cleanup run at any time."""
+        body = await (await visitor.get("/demo/expenses")).text()
+
+        assert _view(body)["totals"]["items"][0]["value"] != "0"
+
+    async def test_two_visitors_do_not_share(self, web_server):
+        """The whole point of a per-visitor namespace.
+
+        Two servers against one database, because a shared TestServer drops a
+        connection when two clients read from it at once, and the point of the
+        test is that the *cookies* differ, not the connections.
+        """
+        async with TestClient(
+            TestServer(web_server.build_app())
+        ) as one, TestClient(TestServer(web_server.build_app())) as two:
+            await one.get("/demo/expenses")
+            await one.post(
+                "/demo/api/action",
+                json={
+                    "page": "/expenses",
+                    "action": "catadd",
+                    "payload": {"name": "Только у первого"},
+                },
+            )
+            second = await two.get("/demo/expenses")
+            options = _view(await second.text())["forms"][0]["fields"][0]["options"]
+
+        assert [o["label"] for o in options] != ["Только у первого"]
+
+    async def test_the_same_browser_keeps_its_namespace(self, visitor):
+        """A token reissued on every request would reset the demonstration
+        under the reader's hands."""
+        await visitor.post(
+            "/demo/api/action",
+            json={
+                "page": "/expenses",
+                "action": "catadd",
+                "payload": {"name": "Моя категория"},
+            },
+        )
+        body = await (await visitor.get("/demo/expenses")).text()
+
+        options = _view(body)["forms"][0]["fields"][0]["options"]
+
+        assert [o["label"] for o in options] == ["Моя категория"]
+
+
+class TestGuestActions:
+    async def test_an_action_is_accepted(self, visitor):
+        response = await visitor.post(
+            "/demo/api/action",
+            json={
+                "page": "/expenses",
+                "action": "catadd",
+                "payload": {"name": "Еда"},
+            },
+        )
+
+        assert response.status == 200
+
+    async def test_an_unknown_page_is_404(self, visitor):
+        response = await visitor.post(
+            "/demo/api/action",
+            json={"page": "/nothing", "action": "month", "payload": {}},
+        )
+
+        assert response.status == 404
+
+    async def test_a_plugin_error_is_400(self, visitor):
+        response = await visitor.post(
+            "/demo/api/action",
+            json={"page": "/expenses", "action": "catadd", "payload": {"name": ""}},
+        )
+
+        assert response.status == 400
+
+    async def test_a_non_object_payload_is_400(self, visitor):
+        response = await visitor.post(
+            "/demo/api/action", json={"page": "/expenses", "action": "catadd",
+                                     "payload": "nope"},
+        )
+
+        assert response.status == 400
+
+
+class TestNeverResolvesASession:
+    """The invariant the whole module rests on.
+
+    The demonstration is the only part of the site reachable without signing
+    in. If any of these handlers could resolve a session, a visitor could run
+    commands as a real account — not a crash, a hole.
+    """
+
+    async def test_a_session_cookie_is_ignored(self, web_server, create_user, login):
+        """Signed in *and* holding a guest cookie: the guest still wins.
+
+        Ordering matters. If the guest were resolved second it would shadow a
+        real session, which is the safe direction; resolved first, a session
+        can never take over a demonstration page.
+        """
+        async with TestClient(TestServer(web_server.build_app())) as client:
+            await client.get("/demo/expenses")
+            await login(client)
+
+            await client.post(
+                "/demo/api/action",
+                json={
+                    "page": "/expenses",
+                    "action": "catadd",
+                    "payload": {"name": "Гостевая"},
+                },
+            )
+
+            body = await (await client.get("/demo/expenses")).text()
+            options = _view(body)["forms"][0]["fields"][0]["options"]
+
+        # The category landed in the guest's namespace. It was written while a
+        # valid session cookie was also on the request, so if anything had
+        # resolved that session the category would be under the account and
+        # this list would not carry it.
+        assert "Гостевая" in [o["label"] for o in options]
+
+    def test_the_module_never_calls_identity_resolution(self):
+        """A structural check, so the rule cannot be broken by an edit.
+
+        Matched on a call rather than the bare name: the module's own prose
+        discusses this rule by name, and a test that trips over its own
+        documentation would be useless.
+        """
+        import re
+        from pathlib import Path
+
+        import app.web.demo as demo
+
+        source = Path(demo.__file__).read_text(encoding="utf-8")
+
+        assert re.search(r"\bresolve_identity\s*\(", source) is None
+        assert re.search(r"\b_current_user\s*\(", source) is None
+
+
+class TestGuestCaps:
+    async def test_categories_stop_at_the_cap(self, visitor):
+        from app.plugins.expenses import GUEST_CATEGORY_LIMIT
+
+        for index in range(GUEST_CATEGORY_LIMIT):
+            response = await visitor.post(
+                "/demo/api/action",
+                json={
+                    "page": "/expenses",
+                    "action": "catadd",
+                    "payload": {"name": f"Категория {index}"},
+                },
+            )
+            assert response.status == 200
+
+        response = await visitor.post(
+            "/demo/api/action",
+            json={
+                "page": "/expenses",
+                "action": "catadd",
+                "payload": {"name": "Лишняя"},
+            },
+        )
+
+        assert response.status == 400
+        assert "ограничено" in (await response.json())["error"].lower()
+
+
+class TestPrune:
+    def test_guest_rows_go_and_accounts_stay(self, pages_manager, database_with_schema):
+        """A guest was never in `users`, so this is a delete by prefix."""
+        account = Identity(WEB, "a-real-account")
+        visitor = guest("doomed")
+
+        expenses = pages_manager.find_by_page("/expenses")
+        entries = pages_manager.find_by_page("/applications")
+
+        expenses.repo.add_category(visitor, "Еда")
+        entries.repo.add(visitor, "Компания", "Роль", date.today())
+        expenses.repo.add_category(account, "Еда")
+
+        removed = DemoService(pages_manager, database_with_schema).prune()
+
+        assert removed["expense_categories"] >= 1
+        assert removed["job_applications"] >= 1
+
+        # The account's row is untouched: pruning is scoped to the prefix, and
+        # an account's namespace must never be a candidate.
+        assert [
+            c["name"] for c in expenses.repo.categories(account)
+        ] == ["Еда"]
+
+    def test_pruning_nothing_is_not_an_error(
+        self, pages_manager, database_with_schema
+    ):
+        removed = DemoService(pages_manager, database_with_schema).prune()
+
+        assert all(count == 0 for count in removed.values())
+
+
+class TestReachableFromTheResume:
+    """The point of the whole arrangement: a reader arrives at a resume and
+    has a reason to look before being asked to register."""
+
+    async def test_the_resume_links_to_the_demonstration(self, visitor):
+        body = await (await visitor.get("/about")).text()
+
+        assert 'href="/demo"' in body
+
+    async def test_it_says_registering_is_not_needed(self, visitor):
+        body = await (await visitor.get("/about")).text()
+
+        assert "Регистрация не нужна" in body
+
+    async def test_it_says_the_data_is_invented(self, visitor):
+        body = await (await visitor.get("/about")).text()
+
+        assert "вымышленные" in body

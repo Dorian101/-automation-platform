@@ -156,6 +156,16 @@ __STYLES__
   table.data a { color: var(--accent); font-size: 0.82rem; }
   table.data a:hover { text-decoration: underline; }
   .hint { color: var(--muted); font-size: 0.85rem; margin: 0.5rem 0 1.5rem; }
+  .demobar {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 0.7rem 1rem;
+    margin: 0 0 1.5rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
 </style>
 </head>
 <body>
@@ -164,6 +174,9 @@ __STYLES__
     <a href="/">Платформа</a>
     <a href="/about">Обо мне</a>
   </nav>
+
+  <p class="demobar" id="demobar" hidden>Это демонстрация. Данные вымышленные,
+    всё, что вы введёте, удаляется ежедневно.</p>
 
   <div class="pagehead">
     <h1>__TITLE__</h1>
@@ -183,6 +196,8 @@ __STYLES__
 <script>
 (function () {
   const PAGE_PATH = '__PAGE_PATH__';
+  const ACTION_URL = '__ACTION_URL__';
+  const IS_DEMO = __IS_DEMO__;
   const root = document.getElementById('root');
   const message = document.getElementById('message');
   const monthLabel = document.getElementById('month');
@@ -226,6 +241,11 @@ __STYLES__
   function draw() {
     root.textContent = '';
     message.hidden = true;
+
+    // Said on the page rather than left to the reader to wonder: the numbers
+    // are invented, and a demonstration that does not say so reads as a leak
+    // of somebody's real spending.
+    document.getElementById('demobar').hidden = !IS_DEMO;
 
     // The month control is part of the page, not of a section, but it is
     // still only shown when the description has a month to show.
@@ -525,7 +545,7 @@ __STYLES__
     if (button) button.disabled = true;
     showMessage('', true);
     try {
-      const response = await fetch('/api/page/action', {
+      const response = await fetch(ACTION_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

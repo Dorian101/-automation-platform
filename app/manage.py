@@ -288,6 +288,33 @@ def _chat_id(raw: str) -> int:
         raise ValueError(f"chat id must be a number, not {raw!r}") from None
 
 
+def prune_guests(args: argparse.Namespace) -> int:
+    """Delete every demonstration namespace.
+
+    A guest is never an account, so there is nothing in `users` to remove and
+    nothing to disable: what a visitor entered lives under `web:guest:<token>`
+    in the plugin tables, and a delete by prefix is the whole of it.
+
+    Run from a timer rather than from inside the application, for the same
+    reason backups are: the demonstration is the part of the site anyone can
+    reach, and it should not grow while the application is unable to start.
+    """
+    from app.plugins.manager import PluginManager
+    from app.web.demo import DemoService
+
+    service = DemoService(PluginManager(logging.getLogger("manage")), Database())
+
+    removed = service.prune()
+    total = sum(removed.values())
+
+    logger.info("Pruned %s demonstration row(s)", total)
+
+    for table, count in removed.items():
+        print(f"{table}: {count}")
+
+    return 0
+
+
 def backup(args: argparse.Namespace) -> int:
     """Write one backup and drop the ones that have aged out.
 
@@ -418,6 +445,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write a database backup and prune expired ones",
     )
     backuping.set_defaults(func=backup)
+
+    guests = subparsers.add_parser(
+        "prune-guests",
+        help="Delete every demonstration namespace",
+    )
+    guests.set_defaults(func=prune_guests)
 
     return parser
 

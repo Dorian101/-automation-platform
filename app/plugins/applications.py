@@ -22,9 +22,9 @@ application that already got a reply would be a number about the past, shown
 next to a decision that is about now.
 """
 
-from datetime import date
+from datetime import date, timedelta
 
-from app.core.identity import Identity
+from app.core.identity import Identity, is_guest
 from app.core.results import CommandError, CommandResult, reply
 from app.db.applications_repo import ApplicationsRepository
 from app.db.database import Database
@@ -51,6 +51,11 @@ STAGES = {
 # separating "waiting" from "forgotten".
 SILENCE_DAYS = 5
 
+# A guest on the demonstration page is capped, for the same reason as the
+# spending one: the page is public and its namespace is the only one an
+# anonymous visitor can write to.
+GUEST_APPLICATION_LIMIT = 25
+
 MAX_COMPANY = 80
 MAX_ROLE = 80
 MAX_URL = 500
@@ -61,6 +66,26 @@ MAX_URL = 500
 # a person can click turns into. Checked on the way in, because that is the
 # last point at which the value can still be refused.
 ALLOWED_SCHEMES = ("http://", "https://")
+
+
+def _path_to(status: str) -> tuple[str, ...]:
+    """The stages walked to reach ``status`` from the first one.
+
+    Every application starts at ``applied``, and the machine refuses a jump,
+    so reaching `interview` means passing through `answered`. Used by the seed,
+    which is not exempt from the rule it demonstrates.
+    """
+    if status == "rejected":
+        return ("rejected",)
+
+    order = ("applied", "answered", "interview", "offer")
+
+    if status not in order:
+        return ()
+
+    reached = order[: order.index(status) + 1]
+
+    return reached[1:]
 
 
 def _label(status: str) -> str:
@@ -352,6 +377,8 @@ class ApplicationsPlugin(BasePlugin):
         note = payload.get("note", "").strip()
         applied_at = payload.get("applied_at", "")
 
+        self._check_guest_room(identity)
+
         if not company:
             raise CommandError("Укажите компанию.")
 
@@ -433,6 +460,65 @@ class ApplicationsPlugin(BasePlugin):
                 return entry
 
         return None
+
+    # -- demonstration ------------------------------------------------------
+
+    async def seed_demo(self, identity: Identity) -> None:
+        """A dozen invented applications across the pipeline.
+
+        Every company, vacancy and figure is made up. The spread is the point:
+        an application list where everything is still awaiting a reply tells a
+        visitor nothing about what the funnel does, and one where everything
+        reached an offer tells them nothing about what usually happens.
+
+        The stages are walked in order rather than assigned, because the
+        machine refuses a jump and the seed is not exempt from it.
+        """
+        # (company, role, days ago, outcome). `applied` as an outcome means the
+        # row is left where it started — the application that was sent and
+        # nothing came back — which is the only stage the silence column has
+        # anything to say about.
+        demo = [
+            ("Аналитика Плюс", "BI-аналитик", 62, "offer"),
+            ("Финтех Групп", "Аналитик данных", 58, "offer"),
+            ("Ритейл Мастер", "BI-аналитик", 54, "interview"),
+            ("Логистик Плюс", "Аналитик данных", 49, "interview"),
+            ("Медтех Групп", "BI-аналитик", 44, "answered"),
+            ("Страховая Компания", "Аналитик данных", 41, "answered"),
+            ("Образовательный Портал", "BI-аналитик", 37, "applied"),
+            ("Агентство Недвижимости", "Аналитик данных", 33, "rejected"),
+            ("Производство Пром", "BI-аналитик", 28, "rejected"),
+            ("Телеком Линия", "Аналитик данных", 21, "applied"),
+            ("Банк Развитие", "BI-аналитик", 16, "rejected"),
+            ("Консалтинг Партнёр", "Аналитик данных", 3, "applied"),
+        ]
+
+        for company, role, days_ago, outcome in demo:
+            entry_id = self.repo.add(
+                identity,
+                company,
+                role,
+                date.today() - timedelta(days=days_ago),
+                "https://example.com/vacancy",
+            )
+
+            for stage in _path_to(outcome):
+                self.repo.set_status(identity, entry_id, stage)
+
+    def _check_guest_room(self, identity: Identity) -> None:
+        """Refuse a write that would take a guest past its cap.
+
+        The same bargain as the spending page: the demonstration is public and
+        its namespace is the only one an anonymous visitor can write to.
+        """
+        if not is_guest(identity):
+            return
+
+        if len(self.repo.entries(identity)) >= GUEST_APPLICATION_LIMIT:
+            raise CommandError(
+                f"Демо ограничено {GUEST_APPLICATION_LIMIT} откликами. "
+                "Данные очищаются ежедневно.",
+            )
 
     # -- shared -------------------------------------------------------------
 

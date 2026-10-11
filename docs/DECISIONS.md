@@ -1034,3 +1034,81 @@ one, a full run through the pipeline, the funnel arithmetic including the bug
 that found it, one account's applications invisible to another, and the
 machine enforced over the wire rather than only by which buttons are drawn.
 
+
+## 2026-10-11
+
+### Decision
+Open a public demonstration at `/demo`, as a guest namespace rather than an
+account
+
+### Reason
+A reader arrives from a résumé link. They have no account and are not going to
+make one to look at a project: the registration form at the front door is
+where the interest goes to die, and the personal console has nothing in it to
+show a stranger anyway.
+
+Two ways out. The first was to seed the site with a pre-made account and hand
+the credentials out — which means a public account with a public password,
+data anyone can edit, and no way to tell a visitor from the owner. The second
+is what was chosen: the demonstration is reachable without a session and writes
+to a namespace of its own that is never an account.
+
+The guest is `web:guest:<token>`, and the token is the random half of a
+cookie. No row in `users`, no password, no session — so there is nothing to
+authenticate, nothing to leak from `users`, and cleaning up is a delete by
+prefix rather than a walk over accounts. A username is restricted to
+`[A-Za-z0-9._-]`, which cannot contain a colon, so `guest:…` cannot collide
+with an account by construction rather than by convention.
+
+The three rules the module rests on, each because breaking it is a hole rather
+than a crash:
+
+- **A guest never resolves a session.** The handlers build the identity from
+  the cookie and from nothing else. The demonstration is the only part of the
+  site reachable without signing in, so it is the only part that must not be
+  able to act as somebody. A test reads the module's source and fails if a
+  call to identity resolution appears — crude, but it fails on the day someone
+  adds one rather than after it ships.
+- **A guest is capped.** The page is on the open internet and its namespace is
+  the only one an anonymous visitor can write to. Counted against the
+  database, not kept in the process, because a counter resets on every restart
+  and that is exactly when a cap is still needed.
+- **A guest never becomes an account.** Nothing to disable, nothing to rename,
+  nothing to delete an account for.
+
+Namespaces are filled on arrival rather than on a schedule: a guest with
+nothing in it is seeded, and one whose rows were cleaned up is seeded again.
+That is why the cleaner can run at any time without coordinating with anything
+— a visitor never meets an empty demonstration, because arriving is what fills
+it. The seed is the plugin's own `seed_demo`, because what would be sensible
+to show is a fact about the plugin; the demonstration page inventing expenses
+would make it know about both.
+
+### How it is done
+- `app/web/demo.py` holds the whole of it, including its own route
+  registration, so the reachable-without-a-session surface is something a
+  reader can check in one place rather than something to hunt for in the route
+  table.
+- The rendering moved to `app/web/pages.py` and is shared: the same function
+  paints the account's page and the guest's. The demonstration is not a second
+  front end, it is these plugins with a different identity in front of them.
+- `is_public_demo_path` matches the prefix *and* the slash. A bare
+  `startswith("/demo")` would also have opened `/demoted`.
+- `python -m app.manage prune-guests`, run from a timer for the same reason
+  backups are: the demonstration should not grow while the application is
+  unable to start.
+- `/about` links to it and says the data is invented and that registering is
+  not needed. It is said on the page as well as on the landing: a
+  demonstration that does not declare its numbers fictitious reads as a leak
+  of somebody's real spending.
+
+### Result
+`/demo` lists whatever pages the plugins declare, so a third plugin appears
+there without the landing page being edited. Each page is fully interactive —
+the same forms, the same actions, the same refusals — against the guest's own
+data.
+
+23 tests: the prefix test refusing `/demoted`, two visitors not sharing, a
+namespace surviving between requests, the banner, the caps, pruning leaving an
+account untouched, and the structural check that the module never resolves a
+session. 586 pass.

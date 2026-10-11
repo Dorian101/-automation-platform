@@ -21,7 +21,7 @@ import re
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
-from app.core.identity import Identity
+from app.core.identity import Identity, is_guest
 from app.core.results import CommandError, CommandResult, reply
 from app.db.database import Database
 from app.db.expenses_repo import ExpensesRepository
@@ -390,6 +390,34 @@ class ExpensesPlugin(BasePlugin):
             },
         ]
 
+    def _check_guest_room(self, identity: Identity, expenses: bool = False) -> None:
+        """Refuse a write that would take a guest past its cap.
+
+        Capped because the demonstration page is on the open internet and its
+        namespace is the only one an anonymous visitor can write to. The cap is
+        about exposure, not tidiness, so it applies to guests only — the
+        account holder is not capped anywhere in this plugin.
+
+        Counted rather than remembered: a counter in the process would reset
+        on every restart, which is exactly when a cap is still needed.
+        """
+        if not is_guest(identity):
+            return
+
+        if expenses:
+            written = self.repo.count(identity)
+            limit = GUEST_EXPENSE_LIMIT
+            what = "трат"
+        else:
+            written = len(self.repo.categories(self._readable_as(identity)))
+            limit = GUEST_CATEGORY_LIMIT
+            what = "категорий"
+
+        if written >= limit:
+            raise CommandError(
+                f"Демо ограничено {limit} {what}. Данные очищаются ежедневно.",
+            )
+
     def _default_date(self, month: str) -> str:
         """The date the form opens on, for the month currently on screen.
 
@@ -451,6 +479,8 @@ class ExpensesPlugin(BasePlugin):
         spent_at = payload.get("spent_at", "")
         note = payload.get("note", "")
 
+        self._check_guest_room(identity, expenses=True)
+
         if not category_id:
             raise CommandError("Выберите категорию.")
 
@@ -480,6 +510,8 @@ class ExpensesPlugin(BasePlugin):
 
         if not name:
             raise CommandError("Название категории не может быть пустым.")
+
+        self._check_guest_room(identity)
 
         if len(name) > MAX_CATEGORY_NAME:
             raise CommandError(
@@ -514,6 +546,56 @@ class ExpensesPlugin(BasePlugin):
             raise CommandError("Трата не найдена.")
 
         self.repo.delete(identity, int(expense_id))
+
+    # -- demonstration ------------------------------------------------------
+
+    async def seed_demo(self, identity: Identity) -> None:
+        """Three months of invented spending, for the demonstration page.
+
+        Every figure here is made up. The categories are the ordinary ones and
+        the amounts are the kind a person actually spends, because a
+        demonstration made of round numbers gives away that nobody used it.
+
+        The current month is seeded on today's day and the two before it on a
+        fixed one, so nothing is ever dated ahead of today: an expense dated in
+        the future would sit in the list counting days that have not happened,
+        and the visitor would have to work out why the demo was wrong before
+        they could believe the rest of it.
+        """
+        today = date.today()
+        amounts = {
+            "Продукты": (18_400, 21_300, 17_900),
+            "Кафе и рестораны": (7_600, 9_200, 6_800),
+            "Транспорт": (12_000, 14_500, 11_200),
+            "Жильё": (65_000, 65_000, 65_000),
+            "Коммунальные": (8_400, 7_100, 9_600),
+            "Подписки": (2_990, 2_990, 2_990),
+        }
+
+        for back in range(3):
+            month = _shift_month(today.strftime("%Y-%m"), -back)
+            year, _, number = month.partition("-")
+            day = today.day if back == 0 else min(15, int(number))
+
+            for name, values in amounts.items():
+                self.repo.add(
+                    identity,
+                    self._category_id(identity, name),
+                    Decimal(values[back]),
+                    date(int(year), int(number), day),
+                )
+
+    def _category_id(self, identity: Identity, name: str) -> int:
+        """Find the demo category, creating it the first time.
+
+        Looked up rather than held, because the namespace is empty when the
+        seed runs and there is nothing to hold the ids in.
+        """
+        for category in self.repo.categories(self._readable_as(identity)):
+            if category["name"] == name:
+                return category["id"]
+
+        return self.repo.add_category(self._readable_as(identity), name)
 
     # -- shared -------------------------------------------------------------
 

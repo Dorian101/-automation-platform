@@ -1,6 +1,5 @@
 import hmac
 import html
-import json
 import logging
 import secrets
 from collections.abc import Mapping
@@ -36,6 +35,8 @@ from .csrf import (
     has_valid_cookie,
     new_token,
 )
+from .demo import DemoService, is_public_demo_path
+from .pages import render_plugin_page
 from .ratelimit import RateLimiter
 from .telegram_auth import TelegramAuthError, verify_login
 
@@ -117,6 +118,7 @@ class WebServer:
         self._rate = RateLimiter()
         self._csrf = CsrfSigner()
         self._runner: web.AppRunner | None = None
+        self._demo = DemoService(manager, database)
 
     async def _index(self, request: web.Request) -> web.Response:
         identity = self._identity(request)
@@ -715,7 +717,7 @@ class WebServer:
         if denied is not None:
             return denied
 
-        if request.path in PUBLIC_PATHS:
+        if request.path in PUBLIC_PATHS or is_public_demo_path(request.path):
             return await handler(request)
 
         if self._identity(request) is None:
@@ -756,6 +758,11 @@ class WebServer:
         for plugin in self._manager.get_plugins():
             if plugin.page:
                 app.router.add_get(plugin.page, self._plugin_page)
+
+        # The demonstration is the only part of this application reachable
+        # without a session, and it installs itself so that all of it is
+        # readable in one place rather than spread through the route table.
+        self._demo.install(app)
 
         return app
 
@@ -1042,35 +1049,16 @@ def _signup_link() -> str:
 
 
 def _render_plugin_page(page_path: str, view: dict) -> web.Response:
-    """Build a plugin's page: a shell plus its description, nothing else.
+    """Build a plugin's page.
 
-    The description is embedded as JSON and the browser paints it, so the
-    first load and every redraw after an action go through one renderer. The
-    server never draws a chart and the plugin never writes markup.
-
-    ``</`` is escaped inside the JSON so a value containing it cannot close the
-    script element; the block is ``type="application/json"``, which the browser
-    treats as data and never executes.
+    The painting lives in :mod:`app.web.pages`, which the demonstration uses
+    as well: the same plugins, the same renderer, a different identity in
+    front of them.
     """
-    source = (TEMPLATES_DIR / "_plugin_page.html").read_text(encoding="utf-8")
-
-    payload = json.dumps(view, ensure_ascii=False).replace("</", "<\\/")
-
-    source = source.replace(
-        "__TITLE__",
-        html.escape(str(view.get("title", page_path))),
+    return web.Response(
+        text=render_plugin_page(page_path, view),
+        content_type="text/html",
     )
-    # The path, not the plugin name: it is what the action endpoint looks the
-    # owning plugin up by, and sending the name there is what made every
-    # button answer "Unknown page".
-    source = source.replace("__PAGE_PATH__", html.escape(page_path))
-    source = source.replace(
-        "__STYLES__",
-        (TEMPLATES_DIR / "_page_styles.html").read_text(encoding="utf-8"),
-    )
-    source = source.replace("__INITIAL_VIEW__", payload)
-
-    return web.Response(text=source, content_type="text/html")
 
 
 def _redirect(location: str) -> web.Response:

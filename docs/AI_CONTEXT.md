@@ -232,6 +232,8 @@ linked. A delivery that raises is retried indefinitely — that is an outage.
   page is named in the body because the endpoint is shared, and the answer is
   the page description again
 - one GET route per declared page (e.g. /expenses), built at app start
+- GET /demo, /demo/{page}, POST /demo/api/action — the public demonstration,
+  reachable without a session
 - GET /health — database health check
 - GET /account/telegram/link — completes a Login Widget redirect
 - POST /account/telegram/unlink — removes the pairing
@@ -269,6 +271,26 @@ deliberately no rename: an account's data is keyed by `web:<username>`, so a
 rename would have to move rows across notes, reminders and clipboard and every
 future plugin would have to join in — deferred until identity is anchored to a
 stable key.
+
+## The demonstration
+
+`/demo` is the only part of the site reachable without a session, and it is
+reachable because a reader from a résumé has no reason to register first.
+
+A visitor is `web:guest:<token>`, built from a cookie and nothing else. Never a
+row in `users`, so cleaning up is a delete by prefix. A username cannot
+contain a colon, so the prefix cannot collide with an account by construction.
+
+**The invariant: nothing in `app/web/demo.py` may resolve a session.** The
+handlers take the identity from the cookie. If any of them reached for
+`resolve_identity`, a visitor could run commands as a real account — the one
+place on the site that must not be able to. A test reads the module source and
+fails on the appearance of a call; it is crude and it is the cheapest guard
+against a hole that would not otherwise show up as a failure.
+
+Namespaces are seeded on arrival, so `prune-guests` can run at any time. The
+seed is the plugin's own `seed_demo`. Guests are capped per namespace, counted
+against the database rather than in the process.
 
 Bound to `WEB_HOST` and `WEB_PORT`, defaulting to 127.0.0.1:8080.
 

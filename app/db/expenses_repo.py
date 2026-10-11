@@ -222,6 +222,27 @@ class ExpensesRepository:
 
         return deleted > 0
 
+    def count(
+        self,
+        identity: Identity | Iterable[Identity],
+    ) -> int:
+        """How many expenses this read would see.
+
+        A count of its own rather than a length over `recent`, which is capped
+        and would report the cap instead of the truth once a namespace is
+        past it.
+        """
+        identities = _as_tuple(identity)
+
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT count(*) FROM expenses WHERE user_id = ANY(%s)",
+                    ([str(one) for one in identities],),
+                )
+
+                return cur.fetchone()[0]
+
     def by_category(
         self,
         identity: Identity | Iterable[Identity],

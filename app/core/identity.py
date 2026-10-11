@@ -3,6 +3,14 @@ from dataclasses import dataclass
 TELEGRAM = "telegram"
 WEB = "web"
 
+# The namespace an anonymous visitor on the demonstration page is given.
+#
+# A guest is not an account and is never given one: there is no row in
+# `users`, no password and no session. Everything it writes lives under
+# `web:guest:<token>`, which is what makes cleaning up after it a delete by
+# prefix rather than a walk over the accounts table.
+GUEST = "guest"
+
 
 class InvalidIdentity(ValueError):
     """Raised when an identity string cannot be parsed."""
@@ -41,3 +49,25 @@ class Identity:
 
 def telegram(chat_id: int) -> Identity:
     return Identity(kind=TELEGRAM, id=str(chat_id))
+
+
+def guest(token: str) -> Identity:
+    """The identity of an anonymous visitor on the demonstration page.
+
+    The token is the random half of a cookie and is the whole of what
+    distinguishes one visitor from another. It never becomes an account, so
+    there is nothing to sign into and nothing to authenticate — which is why
+    the demonstration routes must not resolve a session for it.
+    """
+    return Identity(kind=WEB, id=f"{GUEST}:{token}")
+
+
+def is_guest(identity: Identity) -> bool:
+    """Whether an identity belongs to the demonstration page.
+
+    Read by the plugins to cap what an anonymous visitor may write. A plugin
+    asking is not the same as a plugin knowing where the identity came from:
+    the prefix is a property of the identity, and a real account can never
+    carry it, because a username is restricted to `[A-Za-z0-9._-]`.
+    """
+    return identity.kind == WEB and identity.id.startswith(f"{GUEST}:")
