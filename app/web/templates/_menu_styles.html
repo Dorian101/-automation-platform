@@ -1,0 +1,59 @@
+<style>
+  /* The menu's own appearance, kept apart from the pages' stylesheets.
+
+  It is injected next to the navigation markup, because the pages do not share
+  a stylesheet: the console has its own, the documents another. Putting the
+  menu in either of them is what left it unstyled on one of the two.
+
+  Written without the literal placeholder names the templates substitute:
+  a comment mentioning one survives into the page and reads as a substitution
+  that failed. */
+
+  .menu { position: relative; margin-bottom: 2.5rem; }
+
+  .menu > summary {
+    display: inline-block;
+    cursor: pointer;
+    list-style: none;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.35rem 0.85rem;
+    font-size: 0.88rem;
+    color: var(--muted);
+    user-select: none;
+  }
+
+  /* Chrome keeps its own triangle whatever `list-style` says. */
+  .menu > summary::-webkit-details-marker { display: none; }
+  .menu > summary:hover { border-color: var(--accent); color: var(--text); }
+  .menu[open] > summary { color: var(--text); border-color: var(--accent); }
+
+  .menuitems {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    left: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0.4rem;
+    min-width: 13rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  }
+
+  .menuitems a {
+    padding: 0.4rem 0.6rem;
+    border-radius: 5px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .menuitems a:hover { background: var(--bg); color: var(--text); }
+  .menuitems a[aria-current="page"] { color: var(--accent); background: var(--bg); }
+</style>

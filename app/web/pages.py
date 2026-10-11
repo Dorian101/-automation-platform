@@ -78,6 +78,18 @@ def nav(current: str, pages: list[dict], guest: bool) -> str:
     )
 
 
+def menu_styles() -> str:
+    """The menu's styles, read per request.
+
+    The pages do not share a stylesheet — the console has its own and the
+    documents another — so the menu is injected alongside the navigation
+    rather than living in either. Defining it in the document stylesheet is
+    what left it unstyled on the console: the markup arrived, the styling
+    did not, and the `<details>` fell back to a row of underlined links.
+    """
+    return (TEMPLATES_DIR / "_menu_styles.html").read_text(encoding="utf-8")
+
+
 def render_plugin_page(
     page_path: str,
     view: dict,
@@ -101,6 +113,7 @@ def render_plugin_page(
     # button answer "Unknown page".
     source = source.replace("__PAGE_PATH__", html.escape(page_path))
     source = source.replace("__NAV__", nav_html)
+    source = source.replace("__MENU_STYLES__", menu_styles())
     source = source.replace(
         "__ACTION_URL__",
         DEMO_ACTION_URL if demo else SESSION_ACTION_URL,
@@ -127,6 +140,7 @@ def render_demo_landing(links: list[dict], nav_html: str) -> str:
     source = (TEMPLATES_DIR / "_demo.html").read_text(encoding="utf-8")
 
     source = source.replace("__NAV__", nav_html)
+    source = source.replace("__MENU_STYLES__", menu_styles())
 
     source = source.replace(
         "__STYLES__",

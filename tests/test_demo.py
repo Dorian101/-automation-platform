@@ -386,3 +386,40 @@ class TestSignedInMenu:
         assert 'href="/"' in body
         assert 'href="/expenses"' in body
         assert 'href="/demo"' in body
+
+
+class TestMenuIsStyledEverywhere:
+    """The bug the console showed: the markup arrived and the styling did not.
+
+    The styles lived in the document stylesheet, which the console does not
+    load — it has its own. So on the one page with plugins the `<details>`
+    fell back to a row of underlined links with the browser's own triangle.
+    """
+
+    async def test_every_page_carries_the_menu_css(self, visitor):
+        for path in ("/demo", "/demo/expenses", "/about", "/project"):
+            body = await (await visitor.get(path)).text()
+
+            assert ".menu > summary" in body, path
+
+    async def test_the_console_carries_it_too(self, client_for_nav):
+        """The page that was broken, named explicitly."""
+        body = await (await client_for_nav.get("/")).text()
+
+        assert ".menu > summary" in body
+        assert ".menuitems" in body
+
+    async def test_the_menu_css_comes_from_one_file(self):
+        """One source, or two would drift and only one would be loaded."""
+        from pathlib import Path
+
+        from app.web import pages
+
+        document_styles = (
+            Path(pages.__file__).resolve().parent
+            / "templates"
+            / "_page_styles.html"
+        ).read_text(encoding="utf-8")
+
+        assert ".menu > summary" not in document_styles
+        assert ".menu > summary" in pages.menu_styles()

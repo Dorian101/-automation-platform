@@ -36,7 +36,7 @@ from .csrf import (
     new_token,
 )
 from .demo import DemoService, is_public_demo_path
-from .pages import nav, render_plugin_page
+from .pages import menu_styles, nav, render_plugin_page
 from .ratelimit import RateLimiter
 from .telegram_auth import TelegramAuthError, verify_login
 
@@ -871,6 +871,7 @@ def _render_index(
 
     source = source.replace("__USER__", html.escape(username))
     source = source.replace("__NAV__", nav_html)
+    source = source.replace("__MENU_STYLES__", menu_styles())
     source = source.replace("__CSRF__", html.escape(csrf))
     source = source.replace("__TELEGRAM_BLOCK__", _telegram_panel(link, nonce, csrf))
     source = source.replace(
@@ -1045,6 +1046,7 @@ def _render_page(template: str, nav_html: str, status: int = 200) -> web.Respons
     """
     source = (TEMPLATES_DIR / template).read_text(encoding="utf-8")
     source = source.replace("__NAV__", nav_html)
+    source = source.replace("__MENU_STYLES__", menu_styles())
     source = source.replace(
         "__PAGE_STYLES__",
         (TEMPLATES_DIR / "_page_styles.html").read_text(encoding="utf-8"),
