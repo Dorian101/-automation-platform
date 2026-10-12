@@ -121,6 +121,35 @@ class TestScript:
         """
         assert os.access(SCRIPT, os.X_OK), f"{SCRIPT.name} is not executable"
 
+    def test_it_reopens_itself_after_pulling(self, joined):
+        """The pull can rewrite this very file — it lives in the repository it
+        updates — and bash reads a script by offset from an open handle.
+
+        A three-line script that overwrites itself prints its first line and
+        stops: the new content is shorter, and the offset is past its end. A
+        deploy that behaves that way pulls, syncs, never restarts, and reports
+        success. So the pull is followed by an `exec`, which re-opens the file
+        and runs the version that was just pulled.
+        """
+        assert 'exec "$REPO/scripts/deploy.sh" --pulled' in joined
+
+    def test_the_reopen_cannot_loop(self, script):
+        """The re-opened file takes an argument saying the pull already
+        happened, so the second pass skips it. Without that the exec is
+        unconditional and a deploy never returns.
+
+        What makes it safe is that the pull is *inside* the guarded block: the
+        second pass does not execute the block at all.
+        """
+        guard = 'if [ "${1:-}" != "--pulled" ]; then'
+
+        assert guard in script, "the pull is not guarded"
+
+        block = script.split(guard, 1)[1].split("\nfi", 1)[0]
+
+        assert block.count("git pull") == 1
+        assert 'exec "$REPO/scripts/deploy.sh" --pulled' in block
+
     def test_it_stops_at_the_first_failure(self, joined):
         """A half-applied deploy — pulled but not restarted — is worse than a
         failed one, because it looks like it worked."""

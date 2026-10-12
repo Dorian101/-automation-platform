@@ -23,7 +23,28 @@ cd "$REPO"
 # --ff-only on purpose. A plain `git pull` merges when it cannot fast-forward,
 # which turns a deploy into a conflict resolution and leaves the server on a
 # commit nobody pushed. Failing here says the branch moved and stops.
-git pull --ff-only
+#
+# Then hand over to the file as it is on disk *now*. This pull can rewrite the
+# very file being executed — it lives in the repository it is updating — and
+# bash reads a script by offset from an open handle. When the bytes under it
+# change size, what runs next is whatever the new content lines up with. It
+# happened here: a deploy restarted the service and then ran the *previous*
+# version's log command, which had no sudo on it and so printed nothing.
+#
+# The failure is quiet by construction. The service was up and the deploy had
+# pulled, so every signal a human watches said it worked.
+#
+# `exec` re-opens the file, so the rest runs the version that was just pulled
+# — which is the one whose code is about to be deployed. The argument is what
+# stops the loop: the second pass does not pull, so it cannot reach this again.
+#
+# Spelled as a path rather than `$0`: exec looks a bare name up in $PATH, not
+# in the current directory, so `$0` only works when the caller happened to pass
+# an absolute one. SSH does. Nothing forces it to keep doing so.
+if [ "${1:-}" != "--pulled" ]; then
+    git pull --ff-only
+    exec "$REPO/scripts/deploy.sh" --pulled
+fi
 
 # Installed from the lockfile, never resolved: a deploy must not be the moment
 # a new version of a package is chosen. Omitting this is safe right up to the

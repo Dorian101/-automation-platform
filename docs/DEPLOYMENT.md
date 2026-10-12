@@ -531,6 +531,22 @@ this host's control.
 | `DEPLOY_KEY` | the private key, newlines and all |
 | `DEPLOY_KNOWN_HOSTS` | the output of `ssh-keyscan` above |
 
+### The script pulls, then runs itself again
+
+The pull can rewrite `scripts/deploy.sh` — it lives in the repository it
+updates — while bash is reading it. Bash reads scripts by offset from an open
+handle, so what executes next depends on where the new bytes happen to line up.
+A three-line script that overwrites itself with a shorter one prints its first
+line and stops.
+
+That is silent. The service is up, the pull succeeded, the log says the deploy
+worked, and the restart never happened.
+
+So the script pulls, then `exec`s itself. The second pass re-opens the file and
+runs the version that was just pulled — the one whose code it is about to start.
+An argument records that the pull already happened, and the pull sits inside
+the guard so the second pass cannot reach it and loop.
+
 ### Checking a deploy
 
 ```bash

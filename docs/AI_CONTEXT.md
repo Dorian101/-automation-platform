@@ -403,6 +403,13 @@ Two things about it are easy to get backwards:
   the other and the deploy breaks, but in the runbook rather than in
   production.
 
+The script pulls and then hands over to itself with `exec`, because the pull
+can rewrite the file it is running. Bash reads a script by offset from an open
+handle; a script that overwrites itself and gets shorter prints its first line
+and stops. A deploy that does that pulls, syncs, never restarts, and reports
+success. The re-open is guarded by an argument, and the pull sits inside the
+guard so the second pass cannot reach it.
+
 `pyyaml` is a dev dependency for one thing: parsing the workflow. A malformed
 workflow is the quietest failure in the repository — nothing runs and nothing
 says so. `tests/test_deploy_automation.py` reads both files, and checks the
