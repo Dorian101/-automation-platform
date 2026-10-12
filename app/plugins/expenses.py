@@ -109,6 +109,7 @@ class ExpensesPlugin(BasePlugin):
     version = "0.1.0"
     description = "Личные расходы"
     web_only = True
+    demo = True
     page = "/expenses"
     page_title = "Расходы"
 

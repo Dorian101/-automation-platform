@@ -471,13 +471,10 @@ app/db/database.py
 * A migration is applied only after a dump, and a failed dump stops the
   application from starting. A host without `pg_dump` therefore cannot boot
   once a migration is pending.
-* Every plugin with a page lands on the public demonstration automatically,
-  because both the menu and the landing page read `PluginManager.pages()`
-  without filtering. That is right for the two plugins that exist; it stops
-  being right for the first plugin that should stay private. The fix is a
-  `demo` flag on the plugin, defaulting to not shown — deliberately not added
-  before there is a plugin to exclude, since one value that is always the same
-  carries no distinction.
+* Routes are registered once, when the application is built, from the plugins
+  present at that moment. A plugin registered afterwards has a menu entry but
+  no address. Only reachable by a test today; it would matter for anything
+  that loads a plugin at runtime.
 
 ⸻
 

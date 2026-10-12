@@ -169,15 +169,7 @@ class DemoService:
         if limited is not None:
             return limited
 
-        links = [
-                {
-                    "page": plugin.page,
-                    "title": plugin.page_title,
-                    "description": plugin.description,
-                }
-                for plugin in self._manager.get_plugins()
-                if plugin.page
-            ]
+        links = self._manager.demo_pages()
 
         return web.Response(
             text=render_demo_landing(links, self._nav()),
@@ -198,7 +190,12 @@ class DemoService:
         captured = request.match_info.get("page", "")
         plugin = self._manager.find_by_page(f"/{captured}")
 
-        if plugin is None:
+        if plugin is None or not plugin.demo:
+            # The check is here and not only in the navigation, because a link
+            # being absent is not the same as the page being unreachable: the
+            # address is a guess away. A plugin that did not ask to be
+            # published gets a 404 rather than a page, and says nothing about
+            # whether it exists.
             return web.Response(status=404)
 
         page_path = plugin.page
@@ -315,7 +312,7 @@ class DemoService:
         a fixed answer, decided by the prefix and not by whoever happens to
         be holding the cookie.
         """
-        return nav("", self._manager.pages(), guest=True)
+        return nav("", self._manager.demo_pages(), guest=True)
 
     # -- routes -------------------------------------------------------------
 

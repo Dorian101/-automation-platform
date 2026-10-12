@@ -101,6 +101,7 @@ class ApplicationsPlugin(BasePlugin):
     version = "0.1.0"
     description = "Отклики на вакансии"
     web_only = True
+    demo = True
     page = "/applications"
     page_title = "Отклики"
 

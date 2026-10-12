@@ -800,12 +800,16 @@ class WebServer:
 
         Built per request rather than once at startup because it is not the
         same for everyone: a guest is offered the demonstration's copies of
-        the plugin pages, since the real ones answer them with a login form.
+        the plugin pages, since the real ones answer them with a login form —
+        and only the ones that opted into the demonstration, since the rest
+        have no public copy to point at.
         """
+        is_guest = self._identity(request) is None
+
         return nav(
             request.path,
-            self._manager.pages(),
-            guest=self._identity(request) is None,
+            self._manager.demo_pages() if is_guest else self._manager.pages(),
+            guest=is_guest,
         )
 
     def _identity(self, request: web.Request) -> Identity | None:

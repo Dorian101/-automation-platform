@@ -47,12 +47,26 @@ class PluginManager:
 
     def pages(self) -> list[dict]:
         """Every plugin that has a page, for the navigation."""
+        return self._page_entries()
+
+    def demo_pages(self) -> list[dict]:
+        """Only the pages that belong on the public demonstration.
+
+        A separate answer rather than a filter on :meth:`pages`: the owner's
+        menu wants everything and a guest's wants the published subset, and
+        having one of them filter at the call site means the rule about what is
+        public lives in the web layer, where nothing declares it.
+        """
+        return [entry for entry in self._page_entries() if entry["demo"]]
+
+    def _page_entries(self) -> list[dict]:
         return [
             {
                 "name": plugin.name,
                 "page": plugin.page,
                 "title": plugin.page_title or plugin.name,
                 "description": plugin.description,
+                "demo": plugin.demo,
             }
             for plugin in self._plugins
             if plugin.page

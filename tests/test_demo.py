@@ -558,3 +558,95 @@ class TestDemoRateLimit:
 
         assert "cookies" not in calls
         assert "headers" not in calls or True  # the address is the one header read
+
+
+class TestDemoFlag:
+    """A page reaches the public demonstration only if it asked to.
+
+    The default is off, so the mistake is publishing a page nobody looked at
+    rather than withholding one somebody meant to show. Three places have to
+    agree, and the one that matters most is the last: a link being absent
+    does not make a page unreachable, because the address is a guess away.
+    """
+
+    @pytest.fixture
+    def private_plugin(self, manager, database_with_schema):
+        """A real plugin that simply did not ask to be published.
+
+        A stub would not do: the point is that the refusal holds for a plugin
+        the platform otherwise treats exactly like the published ones.
+        """
+        from app.plugins.notes import NotesPlugin
+
+        plugin = NotesPlugin(database_with_schema)
+        plugin.page = "/private"
+        plugin.page_title = "Приватная"
+        plugin.description = "Не для публичной витрины"
+        plugin.demo = False
+
+        manager.register(plugin)
+        return plugin
+
+    @pytest.fixture
+    async def owner(self, web_server, create_user, login, private_plugin):
+        """A signed-in browser, on an application built *after* the plugin.
+
+        Routes are registered from the plugins present when the application is
+        built, not on every request — so a plugin registered afterwards has a
+        menu entry but no address. Registering first is what the real startup
+        order does.
+        """
+        test_server = TestServer(web_server.build_app())
+        async with TestClient(test_server) as client:
+            await login(client)
+            yield client
+
+    async def test_it_is_off_by_default(self):
+        from app.plugins.base import BasePlugin
+
+        assert BasePlugin.demo is False
+
+    async def test_a_page_that_did_not_ask_is_404(self, visitor, private_plugin):
+        """Not a redirect and not a menu that forgot: the page is not there."""
+        response = await visitor.get("/demo/private")
+
+        assert response.status == 404
+
+    async def test_the_body_does_not_say_whether_it_exists(
+        self, visitor, private_plugin
+    ):
+        response = await visitor.get("/demo/private")
+
+        assert "Приватная" not in await response.text()
+
+    async def test_it_is_not_in_the_guest_menu(self, visitor, private_plugin):
+        body = await (await visitor.get("/demo")).text()
+
+        assert 'href="/demo/private"' not in body
+
+    async def test_it_is_not_on_the_landing_page(self, visitor, private_plugin):
+        body = await (await visitor.get("/demo")).text()
+
+        assert "/demo/private" not in body
+
+    async def test_the_asking_pages_still_work(self, visitor):
+        """The flag must not take the demonstration down with it."""
+        assert (await visitor.get("/demo/expenses")).status == 200
+        assert (await visitor.get("/demo/applications")).status == 200
+
+    async def test_the_owner_menu_still_has_it(self, owner):
+        """It is private to the public, not gone."""
+        body = await (await owner.get("/")).text()
+
+        assert 'href="/private"' in body
+
+    async def test_the_owner_can_open_it(self, owner):
+        assert (await owner.get("/private")).status == 200
+
+    def test_the_manager_answers_both_questions(self, private_plugin, pages_manager):
+        everything = {entry["page"] for entry in pages_manager.pages()}
+        published = {entry["page"] for entry in pages_manager.demo_pages()}
+
+        assert "/private" in everything
+        assert "/private" not in published
+        assert "/expenses" in published

@@ -139,6 +139,8 @@ A plugin may also declare:
   from what plugins declared; a path no plugin claimed has no route.
 - `web_only` — refuse the command in a chat. The check is in the router, so a
   plugin does not inspect `identity.kind`.
+- `demo` — whether the page belongs on the public demonstration. **Default
+  off.** See "The demonstration" below.
 - `page_view(identity)` — return a description of the page.
 - `page_action(identity, action, payload)` — handle what the page did, return
   the same description with the change applied. Every payload value arrives as
@@ -334,6 +336,14 @@ handlers take the identity from the cookie. If any of them reached for
 place on the site that must not be able to. A test reads the module source and
 fails on the appearance of a call; it is crude and it is the cheapest guard
 against a hole that would not otherwise show up as a failure.
+
+**A page is published only if its plugin sets `demo = True`.** The default is
+off and the default is the point: reaching a public URL without anyone
+deciding it should is the mistake, and deciding is one line. Three places
+honour it — `/demo` drops the page from its cards, a guest's menu omits it,
+and `/demo/<page>` answers `404` — and the last is the one that matters,
+because a link being absent does not make a page unreachable. The owner's own
+menu and address are unaffected: private to the public, not gone.
 
 Namespaces are seeded on arrival, so `prune-guests` can run at any time. The
 seed is the plugin's own `seed_demo`.

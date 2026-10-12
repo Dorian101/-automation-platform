@@ -21,6 +21,15 @@ class BasePlugin(ABC):
     # a plugin that has a page but no title of its own still appears.
     page_title: str = ""
 
+    # Whether this plugin's page belongs on the public demonstration.
+    #
+    # Default off, and the default is the point. A page that reaches a public
+    # URL without anybody deciding it should is a page whose contents are
+    # shown to whoever walks past, and the decision is the one thing a plugin
+    # author has to make. Marking it on is one line; discovering later that a
+    # private page was published is not one line to undo.
+    demo: bool = False
+
     # Plugins that are only worth using through the web console set this and
     # leave commands alone: a plugin that returns a payload for the analytics
     # screen has nothing to say in a chat message, and the router refuses
