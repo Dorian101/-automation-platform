@@ -6,6 +6,7 @@ tests parse the two files that make the deploy and assert the things that
 would otherwise only be found by pushing and waiting.
 """
 
+import os
 import re
 from pathlib import Path
 
@@ -108,6 +109,17 @@ class TestScript:
     @pytest.fixture
     def joined(self, script) -> str:
         return "\n".join(commands(script))
+
+    def test_it_is_executable(self):
+        """The forced command runs the file directly, so a mode of 644 fails
+        at the first deploy with an error about permissions.
+
+        Checked on disk rather than in the git index, because that is where it
+        goes wrong: an editor or a `sed -i` rewrites the file, drops the bit,
+        and the next commit records the loss. A fresh checkout of a bad commit
+        is not executable either, so CI sees the same thing.
+        """
+        assert os.access(SCRIPT, os.X_OK), f"{SCRIPT.name} is not executable"
 
     def test_it_stops_at_the_first_failure(self, joined):
         """A half-applied deploy — pulled but not restarted — is worse than a
