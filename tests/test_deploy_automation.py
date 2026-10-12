@@ -6,6 +6,7 @@ tests parse the two files that make the deploy and assert the things that
 would otherwise only be found by pushing and waiting.
 """
 
+import re
 from pathlib import Path
 
 import pytest
@@ -128,8 +129,39 @@ class TestScript:
 
     def test_it_shows_the_logs(self, joined):
         """Whoever triggered it should see what happened without asking the
-        host for it."""
-        assert "journalctl -u automation-platform" in joined
+        host for it.
+
+        Through sudo, and the whole command in full. `automation` cannot read
+        the journal as itself — a plain `journalctl` prints a permissions
+        hint and exits non-zero, which under `set -e` fails the deploy after
+        it has already restarted the service.
+        """
+        assert "sudo journalctl -u automation-platform -n 50 --no-pager" in joined
+
+    def test_the_sudoers_rules_match_what_the_script_runs(self, script):
+        """Every rule in the deployment docs must be a command the script
+        actually runs, spelled the same way.
+
+        sudoers matches arguments exactly, so a script that drifted from its
+        rule stops working at the moment the two disagree — and only in
+        production. Change `-n 50` in one file and the other has to change
+        with it, which is what this catches.
+        """
+        runbook = (ROOT / "docs" / "DEPLOYMENT.md").read_text(encoding="utf-8")
+
+        rules = re.findall(
+            r"^automation ALL=\(root\) NOPASSWD: (.+)$", runbook, re.MULTILINE
+        )
+
+        assert rules, "no sudoers rules found in the deployment runbook"
+
+        for rule in rules:
+            # sudoers names an absolute path, the script calls the command by
+            # name through sudo.
+            command = rule.removeprefix("/usr/bin/")
+            assert any(
+                line.endswith(command) for line in commands(script)
+            ), rule
 
     def test_it_does_not_chown(self, script):
         """It runs as the user that owns the checkout, so the files a pull

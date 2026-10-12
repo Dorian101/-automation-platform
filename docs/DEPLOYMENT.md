@@ -446,16 +446,28 @@ connection with a forced command still needs a shell to run it:
 usermod -s /bin/bash automation
 ```
 
-**2. One privileged command, and nothing else.** Restarting is the only step
-the deploy cannot do itself. Write `/etc/sudoers.d/automation-deploy` with
+**2. Two privileged commands, and nothing else.** The restart is what the
+deploy cannot do itself, and reading the journal back is what a user who is not
+on the host cannot do either. Write `/etc/sudoers.d/automation-deploy` with
 mode `440`:
 
 ```
 automation ALL=(root) NOPASSWD: /usr/bin/systemctl restart automation-platform
+automation ALL=(root) NOPASSWD: /usr/bin/journalctl -u automation-platform -n 50 --no-pager
 ```
 
-Validate with `visudo -c` before saving — a sudoers file that does not parse
-can lock the whole host out of sudo.
+Every argument is spelled out, with no wildcard, so each rule is one command
+and nothing more. Validate with `visudo -c` before saving — a sudoers file
+that does not parse can lock the whole host out of sudo.
+
+`automation` is not in `systemd-journal`, and that is deliberate. Adding it is
+one command instead of a rule, and it grants read access to every log on the
+machine, permanently, including the ones written after the deploy is gone.
+The wildcard-free rules read one unit's last 50 lines and stop.
+
+The arguments are a tripwire in both directions: `sudo` matches them exactly,
+so changing `-n 50` in `scripts/deploy.sh` without changing the rule breaks the
+deploy. A test checks that the two files agree.
 
 **3. A key that may only run the deploy.** Generate it on the runner side, not
 here: a key that has ever been written to this host should be considered

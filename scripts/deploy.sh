@@ -37,4 +37,13 @@ sudo systemctl restart automation-platform
 # The tail is here so that whoever triggered this sees what happened without
 # having to ask the host for it. A deploy that starts a service which then
 # crashes leaves the answer in the journal, and this is where it gets read.
-journalctl -u automation-platform -n 50 --no-pager
+#
+# The second sudo rule. It is spelled out in full, with every argument, and has
+# no wildcard: this reads one unit's last 50 lines and nothing else on the host.
+# The alternative — adding `automation` to systemd-journal — is one command
+# instead of a rule, and grants read access to every log on the machine, for
+# ever, including the ones written after this deploy is switched off.
+#
+# The exact arguments are also a tripwire. Change `-n 50` here and sudo rejects
+# the call, which is a louder failure than it looks.
+sudo journalctl -u automation-platform -n 50 --no-pager

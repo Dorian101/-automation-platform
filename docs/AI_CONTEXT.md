@@ -378,7 +378,8 @@ Bound to `WEB_HOST` and `WEB_PORT`, defaulting to 127.0.0.1:8080.
 
 A push to `main` runs `scripts/deploy.sh` on the host via
 `.github/workflows/deploy.yml`. The script pulls with `--ff-only`, runs
-`uv sync --frozen --no-dev`, restarts the service through the one sudo rule,
+`uv sync --frozen --no-dev`, restarts the service and prints the journal tail
+through the two sudo rules,
 and prints the last 50 journal lines.
 
 Two things about it are easy to get backwards:
@@ -389,8 +390,18 @@ Two things about it are easy to get backwards:
   server, because the deploy starts it. The boundary is branch protection on
   `main`, which must stay on.
 - **The deploy runs as the user that owns the checkout**, not as root, which
-  is why it needs no `chown` after the pull. The only privileged step is the
-  restart, granted by a single sudoers line.
+  is why it needs no `chown` after the pull. Two steps are privileged — the
+  restart and the journal read — and each is a sudoers line spelled out to the
+  argument, with no wildcard.
+
+  `automation` is deliberately not in `systemd-journal`. Membership is one
+  command instead of a rule and grants read access to every log on the host,
+  permanently. The two rules read one unit's last 50 lines and stop.
+
+  sudoers matches arguments exactly, so `scripts/deploy.sh` and the rules in
+  DEPLOYMENT.md have to agree on `-n 50`. A test checks it. Change one without
+  the other and the deploy breaks, but in the runbook rather than in
+  production.
 
 `pyyaml` is a dev dependency for one thing: parsing the workflow. A malformed
 workflow is the quietest failure in the repository — nothing runs and nothing
@@ -400,7 +411,12 @@ comment, and a search over the whole file finds the explanation whether or not
 the command is still there. Which is how an earlier version of that test
 asserted a merge-prone pull was safe.
 
-Server-side setup — the `automation` shell, the sudoers rule, the authorized_keys
+`automation` also needs its own SSH key for GitHub: the deploy runs `git pull`
+as that user, not as root, so the key root already has does not help it. It is
+a read-only deploy key — `git pull` only reads, and the server's write access
+through root is not something to widen.
+
+Server-side setup — the `automation` shell, the sudoers rules, the authorized_keys
 line and the pinned host key — is in DEPLOYMENT.md, not here. It is not in the
 repository because it is not in the repository.
 
