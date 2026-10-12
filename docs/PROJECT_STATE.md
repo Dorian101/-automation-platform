@@ -45,6 +45,34 @@ The platform is operational.
 - account administration from the host (disable, enable, reset a password,
   revoke sessions)
 - deployment runbook
+- automatic deploy on push to `main`, over SSH from GitHub Actions
+
+## Deployment
+
+A push to `main` runs `scripts/deploy.sh` on the host: `git pull --ff-only`,
+`uv sync --frozen --no-dev`, restart, journal tail. No third-party action, no
+self-hosted runner — the host carries one script and one key.
+
+The deploy runs as `automation`, which owns the checkout, so a pull does not
+leave root-owned files behind and no `chown` is needed. Two steps are
+privileged, each a sudoers rule with every argument written out: the restart
+and the journal read. `automation` is deliberately not in `systemd-journal`,
+which would grant read access to every log on the host for ever.
+
+The SSH key is confined to that one script by `command=` in `authorized_keys`,
+with `no-pty` so it cannot open a shell that skips it. **That is not the
+security boundary.** The script lives in the repository, so whoever can push
+to `main` can change what it runs — and pushing code here already means it
+runs on this server, because the deploy starts it. Branch protection on `main`
+is the boundary; the automation removes the waiting, not the permission.
+
+The script pulls and then re-opens itself with `exec`, because the pull can
+rewrite the file it is running and bash reads scripts by offset from an open
+handle. A script that overwrites itself with a shorter one prints its first
+line and stops — a deploy that pulls, syncs, never restarts, and reports
+success. The pull is inside a guard so the second pass cannot reach it.
+
+Server setup is in DEPLOYMENT.md and is not in the repository.
 
 ## Current architecture
 
