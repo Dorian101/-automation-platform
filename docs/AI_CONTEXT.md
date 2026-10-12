@@ -384,11 +384,17 @@ and prints the last 50 journal lines.
 
 Two things about it are easy to get backwards:
 
-- **The restricted key is not the security boundary.** It is confined to one
-  script, but that script is in the repository, so whoever can push to `main`
-  can change it — and pushing code here already means that code runs on the
-  server, because the deploy starts it. The boundary is branch protection on
-  `main`, which must stay on.
+- **The restricted key is not the security boundary, and neither is branch
+  protection.** The key is confined to one script, but that script is in the
+  repository, so whoever can push to `main` can change it — and pushing code
+  here already means that code runs on the server, because the deploy starts
+  it. Branch protection is on `main`, with the owner as an always-allow
+  bypass: it refuses force pushes and branch deletion and covers anyone
+  without admin, but it does not put a reviewer between the owner and the
+  server, because there is no second reviewer and an author cannot approve
+  their own pull request. The boundary is the GitHub account itself. Saying
+  otherwise here would be the comfortable lie, and this file is what gets
+  read when the comfortable version is more convenient.
 - **The deploy runs as the user that owns the checkout**, not as root, which
   is why it needs no `chown` after the pull. Two steps are privileged — the
   restart and the journal read — and each is a sudoers line spelled out to the

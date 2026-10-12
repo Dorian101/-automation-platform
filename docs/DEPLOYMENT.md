@@ -462,8 +462,27 @@ push to `main` can change what it runs — and pushing code to this repository
 already means that code runs on this server, because the deploy starts it.
 The automation removes the waiting, not the permission.
 
-**Keep "require a pull request" enabled on `main`.** That is what actually
-gates who deploys.
+**There is no separation of duties here, and pretending otherwise would be
+the useful lie to tell.** This is one person's repository: the owner is the
+one pushing, and the owner is the one whose account would have to be
+compromised for anything else to get in. So the honest statement of the
+boundary is the GitHub account itself.
+
+Branch protection on `main` is configured anyway, and its owner is listed as
+an always-allow bypass — the fast path was worth more than the ceremony. What
+it actually buys:
+
+- force pushes and branch deletion are refused, so a mistake costs a reflog
+  instead of the history;
+- the rules apply in full to anyone without admin, which means a second
+  collaborator or a token added later is covered without revisiting this;
+- there is a place where "main must go through a pull request" becomes a
+  setting rather than an intention.
+
+What it does not buy is review before deploy. For that, the rule would need
+the owner *out* of the bypass list — and then the owner, alone in the
+repository, cannot merge their own pull request, because the author may not
+approve it. There is no configuration that gives one person both.
 
 ### Server setup, once
 

@@ -8,9 +8,14 @@
 #
 # Why that is not a new exposure: whoever can push to main can already have
 # their code executed on the server, because the deploy runs it. Triggering a
-# deploy removes the waiting, not the permission. The real control is branch
-# protection on main — keep "require a pull request" on, and this workflow can
-# only run on a change somebody reviewed.
+# deploy removes the waiting, not the permission.
+#
+# Note what is *not* claimed here. Branch protection on main does not put a
+# reviewer between the owner and the server — the owner is a bypass actor, and
+# an author cannot approve their own pull request, so for one person there is
+# no setting that does. The rule still refuses force pushes and branch
+# deletion and covers anyone without admin. The boundary is the GitHub
+# account itself.
 #
 # No third-party action is used. `webfactory/ssh-agent` and its neighbours are
 # the usual way to do this and each one is code from somebody else's account

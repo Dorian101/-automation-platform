@@ -63,8 +63,16 @@ The SSH key is confined to that one script by `command=` in `authorized_keys`,
 with `no-pty` so it cannot open a shell that skips it. **That is not the
 security boundary.** The script lives in the repository, so whoever can push
 to `main` can change what it runs — and pushing code here already means it
-runs on this server, because the deploy starts it. Branch protection on `main`
-is the boundary; the automation removes the waiting, not the permission.
+runs on this server, because the deploy starts it.
+
+**There is no separation of duties in this project, and the documentation does
+not claim otherwise.** Branch protection is configured on `main` with the
+owner as an always-allow bypass. It refuses force pushes and branch deletion,
+and it covers anyone without admin — a later collaborator, a token — without
+anyone having to remember this file. It does not put a reviewer between the
+owner and the server: an author cannot approve their own pull request, and
+there is no second approver. So the honest boundary is the GitHub account.
+The automation removes the waiting, not the permission.
 
 The script pulls and then re-opens itself with `exec`, because the pull can
 rewrite the file it is running and bash reads scripts by offset from an open
