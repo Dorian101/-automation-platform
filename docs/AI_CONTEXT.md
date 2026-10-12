@@ -477,12 +477,16 @@ and it is the default during a sprint. Pick by area:
 | Changed | Run |
 |---|---|
 | a plugin | its own `test_<name>_plugin.py`, plus `test_manager.py` |
-| a repository | its own `test_<name>_repo.py` || a page or `/api/page/action` | `test_web_pages.py`, plus the plugin's |
+| a repository | its own `test_<name>_repo.py` |
+| a page or `/api/page/action` | `test_web_pages.py`, `test_seo.py`, `test_demo.py` |
 | `BasePlugin`, the manager, routing | `test_manager.py`, `test_plugins.py` |
 | the web layer or auth | `test_web.py`, `test_auth.py`, `test_web_pages.py` |
 | a migration | `test_migrations.py` plus the repository that uses it |
 
-The four files together are about a quarter of the suite and run in seconds.
+Those three page files together run in about half a minute, against three
+minutes for the whole suite. Rewording a template is not a reason to run all
+of it — the count grows every sprint, and paying it on every small change is
+how a two-minute suite becomes a five-minute one nobody runs.
 
 **Before a commit — run everything.** `uv run ruff check . && uv run pytest`
 with no selection, as AGENTS.md requires. This is what catches a change
