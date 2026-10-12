@@ -528,8 +528,20 @@ this host's control.
 |---|---|
 | `DEPLOY_HOST` | `automationplatformlebedev.ru` |
 | `DEPLOY_USER` | `automation` |
-| `DEPLOY_KEY` | the private key, newlines and all |
+| `DEPLOY_KEY` | the private key, base64-encoded (see below) |
 | `DEPLOY_KNOWN_HOSTS` | the output of `ssh-keyscan` above |
+
+`DEPLOY_KEY` is stored base64-encoded, not as the `BEGIN`/`END` block:
+
+```bash
+base64 < ~/.ssh/platform_deploy | tr -d '\n'
+```
+
+To produce a replacement after rotating the key. A multi-line block pasted
+into a secret field comes back with its line endings changed or dropped, and
+OpenSSH rejects it with `error in libcrypto` — which names neither the line
+nor the cause, in a log whose whole subject is the key. One line of base64
+has one representation, so it cannot be mangled on the way.
 
 ### The script pulls, then runs itself again
 

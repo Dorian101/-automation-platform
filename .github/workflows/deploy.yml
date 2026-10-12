@@ -50,7 +50,16 @@ jobs:
           set -euo pipefail
 
           install -d -m 700 ~/.ssh
-          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          # The secret holds the key base64-encoded, and this is the only
+          # reason. A multi-line BEGIN/END block pasted into a secret field
+          # comes back with its line endings changed or lost, and OpenSSH
+          # then fails with `error in libcrypto` — a message that names
+          # neither the line nor the cause, in a log where the key is the
+          # thing being set up.
+          #
+          # One line of base64 has exactly one representation that survives
+          # the trip. That is worth four lines of shell.
+          printf '%s' "$DEPLOY_KEY" | base64 -d > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts

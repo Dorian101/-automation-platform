@@ -104,6 +104,22 @@ class TestWorkflow:
         assert "BatchMode=yes" in run
         assert "set -euo pipefail" in run
 
+    def test_it_decodes_the_key_from_base64(self, workflow):
+        """A secret holding a multi-line BEGIN/END block comes back with its
+        line endings changed, and OpenSSH answers `error in libcrypto` — a
+        message that names neither the line nor the cause. Base64 is one line
+        with one representation, so it cannot be mangled in transit.
+
+        Read as a command rather than searched for as a word, so the reason in
+        the comment above it does not satisfy this on its own.
+        """
+        run = workflow["jobs"]["deploy"]["steps"][0]["run"]
+
+        assert any(
+            "base64 -d" in line and "deploy_key" in line
+            for line in commands(run)
+        ), "the deploy key is not base64-decoded before use"
+
 
 class TestScript:
     @pytest.fixture
