@@ -271,6 +271,34 @@ rename would have to move rows across notes, reminders and clipboard and every
 future plugin would have to join in — deferred until identity is anchored to a
 stable key.
 
+## Search engines
+
+`robots.txt` and `sitemap.xml` are routes, not files: there is no `sitemap.xml`
+on disk and `find` will not find one. Both are generated per request by
+`_robots` and `_sitemap` in `app/web/server.py`, from the same
+`INDEXABLE_PATHS` tuple beside them.
+
+**Adding a public page means adding its path to `INDEXABLE_PATHS` in
+`app/web/server.py`.** That is the one place to remember, and nothing will
+tell you if it is forgotten: the page renders, every test passes, and the
+crawler simply never hears about it.
+
+Why generated rather than a file: the list of addresses would then live in two
+places — the file and `PUBLIC_PATHS` — and drift, the way five hand-written
+copies of the navigation once did. `lastmod` is today's date for the same
+reason a static file goes stale without anyone touching it. The host name comes
+from `PUBLIC_BASE_URL`, never from the `Host` header: the app sits behind the
+reverse proxy, and that header is not the public name of anything.
+
+The sign-in and registration pages carry `noindex`. The rest of the site needs
+a session and gets nothing. `/` redirects to `/login`, which is why that form
+carries the only links out to the public pages — **remove them and the whole
+site becomes unfindable again**, silently. `tests/test_seo.py` covers the
+crawl path end to end for exactly that reason.
+
+The domain itself still has to be registered with Google Search Console and the
+sitemap submitted there; nothing in the code can do that part.
+
 ## Navigation
 
 One navigation, rendered into every page by `pages.nav()`, built from what the

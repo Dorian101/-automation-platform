@@ -344,11 +344,13 @@ Expected shape of each:
 | `/signup` with the header, no cookie | `404` while `SIGNUP_INVITE_CODE` is unset, `200` once it is |
 | `/login` with the header, no cookie | `200` with `Content-Security-Policy`, `X-Frame-Options: DENY` headers |
 | `POST /login` with the header, no cookie and no `csrf` field | `400` — the form's token is missing |
-| wrong `/login` posts beyond the allowance | `429` `Too many attempts. Try again later.` |
+| wrong `/login` posts beyond the allowance | `429` `Слишком много попыток. Попробуйте позже.` |
+| `/robots.txt` or `/sitemap.xml` with the header, no cookie | `200` — a crawler has no session and cannot get one |
 
-A fresh database logs `Applied 5 new migration(s)` on first start. An existing
-one that already had `001`–`004` logs `Applied 1 new migration(s)`, for
-`005_telegram_links.sql`.
+A fresh database logs `Applied 7 new migration(s)` on first start. An existing
+one logs only what it is missing, and a deployment with nothing to apply
+logs `Database schema is up to date` — in which case **no backup is taken**,
+because the dump exists to precede a migration and there was none.
 
 Then open the site in a browser: it must land on the sign-in form, and a wrong
 password must return `Incorrect username or password.` without saying which
@@ -362,14 +364,45 @@ nosniff`, and (through Caddy) `Strict-Transport-Security`. Wrong-password posts
 are logged as `Failed login attempt for ...`; posting a deliberately wrong
 password more often than `LOGIN_ATTEMPTS_PER_WINDOW` times in
 `RATE_LIMIT_WINDOW_SECONDS` seconds begins returning `429` with
-`Too many attempts.`.
+`Слишком много попыток. Попробуйте позже.`.
 
 The forms carry a CSRF token, so a post made without one is refused — the
-login and sign-up forms answer `400` with `This form has expired. Reload the
-page and try again.`, and a signed-in sign-out or unlink answers `403`. The
+login and sign-up forms answer `400` with `Форма устарела. Обновите страницу
+и попробуйте снова.`, and a signed-in sign-out or unlink answers `403`. The
 changes that matter are logged as audit events: `Signed in`, `Signed out`,
 `Account created for`, and `Linked`/`Unlinked` for Telegram, so a successful
 action and an attempted one are distinguishable in `journalctl`.
+
+## Search engines
+
+Nothing here is a file. `/robots.txt` and `/sitemap.xml` are routes generated
+per request, from `INDEXABLE_PATHS` in `app/web/server.py`, so `find` will not
+turn either one up on disk. Check them over HTTP:
+
+```bash
+curl -sI https://automationplatformlebedev.ru/robots.txt | head -1
+curl -s https://automationplatformlebedev.ru/sitemap.xml
+curl -sL https://automationplatformlebedev.ru/ | grep -c 'href="/about"\|href="/demo"'
+```
+
+Expected: `200`; a `<urlset>` listing `/about`, `/project` and `/demo`; and `2`.
+Anything else means the response is being answered by the access rules rather
+than by the route — a `303` to `/login` on the first two is what an unregistered
+path looks like.
+
+Adding a public page means adding its path to `INDEXABLE_PATHS`, and nothing
+will report the omission: the page renders and every test passes, while a
+crawler never hears about it. The links at the bottom of the sign-in form are
+what a crawler follows out of `/`, which redirects there; removing them makes
+the whole site unfindable without any visible failure.
+
+The host name in the sitemap comes from `PUBLIC_BASE_URL` in `.env`. It cannot
+be read from the `Host` header: the app listens on loopback behind Caddy, and
+that header is not the public name of anything.
+
+Google still has to be told: register the domain in Search Console and submit
+`https://automationplatformlebedev.ru/sitemap.xml` there. That step cannot be
+done from the repository, and until it is, the sitemap is only a suggestion.
 
 ## Update
 
