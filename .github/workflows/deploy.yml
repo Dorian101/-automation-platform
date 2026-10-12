@@ -1,0 +1,69 @@
+# Runs on a GitHub runner, so the runner never sees the source — only the
+# credentials to open one connection and run scripts/deploy.sh on the host.
+#
+# Why SSH rather than a self-hosted runner on the server: a runner living
+# there would be another process on the box with repository access and
+# `systemctl`, to install and keep upgrading. This keeps the host to one
+# script and one key.
+#
+# Why that is not a new exposure: whoever can push to main can already have
+# their code executed on the server, because the deploy runs it. Triggering a
+# deploy removes the waiting, not the permission. The real control is branch
+# protection on main — keep "require a pull request" on, and this workflow can
+# only run on a change somebody reviewed.
+#
+# No third-party action is used. `webfactory/ssh-agent` and its neighbours are
+# the usual way to do this and each one is code from somebody else's account
+# with write access to this repository's pipeline. The few lines below are the
+# whole of it.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # Two pushes in quick succession would otherwise race: the second pull
+  # happens while the first service is still restarting.
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Run the deploy on the host
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          # The pinned host key, not ssh-keyscan. Scanning at deploy time is
+          # trust on first use, which means the first machine to answer
+          # decides who the host is for ever after — and a runner deciding
+          # that is not a defence.
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          # One connection, and no command passed: authorized_keys forces
+          # scripts/deploy.sh whatever is written here. Passing one anyway
+          # would look as though it did something and would not, and a
+          # separate "test the connection" call would simply deploy twice —
+          # the forced command ignores the argument just as much.
+          # BatchMode stops a bad key from hanging the job on a password
+          # prompt until the timeout.
+          ssh -i ~/.ssh/deploy_key \
+              -o IdentitiesOnly=yes \
+              -o BatchMode=yes \
+              "$DEPLOY_USER@$DEPLOY_HOST"
+

@@ -28,5 +28,6 @@ dev = [
     "aiohttp-test-utils>=0.5.0",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "pyyaml>=6.0.3",
     "ruff>=0.16.4",
 ]

@@ -417,6 +417,109 @@ journalctl -u automation-platform -n 50
 `chown` after pull: the repo is owned by `automation`, but the deploy is run
 as root, so new files come out root-owned.
 
+## Automatic deploy
+
+A push to `main` runs `scripts/deploy.sh` on this host through
+`.github/workflows/deploy.yml`. The workflow lives in the repository; the
+server-side half below does not, and has to be set up once.
+
+There is no checkpoint that means "deployed": the job's own log is the record,
+and the script ends by printing the last 50 journal lines.
+
+### What it does, and what it does not claim
+
+The key stored in GitHub is restricted to one script, but that is not the
+boundary worth relying on. The script is in the repository, so whoever can
+push to `main` can change what it runs — and pushing code to this repository
+already means that code runs on this server, because the deploy starts it.
+The automation removes the waiting, not the permission.
+
+**Keep "require a pull request" enabled on `main`.** That is what actually
+gates who deploys.
+
+### Server setup, once
+
+**1. A shell for the deploy user.** `automation` is `nologin`, and an SSH
+connection with a forced command still needs a shell to run it:
+
+```bash
+usermod -s /bin/bash automation
+```
+
+**2. One privileged command, and nothing else.** Restarting is the only step
+the deploy cannot do itself. Write `/etc/sudoers.d/automation-deploy` with
+mode `440`:
+
+```
+automation ALL=(root) NOPASSWD: /usr/bin/systemctl restart automation-platform
+```
+
+Validate with `visudo -c` before saving — a sudoers file that does not parse
+can lock the whole host out of sudo.
+
+**3. A key that may only run the deploy.** Generate it on the runner side, not
+here: a key that has ever been written to this host should be considered
+spent. Then, in `~automation/.ssh/authorized_keys`:
+
+```
+command="/opt/automation-platform/scripts/deploy.sh",no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty <public key>
+```
+
+`no-pty` matters as much as the forced command: without it the key can open an
+interactive shell that does not run the forced command at all.
+
+The script must exist before the first automated deploy, because the key
+points at a path inside the checkout. Pull once by hand the first time.
+
+**4. The host key, pinned.** Read it here and put it in the GitHub secret as
+`DEPLOY_KNOWN_HOSTS`:
+
+```bash
+ssh-keyscan -p 22 automationplatformlebedev.ru
+```
+
+Scanning it at deploy time instead would mean whichever machine answered that
+day decides who this host is for ever after, and that machine is not under
+this host's control.
+
+### GitHub secrets
+
+| Secret | Value |
+|---|---|
+| `DEPLOY_HOST` | `automationplatformlebedev.ru` |
+| `DEPLOY_USER` | `automation` |
+| `DEPLOY_KEY` | the private key, newlines and all |
+| `DEPLOY_KNOWN_HOSTS` | the output of `ssh-keyscan` above |
+
+### Checking a deploy
+
+```bash
+gh run list --limit 5          # from the checkout, with gh authenticated
+```
+
+On the host, the last 50 lines of the service journal show the migrations
+that ran and whether the service came back. A deploy that applied a migration
+also wrote a dump first — see "Search engines" for the `up to date` case, which
+means no dump and nothing to apply.
+
+### Stopping it
+
+Deleting the line from `~automation/.ssh/authorized_keys` is the whole
+switch: the workflow will fail with a permission error on the next push and
+nothing on the host changes.
+
+
+```bash
+cd /opt/automation-platform
+git pull && uv sync --frozen --no-dev
+chown -R automation:automation .
+systemctl restart automation-platform
+journalctl -u automation-platform -n 50
+```
+
+`chown` after pull: the repo is owned by `automation`, but the deploy is run
+as root, so new files come out root-owned.
+
 ## Access from a corporate laptop
 
 The work laptop uses a managed browser where Secure DNS cannot be changed, and

@@ -374,6 +374,36 @@ change with no way back.
 
 Bound to `WEB_HOST` and `WEB_PORT`, defaulting to 127.0.0.1:8080.
 
+## Deploy
+
+A push to `main` runs `scripts/deploy.sh` on the host via
+`.github/workflows/deploy.yml`. The script pulls with `--ff-only`, runs
+`uv sync --frozen --no-dev`, restarts the service through the one sudo rule,
+and prints the last 50 journal lines.
+
+Two things about it are easy to get backwards:
+
+- **The restricted key is not the security boundary.** It is confined to one
+  script, but that script is in the repository, so whoever can push to `main`
+  can change it — and pushing code here already means that code runs on the
+  server, because the deploy starts it. The boundary is branch protection on
+  `main`, which must stay on.
+- **The deploy runs as the user that owns the checkout**, not as root, which
+  is why it needs no `chown` after the pull. The only privileged step is the
+  restart, granted by a single sudoers line.
+
+`pyyaml` is a dev dependency for one thing: parsing the workflow. A malformed
+workflow is the quietest failure in the repository — nothing runs and nothing
+says so. `tests/test_deploy_automation.py` reads both files, and checks the
+script's *commands* rather than its text: the script explains `--ff-only` in a
+comment, and a search over the whole file finds the explanation whether or not
+the command is still there. Which is how an earlier version of that test
+asserted a merge-prone pull was safe.
+
+Server-side setup — the `automation` shell, the sudoers rule, the authorized_keys
+line and the pinned host key — is in DEPLOYMENT.md, not here. It is not in the
+repository because it is not in the repository.
+
 ## Development rules
 
 - Complete one sprint at a time.
