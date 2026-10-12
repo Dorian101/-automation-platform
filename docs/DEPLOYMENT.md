@@ -423,6 +423,34 @@ A push to `main` runs `scripts/deploy.sh` on this host through
 `.github/workflows/deploy.yml`. The workflow lives in the repository; the
 server-side half below does not, and has to be set up once.
 
+### Two things both deploy paths depend on
+
+**`uv` has to be reachable by `automation`.** It is installed by its own
+installer into `/root/.local/bin`, which is inside a `0700` directory — `root`
+sees it in `$PATH`, `automation` cannot enter the path at all. So there is a
+copy at `/usr/local/bin/uv`, installed from the root one:
+
+```bash
+install -o root -g root -m 755 /root/.local/bin/uv /usr/local/bin/uv
+```
+
+One binary, both users: two separate installs would drift apart, and a deploy
+that resolves packages under a different `uv` than the manual one does not
+mean the same thing as a manual deploy.
+
+It is a copy, not a link, because a link would point back through `/root` and
+stop working for `automation`. The cost is that updating `uv` under `root`
+leaves this one behind — nothing breaks, it just stops receiving updates.
+Re-run the command above after updating.
+
+**The repository belongs to `automation`.** A `git pull` by root writes new
+files as root, and the next deploy, running as `automation`, cannot write
+there. Pull it as `automation` rather than fixing the ownership afterwards:
+
+```bash
+sudo -u automation git pull
+```
+
 There is no checkpoint that means "deployed": the job's own log is the record,
 and the script ends by printing the last 50 journal lines.
 
