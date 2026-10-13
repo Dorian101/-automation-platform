@@ -60,6 +60,16 @@ class TestCrawlerPaths:
 
         assert "Disallow: /" in body
 
+    async def test_robots_lets_the_sitemap_through(self, crawler):
+        """`Disallow: /` covers the sitemap unless something says otherwise,
+        and Google will not fetch a sitemap robots.txt disallows. It fails with
+        an HTTP error against a server answering 200, which is the least
+        diagnosable way a sitemap can be broken.
+        """
+        body = await (await crawler.get("/robots.txt")).text()
+
+        assert "Allow: /sitemap.xml" in body
+
     async def test_sitemap_is_reachable_and_well_formed(self, crawler):
         response = await crawler.get("/sitemap.xml")
 

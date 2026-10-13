@@ -390,6 +390,17 @@ Anything else means the response is being answered by the access rules rather
 than by the route — a `303` to `/login` on the first two is what an unregistered
 path looks like.
 
+`robots.txt` disallows `/` and allows the three public paths, which means it
+also disallowed `/sitemap.xml` unless something re-allows it. Google does not
+fetch a sitemap that robots.txt disallows, and it reports that as an HTTP
+error against a server answering `200` — the sitemap looks perfect from a
+terminal and is nevertheless unreadable to the one reader that matters. The
+robots file names `/sitemap.xml` explicitly for that reason:
+
+```bash
+curl -s https://automationplatformlebedev.ru/robots.txt
+```
+
 Adding a public page means adding its path to `INDEXABLE_PATHS`, and nothing
 will report the omission: the page renders and every test passes, while a
 crawler never hears about it. The links at the bottom of the sign-in form are

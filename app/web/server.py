@@ -507,6 +507,11 @@ class WebServer:
         lines = [
             "User-agent: *",
             "Allow: " + "\nAllow: ".join(INDEXABLE_PATHS),
+            # The sitemap, too. It is not page content and nothing here wants it
+            # indexed, but Google refuses to fetch a sitemap that robots.txt
+            # disallows — which made the file unreachable and left the Search
+            # Console reporting a fetch failure against a perfectly good 200.
+            "Allow: /sitemap.xml",
             # Everything else is either behind a session or the console. Saying
             # so is clearer than leaving a crawler to work through a login form
             # and conclude the site is empty.
