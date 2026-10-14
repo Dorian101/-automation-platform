@@ -22,7 +22,16 @@ import secrets
 
 CSRF_COOKIE = "platform_csrf"
 CSRF_FIELD = "csrf"
-CSRF_TTL_SECONDS = 600
+
+#: An hour, not ten minutes. The value is a random 256-bit token that is only
+#: ever compared against the copy the page shows, and the cookie holding it is
+#: HttpOnly and SameSite=Lax. What the window really costs is patience: at ten
+#: minutes a form that sat open long enough came back "stale" and the site
+#: looked broken to the person trying to sign in to it.
+#:
+#: An hour covers filling in a username and a password, including a password
+#: from a manager, without a reload in between.
+CSRF_TTL_SECONDS = 3600
 
 #: The answer the session-backed handlers return for a bad token. Public so
 #: that tests assert against the same words.
