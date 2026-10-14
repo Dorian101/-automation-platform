@@ -1,5 +1,6 @@
 import re
 from dataclasses import dataclass
+from datetime import datetime
 
 from app.core.identity import WEB, Identity
 from app.core.passwords import hash_password, verify_password
@@ -19,6 +20,9 @@ _USERNAME_RE = re.compile(r"[A-Za-z0-9._-]+")
 
 MAX_USERNAME_LENGTH = 32
 
+#: How many accounts a search returns. A page, not a report.
+SEARCH_LIMIT = 200
+
 
 @dataclass(frozen=True)
 class User:
@@ -26,6 +30,7 @@ class User:
     username: str
     is_active: bool
     is_admin: bool
+    created_at: datetime
 
 
 class UsersRepository:
@@ -65,14 +70,14 @@ class UsersRepository:
                     """
                     INSERT INTO users (username, password_hash)
                     VALUES (%s, %s)
-                    RETURNING id, username, is_active, is_admin
+                    RETURNING id, username, is_active, is_admin, created_at
                     """,
                     (trimmed, password_hash),
                 )
                 row = cur.fetchone()
             conn.commit()
 
-        return User(id=row[0], username=row[1], is_active=row[2], is_admin=row[3])
+        return _user(row)
 
     def count(self) -> int:
         with self.database.connect() as conn:
@@ -85,7 +90,7 @@ class UsersRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT id, username, is_active, is_admin
+                    SELECT id, username, is_active, is_admin, created_at
                     FROM users
                     ORDER BY lower(username)
                     """,
@@ -93,7 +98,7 @@ class UsersRepository:
                 rows = cur.fetchall()
 
         return [
-            User(id=row[0], username=row[1], is_active=row[2], is_admin=row[3])
+            _user(row)
             for row in rows
         ]
 
@@ -102,7 +107,7 @@ class UsersRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT id, username, is_active, is_admin
+                    SELECT id, username, is_active, is_admin, created_at
                     FROM users
                     WHERE id = %s
                     """,
@@ -110,7 +115,7 @@ class UsersRepository:
                 )
                 row = cur.fetchone()
 
-        return self._to_user(row)
+        return _user(row) if row is not None else None
 
     def authenticate(self, username: str, password: str) -> User | None:
         """Return the user if the credentials match, otherwise None.
@@ -136,7 +141,7 @@ class UsersRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT id, username, is_active, is_admin
+                    SELECT id, username, is_active, is_admin, created_at
                     FROM users
                     WHERE lower(username) = lower(%s)
                     """,
@@ -144,7 +149,7 @@ class UsersRepository:
                 )
                 row = cur.fetchone()
 
-        return self._to_user(row)
+        return _user(row) if row is not None else None
 
     def set_active(self, user_id: int, active: bool) -> bool:
         """Enable or disable an account; whether a row was changed."""
@@ -158,6 +163,38 @@ class UsersRepository:
             conn.commit()
 
         return changed > 0
+
+    def search(self, query: str, limit: int = SEARCH_LIMIT) -> list[User]:
+        """Accounts whose name contains `query`, oldest first.
+
+        `LIKE` and not `=`: an administrator is looking for a person by a
+        fragment of what they typed into the invitation. The wildcards are
+        escaped, so a query of `%` looks for a percent sign instead of
+        quietly matching every account — a search box that answers differently
+        depending on whether the query happens to contain a symbol is a thing
+        nobody can reason about later.
+
+        Capped because this is a page rather than a report: there is no
+        question a person answers in the administration that needs every row
+        of a table that could grow.
+        """
+        pattern = "%" + _escape_like(query.strip().lower()) + "%"
+
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, username, is_active, is_admin, created_at
+                    FROM users
+                    WHERE LOWER(username) LIKE %s
+                    ORDER BY created_at, id
+                    LIMIT %s
+                    """,
+                    (pattern, limit),
+                )
+                rows = cur.fetchall()
+
+        return [_user(row) for row in rows]
 
     def set_admin(self, user_id: int, admin: bool) -> bool:
         """Grant or take back the administrative flag; whether a row changed.
@@ -208,12 +245,24 @@ class UsersRepository:
 
         return row[0] if row else None
 
-    @staticmethod
-    def _to_user(row) -> User | None:
-        if row is None:
-            return None
 
-        return User(id=row[0], username=row[1], is_active=row[2], is_admin=row[3])
+def _escape_like(value: str) -> str:
+    """Make the LIKE wildcards in `value` mean themselves.
+
+    The escape character is backslash and the escape is applied to the three
+    characters LIKE treats specially, so a query cannot reach past itself.
+    """
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _user(row) -> User:
+    return User(
+        id=row[0],
+        username=row[1],
+        is_active=row[2],
+        is_admin=row[3],
+        created_at=row[4],
+    )
 
 
 def _dummy_hash() -> str:

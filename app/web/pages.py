@@ -73,7 +73,7 @@ def nav(current: str, pages: list[dict], guest: bool, admin: bool = False) -> st
         items.append((DEMO_PREFIX, "Демонстрация"))
 
     if admin:
-        items.append((ADMIN_PREFIX, "Служебный раздел"))
+        items.append((ADMIN_PREFIX, "Админ-панель"))
 
     items.extend(STATIC_LINKS)
 

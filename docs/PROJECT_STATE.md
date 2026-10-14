@@ -48,6 +48,7 @@ The platform is operational.
 - automatic deploy on push to `main`, over SSH from GitHub Actions
 - an administrative area at `/admin`, one boolean on the account, granted from
   the host
+- accounts, search by name, and enabling and disabling from there
 
 ## Deployment
 

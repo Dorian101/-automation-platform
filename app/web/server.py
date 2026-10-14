@@ -43,6 +43,8 @@ from .csrf import (
 from .demo import DemoService, is_public_demo_path
 from .pages import menu_styles, nav, render_plugin_page
 from .ratelimit import RateLimiter, client_ip
+from .responses import form_forged as _form_forged
+from .responses import redirect as _redirect
 from .telegram_auth import TelegramAuthError, verify_login
 
 logger = logging.getLogger(__name__)
@@ -1063,20 +1065,6 @@ def _set_csrf_cookie(response: web.Response, token: str) -> web.Response:
     return response
 
 
-def _form_forged() -> web.Response:
-    """Answer a session-backed POST that did not carry a valid token.
-
-    Plain text rather than a re-render: unlike the anonymous forms there is no
-    form on this page to refresh, and reloading takes the browser back to the
-    console where a fresh token waits.
-    """
-    return web.Response(
-        text=FORGED_FORM_MESSAGE,
-        status=403,
-        content_type="text/plain",
-    )
-
-
 def _new_nonce() -> str:
     return secrets.token_urlsafe(NONCE_BYTES)
 
@@ -1203,16 +1191,6 @@ def _render_plugin_page(page_path: str, view: dict, nav_html: str) -> web.Respon
         text=render_plugin_page(page_path, view, nav_html),
         content_type="text/html",
     )
-
-
-def _redirect(location: str) -> web.Response:
-    """Send the browser to another path.
-
-    A plain response rather than web.HTTPFound: returning an HTTPException
-    from a handler is deprecated in aiohttp, and raising one would mean
-    setting the session cookie on an exception object.
-    """
-    return web.Response(status=303, headers={"Location": location})
 
 
 def _form_value(form: Mapping[str, object], name: str) -> str:

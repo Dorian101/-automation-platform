@@ -471,6 +471,39 @@ demonstration. Same arrangement one level down from `demo`: the link is in
 the menu for whoever holds the flag and absent for everybody else, and hiding
 a link is not what keeps the page closed.
 
+### What lives under it
+
+`/admin` leads to `/admin/users`: the accounts, a search over the name, and a
+button per row to turn one on or off. A landing page for an area with one
+section is a page whose only content is a description of itself, and its
+reader does not need it.
+
+The search is a GET and the actions are POSTs with a token. A search changes
+nothing, and an address that can be bookmarked is worth more here than a POST
+that cannot be.
+
+Two things about the actions:
+
+- **An administrator cannot disable their own account.** Otherwise the only
+  place that could undo it is the one just locked. The flag survives, so
+  `enable-user` from the host is the way back, but a mistake in here should
+  not be what does it.
+- **Nothing revokes sessions on disable.** A disabled account stops working
+  on its next request, because that is checked on the way in.
+
+The id in the action routes is matched against digits in the route itself, so
+`/admin/users/alexey/disable` stops before a lookup rather than at one.
+
+`UsersRepository.search` escapes the LIKE wildcards. Unescaped, a search for
+`%` returns the whole table, and a search box that answers differently
+depending on the punctuation of the query is not something anybody can reason
+about later.
+
+**Not here on purpose:** creating accounts and resetting passwords. A person
+signs up, or resets their own password, through the ordinary forms. The CLI
+commands for both stay for the cases where a browser is not available, which
+is the reason they were written.
+
 ## Development rules
 
 - Complete one sprint at a time.
