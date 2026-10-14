@@ -104,7 +104,13 @@ PUBLIC_PATHS = {
 # a host from: the app sits behind a reverse proxy, so the Host header is
 # whatever the proxy says and cannot be trusted to be the public name. One
 # setting beats guessing from an untrusted header.
-PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://automationplatformlebedev.ru").rstrip("/")
+#
+# Empty by default, and the default is the point. A default here would be one
+# deployment's domain written into every clone of this repository, which is
+# both somebody else's infrastructure and a sitemap that names a host this
+# installation has never heard of. Unset, there is no sitemap — see
+# `_sitemap`. Set it in `.env` to the name your readers type.
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 
 # What a search engine is allowed to index. Everything else on this site either
 # needs a session or is the console itself, and there is nothing in the
@@ -536,12 +542,20 @@ class WebServer:
     async def _sitemap(self, request: web.Request) -> web.Response:
         """The public pages, listed.
 
-        Written by hand rather than by a library: there are three of them, and
+        Written by hand rather than by library: there are three of them, and
         the routes are already named in ``INDEXABLE_PATHS`` beside the robots
         file that points here. A generated sitemap would need the public host
         name from somewhere, and there is nowhere trustworthy to read it from
         behind the proxy — see ``PUBLIC_BASE_URL``.
+
+        Absent, there is no sitemap and this is a 404. A file of relative URLs
+        is not a sitemap: a search engine rejects it, and a console showing an
+        error about a file nobody asked for is worse than one that is not
+        there.
         """
+        if not PUBLIC_BASE_URL:
+            return web.Response(status=404)
+
         today = date.today().isoformat()
 
         entries = "".join(

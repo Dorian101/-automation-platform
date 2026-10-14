@@ -286,39 +286,40 @@ applies here.
 ## 2026-10-06
 
 ### Decision
-Delegate both domains to Ruvds nameservers, and treat the Ruvds panel as the
-only place DNS can be edited.
+Delegate every domain to its nameservers and treat the nameserver provider's
+panel as the only place DNS can be edited.
 
 ### Reason
-DNS was initially edited at reg.ru for `.online` while its zone was already
-served by Ruvds. Those edits were applied to a non-authoritative copy of the
-zone and silently had no effect — the SOA serial never changed, which was the
-only reliable signal that nothing was happening.
+Records were first edited in the registrar's panel while the zone was already
+served somewhere else. Those edits went to a non-authoritative copy and
+silently had no effect — the SOA serial never changed, which was the only
+reliable signal that nothing was happening. A registrar and a nameserver can
+belong to different companies, and the panel you bought the name from is not
+necessarily the one answering for it.
 
 ### Result
-`ns1.ruvds.com` and `ns2.ruvds.com` for both `.ru` and `.online`. reg.ru's
-DNS panel is no longer authoritative for either, and `ns1.reg.ru` now answers
-REFUSED for `.ru`. Checking who actually serves a zone before trusting a
-panel's display became a documented step in docs/DEPLOYMENT.md.
+Both domains point at the nameservers actually serving them. Checking who
+serves a zone — `dig NS`, then query those servers directly — before trusting
+any panel's display became a documented step in docs/DEPLOYMENT.md.
 
 ## 2026-10-06
 
 ### Decision
-Let Caddy own TLS entirely; reject the free DomainSSL offered with the `.ru`
+Let Caddy own TLS entirely; reject the free certificate offered with the
 domain.
 
 ### Reason
-Caddy obtains and renews Let's Encrypt certificates on its own. DomainSSL
-requires manual installation and manual renewal once a year, and a
+Caddy obtains and renews Let's Encrypt certificates on its own. A bundled
+certificate requires manual installation and manual renewal once a year, and a
 certificate Caddy did not obtain is one it will not renew — so it fails
 silently when it expires. That is an extra failure mode with no benefit over
 what already works.
 
 ### Result
-No certificate file on disk to monitor or rotate. Side finding: the
-`_globalsign-domain-verification` TXT record added for DomainSSL is not
-present in the authoritative zone, so that certificate could not be issued
-regardless. Recorded to stop the next person chasing it.
+No certificate file on disk to monitor or rotate. Side finding: the TXT
+verification record added for the bundled certificate was never present in the
+authoritative zone, so that certificate could not have been issued anyway.
+Recorded so the next person does not go looking for it.
 
 ## 2026-10-06
 

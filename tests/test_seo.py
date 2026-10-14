@@ -16,9 +16,16 @@ from aiohttp.test_utils import TestClient, TestServer
 from app.core.config import Config
 from app.web.server import INDEXABLE_PATHS, WebServer
 
+#: A public name for the sitemap to put in its URLs. Set by the fixture, and
+#: invented here: a default in the application would be one deployment's domain
+#: written into every clone of this repository.
+TEST_BASE_URL = "https://public.example"
+
 
 @pytest.fixture
-def web_server(pages_manager, database_with_schema):
+def web_server(pages_manager, database_with_schema, monkeypatch):
+    monkeypatch.setattr("app.web.server.PUBLIC_BASE_URL", TEST_BASE_URL)
+
     return WebServer(
         manager=pages_manager,
         database=database_with_schema,
@@ -85,7 +92,7 @@ class TestCrawlerPaths:
         body = await (await crawler.get("/sitemap.xml")).text()
 
         for path in INDEXABLE_PATHS:
-            assert f"<loc>https://automationplatformlebedev.ru{path}</loc>" in body
+            assert f"<loc>{TEST_BASE_URL}{path}</loc>" in body
 
     async def test_sitemap_names_no_page_that_needs_a_session(self, crawler):
         body = await (await crawler.get("/sitemap.xml")).text()

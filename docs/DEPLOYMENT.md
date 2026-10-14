@@ -1,18 +1,28 @@
 # Deployment
 
-Reference for restoring this system. Every value below is the one actually in
-use, not an example. Read "Gotchas" before changing anything.
+A runbook for putting this system on a box of your own, and for restoring it
+on a new one. Nothing here names a host, a domain or an address: the values
+that change per deployment are written `<angle brackets>` and are yours to
+fill in. The versions and the shape of the thing are not — those are what
+were actually run, and a runbook that hedges them is not one anybody can
+follow.
+
+Read "Gotchas" before changing anything.
 
 ## Inventory
 
+Fill this in first. Everything below refers back to it.
+
 | | |
 |---|---|
-| VPS | Ruvds, hostname `ruvds-9bmwh` |
-| Public IP | `187.13.70.46` |
-| OS | Ubuntu 24.04, PostgreSQL 16.15, Caddy 2.6.2 |
-| Repos | `/opt/automation-platform`, owned by `automation` |
-| Domains | `automationplatformlebedev.ru` (primary), `automationplatformlebedev.online` |
-| NS | `ns1.ruvds.com`, `ns2.ruvds.com` — **both domains** |
+| Hostname | `<host>` |
+| Public IP | `<ip>` |
+| OS | Ubuntu 24.04 |
+| PostgreSQL | 16.15 |
+| Caddy | 2.6.2 |
+| Checkout | `/opt/automation-platform`, owned by `automation` |
+| Domain | `<domain>` |
+| Nameservers | `<ns1>`, `<ns2>` |
 | Exposed ports | 22 (SSH), 443 (HTTPS) |
 
 PostgreSQL, the bot and Caddy all run on this one box. The app listens on
@@ -21,7 +31,7 @@ PostgreSQL, the bot and Caddy all run on this one box. The app listens on
 ## Traffic
 
 ```
-browser → 187.13.70.46:443 → Caddy (TLS)
+browser → <ip>:443 → Caddy (TLS)
                                     → 127.0.0.1:8080 → app
                                       └─ injects X-Platform-Auth
                                       └─ app checks the session cookie
@@ -98,6 +108,7 @@ WEB_HOST=127.0.0.1
 WEB_PORT=8080
 WEB_ACCESS_TOKEN=<openssl rand -hex 32>
 CSRF_SECRET=<openssl rand -hex 32>
+PUBLIC_BASE_URL=https://<domain>
 SESSION_TTL_DAYS=30
 SESSION_COOKIE_SECURE=true
 SIGNUP_INVITE_CODE=   # empty: no sign-up page at all (see Accounts)
@@ -254,12 +265,16 @@ duties are TLS and attaching the transport secret.
 `/etc/caddy/Caddyfile`:
 
 ```
-automationplatformlebedev.ru, automationplatformlebedev.online {
+<domain> {
 	reverse_proxy 127.0.0.1:8080 {
 		header_up X-Platform-Auth "<WEB_ACCESS_TOKEN value>"
 	}
 }
 ```
+
+One block per domain you serve. The name `Caddy` issues a certificate for has
+to be the one a reader types, which is the whole reason the domain is written
+here rather than anywhere the app could guess.
 
 The header value must byte-match `WEB_ACCESS_TOKEN` in `.env` — edit both when
 rotating. Anyone who knows the domain can now reach the login page; the page
@@ -275,56 +290,43 @@ caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
 
 ## Certificates
 
-Caddy owns this. It issues Let's Encrypt on first successful HTTP-01 challenge
-and renews automatically. Nothing to configure, nothing to monitor.
+Caddy owns this. It issues Let's Encrypt on the first successful HTTP-01
+challenge and renews automatically. Nothing to configure, nothing to monitor.
 
-The free **DomainSSL** offered with the `.ru` domain is not needed. Installing
-it means manual renewal once a year, and Caddy will not touch a certificate it
-did not obtain. Related: the `_globalsign-domain-verification` TXT record that
-was added is **not** present in the authoritative zone, so that certificate
-cannot currently be issued at all.
+Do not also install a free certificate from whoever sells you the domain: it
+means manual renewal every year, and Caddy will not touch a certificate it did
+not obtain.
 
 ## DNS
 
-Delegation sits with Ruvds, and Ruvds serves both zones.
+An `A` record for `<domain>` pointing at `<ip>`, delegated to `<ns1>` and
+`<ns2>`. Edit the records wherever the zone is actually served — a registrar's
+panel is not always the same thing as the nameserver, and records saved in the
+wrong place look correct and do nothing.
 
-```
-ns1.reg.ru  → REFUSED for automationplatformlebedev.ru (no longer authoritative)
-NS          → ns1.ruvds.com / ns2.ruvds.com
-A @         → 187.13.70.46
-```
-
-Editing records in the reg.ru panel does nothing for either domain. All zone
-edits go through the Ruvds panel.
-
-### Known inconsistency: UDP vs DoH
-
-| Transport | Answer |
-|---|---|
-| UDP to any resolver | `198.18.0.x` (parking placeholder) |
-| TCP | `187.13.70.46` |
-| DNS-over-HTTPS | `187.13.70.46` |
-
-`198.18.0.0/15` is the RFC 2544 benchmark range — it is not routable, so
-anything resolving over UDP reaches nothing. Symptoms: `ERR_SSL_PROTOCOL_ERROR`
-behind a corporate proxy, `ERR_NAME_NOT_RESOLVED`, "site did not send data".
-
-Commands to re-check:
+Before anything else works, all three of these have to agree:
 
 ```bash
-dig +short automationplatformlebedev.ru A @ns1.ruvds.com   # authoritative
-dig +short automationplatformlebedev.ru A @1.1.1.1         # public UDP
-curl -s 'https://dns.google/resolve?name=automationplatformlebedev.ru&type=A'
+dig +short <domain> A @<ns1>            # authoritative
+dig +short <domain> A @1.1.1.1          # public UDP
+curl -s 'https://dns.google/resolve?name=<domain>&type=A'
 ```
 
-Wait for all three to agree on `187.13.70.46`. This is a provider-side issue;
-do not re-create records while it is open, as re-saving appears to restart
-their migration.
+**A `198.18.x.x` answer is not your server.** That is `198.18.0.0/15`, the
+RFC 2544 benchmark range — reserved, not routable, and what several registrars
+park an unconfigured domain with. A resolver answering over UDP will hand it
+back happily, so the browser goes nowhere. The symptoms are not recognisable
+as DNS: `ERR_SSL_PROTOCOL_ERROR` behind a proxy, `ERR_NAME_NOT_RESOLVED`,
+"site did not send data". TCP and DNS-over-HTTPS often disagree with plain
+UDP here, which is the clue — check all three and see whether they differ.
+
+Do not re-create records while it is open: a save often restarts the
+provider's own migration and makes the answer lag further behind.
 
 ## Verify
 
 ```bash
-curl -sI https://automationplatformlebedev.ru/            # 303, Location: /login
+curl -sI https://<domain>/            # 303, Location: /login
 curl -si localhost:8080/health                            # 401: no proxy header
 curl -si -H "X-Platform-Auth: <WEB_ACCESS_TOKEN value>" localhost:8080/health
 curl -si -H "X-Platform-Auth: <WEB_ACCESS_TOKEN value>" localhost:8080/about   # 200: public document
@@ -381,9 +383,9 @@ per request, from `INDEXABLE_PATHS` in `app/web/server.py`, so `find` will not
 turn either one up on disk. Check them over HTTP:
 
 ```bash
-curl -sI https://automationplatformlebedev.ru/robots.txt | head -1
-curl -s https://automationplatformlebedev.ru/sitemap.xml
-curl -sL https://automationplatformlebedev.ru/ | grep -c 'href="/about"\|href="/demo"'
+curl -sI https://<domain>/robots.txt | head -1
+curl -s https://<domain>/sitemap.xml
+curl -sL https://<domain>/ | grep -c 'href="/about"\|href="/demo"'
 ```
 
 Expected: `200`; a `<urlset>` listing `/about`, `/project` and `/demo`; and `2`.
@@ -399,7 +401,7 @@ terminal and is nevertheless unreadable to the one reader that matters. The
 robots file names `/sitemap.xml` explicitly for that reason:
 
 ```bash
-curl -s https://automationplatformlebedev.ru/robots.txt
+curl -s https://<domain>/robots.txt
 ```
 
 Adding a public page means adding its path to `INDEXABLE_PATHS`, and nothing
@@ -412,8 +414,15 @@ The host name in the sitemap comes from `PUBLIC_BASE_URL` in `.env`. It cannot
 be read from the `Host` header: the app listens on loopback behind Caddy, and
 that header is not the public name of anything.
 
+It has no default, and that is deliberate. A default here would be one
+deployment's domain written into every clone of this repository — somebody
+else's infrastructure, and a sitemap pointing at a host this installation has
+never heard of. Unset, `/sitemap.xml` answers `404`: a file of relative URLs
+is not a sitemap, and a console showing an error about a file nobody asked for
+is worse than one that is not there. Set it to the name your readers type.
+
 Google still has to be told: register the domain in Search Console and submit
-`https://automationplatformlebedev.ru/sitemap.xml` there. That step cannot be
+`https://<domain>/sitemap.xml` there. That step cannot be
 done from the repository, and until it is, the sitemap is only a suggestion.
 
 ## Update
@@ -546,7 +555,7 @@ points at a path inside the checkout. Pull once by hand the first time.
 `DEPLOY_KNOWN_HOSTS`:
 
 ```bash
-ssh-keyscan -p 22 automationplatformlebedev.ru
+ssh-keyscan -p 22 <domain>
 ```
 
 Scanning it at deploy time instead would mean whichever machine answered that
@@ -557,7 +566,7 @@ this host's control.
 
 | Secret | Value |
 |---|---|
-| `DEPLOY_HOST` | `automationplatformlebedev.ru` |
+| `DEPLOY_HOST` | `<domain>` |
 | `DEPLOY_USER` | `automation` |
 | `DEPLOY_KEY` | the private key, base64-encoded (see below) |
 | `DEPLOY_KNOWN_HOSTS` | the output of `ssh-keyscan` above |
@@ -625,9 +634,9 @@ The work laptop uses a managed browser where Secure DNS cannot be changed, and
 the proxy performs TLS inspection. Two things are needed, neither of them on
 this server:
 
-1. DNS above must agree on `187.13.70.46`, otherwise the proxy cannot reach
+1. DNS above must agree on `<ip>`, otherwise the proxy cannot reach
    the VPS at all.
-2. IT must add `automationplatformlebedev.ru` to the allowlist for HTTPS
+2. IT must add `<domain>` to the allowlist for HTTPS
    inspection and corporate DNS resolution.
 
 An SSH tunnel was considered as the fallback (`127.0.0.1:8080` on the server
