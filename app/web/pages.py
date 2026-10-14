@@ -34,7 +34,13 @@ STATIC_LINKS = (("/about", "Обо мне"), ("/project", "Проект и ме�
 ADMIN_PREFIX = "/admin"
 
 
-def nav(current: str, pages: list[dict], guest: bool, admin: bool = False) -> str:
+def nav(
+    current: str,
+    pages: list[dict],
+    guest: bool,
+    admin: bool = False,
+    account: str = "",
+) -> str:
     """The one navigation, built from what the plugins actually declare.
 
     Five hand-written copies of this block is how the menu on the spending
@@ -52,6 +58,13 @@ def nav(current: str, pages: list[dict], guest: bool, admin: bool = False) -> st
     so cannot be an administrator. The link is a convenience, not the check —
     the check is the middleware in `admin.py`, and hiding a link is not what
     keeps the page closed.
+
+    `account` is the block that says who is signed in and offers the way out.
+    When it is passed, the menu and the block are laid out together as the
+    page's attic, so that leaving an account does not mean walking to the
+    console first. The demonstration passes nothing and keeps the plain menu
+    on its own: a guest has no account, and a page that offers one would be
+    offering somebody else's.
 
     Rendered into the page rather than fetched by script, so the links are
     there with JavaScript disabled and there is no state to keep in step.
@@ -89,6 +102,40 @@ def nav(current: str, pages: list[dict], guest: bool, admin: bool = False) -> st
         '<summary>Меню</summary>'
         f'<nav class="menuitems">{"".join(links)}</nav>'
         "</details>"
+    )
+
+
+def attic(menu: str, account: str) -> str:
+    """The menu and the account block, side by side, above the page.
+
+    One component rather than two blocks in two templates: the console had
+    the account on the right of its heading and the other pages had no
+    account at all, which is why leaving an account meant going back to the
+    console to do it. The block is markup that arrived as a string and goes
+    into the page as it is — it is not something this function reads or
+    decides.
+    """
+    if not account:
+        return menu
+
+    return f'<header class="attic">{menu}{account}</header>'
+
+
+def account_block(username: str, csrf: str) -> str:
+    """Who is signed in, and the button that ends it.
+
+    A POST with a token, as everywhere else: the button is on every page
+    now, so a form that could be fired from anywhere had better be one that
+    a page could not fire on its own.
+    """
+    return (
+        f'<div class="account">'
+        f'<span class="who">Вы вошли как <b>{html.escape(username)}</b></span>'
+        '<form method="post" action="/logout">'
+        f'<input type="hidden" name="csrf" value="{html.escape(csrf)}">'
+        '<button type="submit" class="secondary">Выйти</button>'
+        "</form>"
+        "</div>"
     )
 
 

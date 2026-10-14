@@ -215,23 +215,133 @@ class TestPublicPages:
             assert "[[" not in body, f"{path} still has a placeholder"
             assert "--accent: #4a9eff" in body, f"{path} has no styles"
 
-    async def test_a_session_adds_nothing_to_them(
+    async def test_a_guest_sees_no_account_on_them(
         self,
         guest,
-        create_user,
-        login,
     ):
-        """Signed in or not, these pages are the same public documents.
-
-        If one ever starts rendering the account, it has stopped being a
-        page anyone can be given a link to.
-        """
-        await login(guest)
-
+        """A document anybody may be given a link to must say nothing about
+        who is reading it. This is the half of the old rule that still holds,
+        and it is checked with no session at all."""
         for path in ("/about", "/project"):
             body = await (await guest.get(path)).text()
 
             assert not re.search(
                 rf"\b{re.escape(TEST_USERNAME)}\b", body
             ), path
-            assert "Sign out" not in body, path
+            assert "Выйти" not in body, path
+
+    async def test_the_attic_is_the_whole_of_the_difference(
+        self,
+        guest,
+        create_user,
+        login,
+    ):
+        """Signed in, the only thing these pages say that they did not before
+        is the attic — the reader's own name and the way out.
+
+        Not a leak, and the pages are still documents: the difference lives
+        above the content, and it describes the reader to the reader. What
+        would not be acceptable is the *content* changing, because that is
+        what a link sent to somebody else would carry.
+        """
+        signed_in = guest
+        before = {p: await (await guest.get(p)).text()
+                  for p in ("/about", "/project")}
+
+        await login(signed_in)
+
+        for path, was in before.items():
+            body = await (await guest.get(path)).text()
+            # From the heading down: above it is the attic, which a guest
+            # does not have and therefore does not need slicing away.
+            assert body[body.index("<h1>") :] == was[was.index("<h1>") :], path
+
+
+class TestTheAttic:
+    """The menu and the account block, one row above the page.
+
+    Leaving an account meant walking to the console to do it, because the
+    block was on the console's heading and nowhere else.
+    """
+
+    async def test_the_console_carries_it(self, client):
+        body = await (await client.get("/")).text()
+
+        assert '<header class="attic">' in body
+        assert TEST_USERNAME in body
+
+    async def test_a_plugin_page_carries_it(
+        self, pages_manager, database_with_schema, create_user, login
+    ):
+        """The plugins' own pages are the ones the reader spends time on, and
+        they are not the console."""
+        server = TestServer(
+            WebServer(
+                manager=pages_manager,
+                database=database_with_schema,
+                host="127.0.0.1",
+                port=0,
+            ).build_app()
+        )
+
+        async with TestClient(server) as page_client:
+            await login(page_client)
+            body = await (await page_client.get("/expenses")).text()
+
+        assert '<header class="attic">' in body
+        assert TEST_USERNAME in body
+
+    async def test_the_block_offers_the_way_out_with_a_token(
+        self, client
+    ):
+        """The button is on every page now, so the form is one a page could
+        not fire on its own."""
+        body = await (await client.get("/")).text()
+
+        assert 'action="/logout"' in body
+        assert re.search(r'name="csrf" value="[^"]+"', body)
+
+    async def test_a_guest_gets_the_menu_and_not_the_block(self, guest):
+        body = await (await guest.get("/login")).text()
+
+        assert '<header class="attic">' not in body
+
+    async def test_the_demonstration_keeps_the_plain_menu(self, guest):
+        """It is not excluded for tidiness. A guest has no account, so the
+        block would be somebody else's, and the demonstration is the one part
+        of the site anybody can reach."""
+        body = await (await guest.get("/demo")).text()
+
+        assert '<header class="attic">' not in body
+        assert "Выйти" not in body
+
+    async def test_a_signed_in_reader_gets_no_attic_on_it_either(self, client):
+        """The demonstration is shown to whoever is signed in as well, and a
+        block there would name the reader of a page that is not theirs."""
+        body = await (await client.get("/demo")).text()
+
+        assert '<header class="attic">' not in body
+        assert "Выйти" not in body
+
+    def test_the_demonstration_asks_for_no_account(self, pages_manager):
+        """The mechanism, not the outcome.
+
+        The demonstration builds its own navigation and never reaches the
+        server's, so nothing upstream decides anything about the attic for
+        it — there is no rule there to get wrong, and the outcome test above
+        would keep passing if somebody changed the reason it happens.
+        """
+        from app.web.demo import DemoService
+
+        service = DemoService(pages_manager, None)
+
+        assert "attic" not in service._nav()
+
+    def test_an_empty_block_leaves_the_menu_alone(self):
+        """A signed-out reader has no account to show, and a header with
+        nothing in it is a thing to notice."""
+        from app.web.pages import attic
+
+        menu = "<details class=\"menu\"></details>"
+
+        assert attic(menu, "") == menu

@@ -269,9 +269,12 @@ class TestTheUserList:
         create_user(username="hr", password=TEST_PASSWORD)
 
         body = await (await admin_client.get(f"{USERS_PATH}?q=hr")).text()
+        table = body[body.index("<table") : body.index("</table>")]
 
-        assert "hr" in body
-        assert TEST_USERNAME not in body
+        assert "hr" in table
+        # Not the whole page: the attic carries the name of whoever is
+        # reading it, on every page now.
+        assert TEST_USERNAME not in table
 
     async def test_a_search_that_matches_nothing_says_so(
         self, admin_client, create_user
@@ -293,9 +296,11 @@ class TestTheUserList:
         create_user(username="hr", password=TEST_PASSWORD)
 
         body = await (await admin_client.get(f"{USERS_PATH}?q=%25")).text()
+        # Past the attic, which carries the reader's own name everywhere.
+        page = body[body.index("<h1>") :]
 
-        assert "Ничего не найдено" in body
-        assert TEST_USERNAME not in body
+        assert "Ничего не найдено" in page
+        assert TEST_USERNAME not in page
 
     async def test_the_state_of_each_account_is_shown(self, admin_client, users):
         body = await (await admin_client.get(USERS_PATH)).text()

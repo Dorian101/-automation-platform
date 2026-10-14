@@ -55,5 +55,43 @@
   }
 
   .menuitems a:hover { background: var(--bg); color: var(--text); }
+
+  /* The attic: the menu and the account, one row above the page. Lives here
+     rather than in a page's stylesheet because the page is not the thing
+     that has it — every page that has a session does, and they do not share
+     a stylesheet between them. */
+
+  .attic {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .attic .menu { margin-bottom: 0; }
+
+  .account { display: flex; align-items: center; gap: 0.75rem; }
+  .who { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+
+  /* The console had these because the account was on its heading. The block
+     is on every page now, so the rules travel with it. */
+  .secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.4rem 0.85rem;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .secondary:hover { border-color: var(--accent); }
+
+  /* A narrow screen has no room for both; the block wraps under the menu
+     rather than being hidden, since the way out of an account should not
+     depend on the width of the window. */
+  @media (max-width: 30rem) {
+    .attic { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+  }
   .menuitems a[aria-current="page"] { color: var(--accent); background: var(--bg); }
 </style>

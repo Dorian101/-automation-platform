@@ -42,7 +42,7 @@ from .csrf import (
     new_token,
 )
 from .demo import VISITOR, DemoService, is_public_demo_path
-from .pages import menu_styles, nav, render_plugin_page
+from .pages import account_block, attic, menu_styles, nav, render_plugin_page
 from .ratelimit import RateLimiter, client_ip
 from .responses import redirect as _redirect
 from .responses import token_rejected
@@ -161,7 +161,6 @@ class WebServer:
         self._visits = VisitsRepository(database)
 
     async def _index(self, request: web.Request) -> web.Response:
-        identity = self._identity(request)
         user = self._current_user(request)
 
         nonce = ""
@@ -172,7 +171,6 @@ class WebServer:
         csrf = self._csrf.session_token(session_token) if session_token else ""
 
         body = _render_index(
-            identity.id if identity else "",
             self._links.get_by_user_id(user.id) if user else None,
             nonce,
             self._nav(request),
@@ -401,7 +399,6 @@ class WebServer:
         page reads its query string.
         """
         body = _render_index(
-            user.username,
             self._links.get_by_user_id(user.id),
             "",
             nav_html,
@@ -837,12 +834,21 @@ class WebServer:
         user = resolve_user(request, self._users, self._sessions)
         is_guest = user is None
 
-        return nav(
+        menu = nav(
             request.path,
             self._manager.demo_pages() if is_guest else self._manager.pages(),
             guest=is_guest,
             admin=user.is_admin if user is not None else False,
         )
+
+        if is_guest or is_public_demo_path(request.path):
+            return menu
+
+        token = self._csrf.session_token(
+            request.cookies.get(SESSION_COOKIE, "")
+        )
+
+        return attic(menu, account_block(user.username, token))
 
     def _identity(self, request: web.Request) -> Identity | None:
         return resolve_identity(request, self._users, self._sessions)
@@ -985,7 +991,6 @@ def _rate_key(request: web.Request, action: str, name: str = "") -> str:
 
 
 def _render_index(
-    username: str,
     link,
     nonce: str,
     nav_html: str,
@@ -1001,10 +1006,8 @@ def _render_index(
     """
     source = (TEMPLATES_DIR / "index.html").read_text(encoding="utf-8")
 
-    source = source.replace("__USER__", html.escape(username))
     source = source.replace("__NAV__", nav_html)
     source = source.replace("__MENU_STYLES__", menu_styles())
-    source = source.replace("__CSRF__", html.escape(csrf))
     source = source.replace("__TELEGRAM_BLOCK__", _telegram_panel(link, nonce, csrf))
     source = source.replace(
         "__ERROR_BLOCK__",

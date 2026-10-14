@@ -445,8 +445,13 @@ class TestPlaceholderCheck:
 
         found = template_placeholders("index.html")
 
-        assert "__CSRF__" in found
-        assert "__USER__" in found
+        # `__USER__` and `__CSRF__` used to be here, holding the account block
+        # that sat on the console's own heading. That block is now the attic
+        # on every page, and it is built by `nav()` rather than substituted
+        # into one template — so these two are the names that remain.
+        assert "__NAV__" in found
+        assert "__TELEGRAM_BLOCK__" in found
+        assert "__USER__" not in found
 
     def test_it_ignores_a_lowercase_pair(self):
         """Otherwise `__pycache__` in a path reads as a leftover."""
@@ -457,8 +462,8 @@ class TestPlaceholderCheck:
     def test_it_catches_an_unsubstituted_placeholder(self):
         from tests.conftest import assert_no_placeholders
 
-        with pytest.raises(AssertionError, match="__CSRF__"):
-            assert_no_placeholders("index.html", '<input value="__CSRF__">')
+        with pytest.raises(AssertionError, match="__NAV__"):
+            assert_no_placeholders("index.html", '<a href="__NAV__">x</a>')
 
     def test_it_accepts_a_token_that_happens_to_contain_the_pair(self):
         """The whole point: the old rule failed here."""
