@@ -3,6 +3,7 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from app.core.config import Config
 from app.web.auth import AUTH_HEADER, SESSION_COOKIE, signup_allowed
+from app.web.csrf import CsrfSigner
 from app.web.server import WebServer
 from tests.conftest import TEST_PASSWORD, TEST_USERNAME, _hidden_field
 
@@ -826,3 +827,34 @@ class TestSignupDisabled:
 
         assert response.status == 404
         assert users.count() == 0
+
+
+class TestTokensSurviveARestart:
+    """A page held open while a deploy goes out must keep working.
+
+    The failure is entirely silent: the service came back, the page is the
+    one the reader has been looking at, and the only thing that changed is
+    that a form on it stopped working. Found on a sign-out button in a tab
+    that was open across a restart.
+    """
+
+    def test_a_configured_secret_is_the_same_one_tomorrow(self):
+        first = CsrfSigner("a-fixed-value")
+        second = CsrfSigner("a-fixed-value")
+
+        assert first.accepts("a-session", first.session_token("a-session"))
+        assert second.accepts("a-session", first.session_token("a-session"))
+
+    def test_a_token_from_before_a_restart_is_still_accepted(self):
+        before = CsrfSigner("a-fixed-value")
+        after = CsrfSigner("a-fixed-value")
+
+        assert after.accepts("a-session", before.session_token("a-session"))
+
+    def test_without_one_each_process_gets_its_own(self):
+        """The fallback, and the reason the failure exists: two processes
+        that were not told a secret do not agree."""
+        first = CsrfSigner()
+        second = CsrfSigner()
+
+        assert not second.accepts("a-session", first.session_token("a-session"))

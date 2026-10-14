@@ -97,6 +97,7 @@ DB_PASSWORD=...
 WEB_HOST=127.0.0.1
 WEB_PORT=8080
 WEB_ACCESS_TOKEN=<openssl rand -hex 32>
+CSRF_SECRET=<openssl rand -hex 32>
 SESSION_TTL_DAYS=30
 SESSION_COOKIE_SECURE=true
 SIGNUP_INVITE_CODE=   # empty: no sign-up page at all (see Accounts)

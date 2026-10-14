@@ -26,6 +26,18 @@ class Config:
     # check, which is only appropriate for local development.
     WEB_ACCESS_TOKEN = os.getenv("WEB_ACCESS_TOKEN", "")
 
+    # Secret the session-backed CSRF tokens are signed with. It has to outlive
+    # the process, or every form open across a restart — a page held open
+    # while a deploy goes out, most likely — comes back "the form has expired"
+    # with nothing the reader did wrong. Separate from WEB_ACCESS_TOKEN
+    # rather than borrowed from it: one is a credential the proxy holds, the
+    # other is not, and a leak of either should not hand over both.
+    #
+    # Empty falls back to a random value per process, which is the old
+    # behaviour and the reason a tab that predates a deploy stops working.
+    # The runbook has the command that sets it.
+    CSRF_SECRET = os.getenv("CSRF_SECRET", "")
+
     SESSION_TTL_DAYS = int(os.getenv("SESSION_TTL_DAYS", "30"))
 
     # Invite code required to register a web account. Empty disables sign-up

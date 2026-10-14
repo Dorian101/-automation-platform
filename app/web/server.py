@@ -148,7 +148,7 @@ class WebServer:
         self._sessions = SessionsRepository(database)
         self._links = TelegramLinksRepository(database)
         self._rate = RateLimiter()
-        self._csrf = CsrfSigner()
+        self._csrf = CsrfSigner(Config.CSRF_SECRET)
         self._runner: web.AppRunner | None = None
         self._demo = DemoService(manager, database)
 
@@ -901,7 +901,9 @@ class WebServer:
         # The administrative area installs itself the same way, and it brings
         # its own gate with it: everything under /admin is behind one check
         # that lives with the routes rather than beside each of them.
-        AdminArea(self._users, self._sessions, self._nav).install(app)
+        AdminArea(
+            self._users, self._sessions, self._nav, self._csrf
+        ).install(app)
 
         return app
 

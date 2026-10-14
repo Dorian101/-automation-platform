@@ -499,6 +499,13 @@ The id in the action routes is matched against digits in the route itself, so
 depending on the punctuation of the query is not something anybody can reason
 about later.
 
+**One `CsrfSigner` for the whole web layer**, passed into the area rather
+than built inside it. Two signers meant two secrets and two answers to the
+same question, and the failure would have read as a forgery rather than a
+wiring mistake. It also has to be the same across restarts: the secret comes
+from `CSRF_SECRET`, and without it every form open at the moment a deploy
+goes out is refused with `Форма устарела` and no visible reason.
+
 **Not here on purpose:** creating accounts and resetting passwords. A person
 signs up, or resets their own password, through the ordinary forms. The CLI
 commands for both stay for the cases where a browser is not available, which

@@ -107,10 +107,14 @@ class AdminArea:
         users: UsersRepository,
         sessions: SessionsRepository,
         nav_for: Callable[[web.Request], str],
+        csrf: CsrfSigner,
     ) -> None:
         self._users = users
         self._sessions = sessions
-        self._csrf = CsrfSigner()
+        # The same signer as the rest of the web layer. A second one with its
+        # own secret would refuse every token the other half produced, and the
+        # failure would look like a forgery rather than a wiring mistake.
+        self._csrf = csrf
         # The same navigation everybody else gets, handed in rather than
         # rebuilt. `nav()` exists so that there is one menu and not five
         # copies of it; an administrative page with a second implementation

@@ -18,6 +18,7 @@ requests a forged form would produce.
 
 import base64
 import hmac
+import logging
 import secrets
 
 CSRF_COOKIE = "platform_csrf"
@@ -33,20 +34,36 @@ CSRF_FIELD = "csrf"
 #: from a manager, without a reload in between.
 CSRF_TTL_SECONDS = 3600
 
+logger = logging.getLogger(__name__)
+
 #: The answer the session-backed handlers return for a bad token. Public so
 #: that tests assert against the same words.
 FORGED_FORM_MESSAGE = "Форма устарела. Обновите страницу и попробуйте снова."
 
 
 class CsrfSigner:
-    """Derives per-session CSRF values from a per-process secret.
+    """Derives per-session CSRF values from a secret that outlives the process.
 
-    Restarting the process invalidates outstanding tokens, which is
-    acceptable: every page load renders a fresh one.
+    With `secret` the tokens a browser already holds stay valid across a
+    restart, which is the point: a page that was open when a deploy went out
+    keeps working instead of coming back "the form has expired" with nothing
+    the reader did wrong.
+
+    Without one, a random secret per process — the behaviour of a deployment
+    that has not set `CSRF_SECRET`, and the reason the failure exists at all.
+    The token is an HMAC over a value only the session's own browser knows, so
+    the secret never travels; it only has to be the same one tomorrow.
     """
 
-    def __init__(self) -> None:
-        self._secret = secrets.token_bytes(32)
+    def __init__(self, secret: str = "") -> None:
+        if secret:
+            self._secret = secret.encode("utf-8")
+        else:
+            self._secret = secrets.token_bytes(32)
+            logger.warning(
+                "CSRF_SECRET is not set: forms open across a restart will be "
+                "refused. Set it in .env to a random value."
+            )
 
     def session_token(self, session_token: str) -> str:
         """The CSRF value for a signed-in form.
