@@ -715,6 +715,12 @@ WorkingDirectory=/opt/automation-platform
 ExecStart=/opt/automation-platform/.venv/bin/python -m app.manage prune-guests
 ```
 
+The visit log is cleaned the same way, with
+`prune-visits` in place of `prune-guests` and a second unit. Copy both blocks
+above, change the name to `automation-platform-visits`, the command to
+`-m app.manage prune-visits`, and the description. The window is
+`RETENTION_DAYS` in `app/db/visits_repo.py`.
+
 `/etc/systemd/system/automation-platform-guests.timer`:
 
 ```ini

@@ -50,6 +50,7 @@ from app.db.links_repo import TelegramLinksRepository
 from app.db.migrations import MigrationRunner
 from app.db.sessions_repo import SessionsRepository
 from app.db.users_repo import UsersRepository
+from app.db.visits_repo import RETENTION_DAYS
 
 # Audit trail for the significant account actions the CLI performs, using the
 # same basicConfig that main() installs, so the lines show up in the journal
@@ -371,6 +372,23 @@ def prune_guests(args: argparse.Namespace) -> int:
     return 0
 
 
+def prune_visits(args: argparse.Namespace) -> int:
+    """Delete the log entries that have aged out.
+
+    Nothing else removes them, and the table is written to on every public
+    request, so without this it is the one table that grows for as long as the
+    site is up.
+    """
+    from app.db.visits_repo import VisitsRepository
+
+    removed = VisitsRepository(Database()).prune(days=RETENTION_DAYS)
+
+    logger.info("Pruned %s visit row(s)", removed)
+    print(f"Removed {removed} of the last {RETENTION_DAYS} days")
+
+    return 0
+
+
 def backup(args: argparse.Namespace) -> int:
     """Write one backup and drop the ones that have aged out.
 
@@ -523,6 +541,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Delete every demonstration namespace",
     )
     guests.set_defaults(func=prune_guests)
+
+    visits = subparsers.add_parser(
+        "prune-visits",
+        help="Delete visit log entries past the retention window",
+    )
+    visits.set_defaults(func=prune_visits)
 
     return parser
 

@@ -429,3 +429,193 @@ class TestChangingAnAccount:
 
         assert response.status == 404
         assert users.get_by_username("hr").is_active is True
+
+
+class TestTheVisitLog:
+    async def test_a_public_page_is_recorded(self, app_client, database_with_schema):
+        from app.db.visits_repo import VisitsRepository
+
+        await app_client.get("/about")
+
+        repo = VisitsRepository(database_with_schema)
+        found = repo.recent()
+
+        assert [v.path for v in found] == ["/about"]
+        assert found[0].kind == "view"
+        assert found[0].identity is None
+
+    async def test_a_demonstration_page_is_recorded_with_its_guest(
+        self, app_client, database_with_schema, pages_manager
+    ):
+        from app.db.visits_repo import VisitsRepository
+
+        await app_client.get("/demo/expenses")
+
+        found = VisitsRepository(database_with_schema).recent()
+
+        assert found[0].path == "/demo/expenses"
+        assert found[0].identity.startswith("web:guest:")
+
+    async def test_the_landing_is_recorded_without_a_name(
+        self, app_client, database_with_schema
+    ):
+        """The landing mints no guest: it only lists what there is to look
+        at, and a namespace for somebody who never clicked would be a row per
+        passer-by for nothing. So the visit is real and the reader is not
+        named — which is what an unnamed row in a log is for.
+        """
+        from app.db.visits_repo import VisitsRepository
+
+        await app_client.get("/demo")
+
+        found = VisitsRepository(database_with_schema).recent()
+
+        assert found[0].path == "/demo"
+        assert found[0].identity is None
+
+    async def test_a_page_that_nobody_may_see_is_not(
+        self, admin_client, database_with_schema
+    ):
+        """The console is where the owner works. Logging it would bury
+        everything else and teach nothing."""
+        from app.db.visits_repo import VisitsRepository
+
+        await admin_client.get(USERS_PATH)
+
+        paths = [v.path for v in VisitsRepository(database_with_schema).recent()]
+
+        assert USERS_PATH not in paths
+
+    async def test_a_request_that_answered_nothing_is_not_recorded(
+        self, other_user_client, database_with_schema
+    ):
+        from app.db.visits_repo import VisitsRepository
+
+        await other_user_client.get(ADMIN_PREFIX)
+
+        paths = [v.path for v in VisitsRepository(database_with_schema).recent()]
+
+        assert ADMIN_PREFIX not in paths
+
+    async def test_a_sign_in_is_recorded(
+        self, new_client, login, create_user, database_with_schema
+    ):
+        from app.db.visits_repo import SIGNIN, VisitsRepository
+
+        theirs = await new_client()
+        await login(theirs)
+
+        found = VisitsRepository(database_with_schema).recent()
+
+        assert any(v.kind == SIGNIN for v in found)
+        # The identity of an account is `web:<name>` — the same string its
+        # data is filed under, not a row id.
+        assert any(v.identity == f"web:{TEST_USERNAME}" for v in found)
+
+    async def test_the_administrator_sees_them(self, admin_client):
+        body = await (await admin_client.get("/admin/visits")).text()
+
+        assert "<h1>Визиты</h1>" in body
+
+    async def test_the_filter_narrows_to_one_page(
+        self, app_client, admin_client, database_with_schema
+    ):
+        from app.db.visits_repo import VisitsRepository
+
+        await app_client.get("/about")
+        await app_client.get("/project")
+
+        narrowed = VisitsRepository(database_with_schema).recent(path="/about")
+
+        assert [v.path for v in narrowed] == ["/about"]
+
+        body = await (await admin_client.get("/admin/visits?q=%2Fabout")).text()
+        table = body[body.index("<table") : body.index("</table>")]
+
+        # The datalist beside the filter still offers every page anyone has
+        # looked at, `/project` included; what the table must not carry is a
+        # row for it.
+        assert "/project" in body
+        assert "/project" not in table
+        assert "/about" in table
+        assert "на этой странице" in body
+
+    async def test_an_empty_log_says_so(self, admin_client):
+        """A filter that matches nothing still has to render as a page
+        rather than as a broken table."""
+        body = await (
+            await admin_client.get("/admin/visits?q=/nothing-here")
+        ).text()
+
+        assert "Пока ничего не записано" in body
+
+    async def test_a_stranger_cannot_read_it(self, other_user_client):
+        response = await other_user_client.get("/admin/visits")
+
+        assert response.status == 404
+
+    async def test_pruning_drops_what_is_past_the_window(
+        self, database_with_schema
+    ):
+        """The table only ever grows until something removes from it, and the
+        only thing that does is this."""
+        from datetime import datetime, timedelta
+
+        from app.db.visits_repo import VisitsRepository
+
+        repo = VisitsRepository(database_with_schema)
+
+        with database_with_schema.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO visits (at, kind, path) "
+                    "VALUES (%s, 'view', '/from-long-ago')",
+                    (datetime.now() - timedelta(days=200),),
+                )
+            conn.commit()
+
+        repo.record("view", path="/about")
+        assert repo.count() == 2
+
+        # A hundred days keeps what is a minute old and drops what is not.
+        assert repo.prune(days=100) == 1
+
+        left = [v.path for v in repo.recent()]
+        assert left == ["/about"]
+
+    async def test_our_own_activity_does_not_fill_the_log(
+        self, admin_client, database_with_schema
+    ):
+        """Signing in to look at the log is the most likely thing to happen on
+        a quiet day, and it must not be what fills it."""
+        from app.db.visits_repo import VisitsRepository
+
+        await admin_client.get("/admin/visits")
+
+        paths = [v.path for v in VisitsRepository(database_with_schema).recent()]
+
+        assert ADMIN_PREFIX not in paths
+
+
+class TestPruningFromTheHost:
+    def test_the_command_removes_what_aged_out(
+        self, database_with_schema, create_user
+    ):
+        """The one thing that takes rows out of the table."""
+        from datetime import datetime, timedelta
+
+        from app.db.visits_repo import VisitsRepository
+        from app.manage import main
+
+        with database_with_schema.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO visits (at, kind, path) "
+                    "VALUES (%s, 'view', '/ancient')",
+                    (datetime.now() - timedelta(days=400),),
+                )
+            conn.commit()
+
+        assert main(["prune-visits"]) == 0
+
+        assert VisitsRepository(database_with_schema).recent() == []

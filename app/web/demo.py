@@ -49,6 +49,13 @@ logger = logging.getLogger(__name__)
 # a vacancy site and nothing else.
 COOKIE = "platform_demo"
 COOKIE_TTL_SECONDS = 7 * 86400
+
+#: Where a handler leaves the identity it used, for whatever runs after it.
+#: The guest token is minted here and set as a cookie in the response; a
+#: visitor arriving with none has no cookie on the *request* yet, so anything
+#: reading the request afterwards would mint a second, different token and
+#: record a namespace that never existed.
+VISITOR = "demo_visitor"
 TOKEN_BYTES = 16
 
 DEMO_PREFIX = "/demo"
@@ -200,6 +207,7 @@ class DemoService:
 
         page_path = plugin.page
         identity, token = read_guest(request)
+        request[VISITOR] = identity
 
         view = await self._view(plugin, identity)
 
@@ -234,6 +242,7 @@ class DemoService:
         # this route is reachable without a session, so what it resolves to
         # has to be decided by the cookie alone.
         identity, token = read_guest(request)
+        request[VISITOR] = identity
 
         try:
             view = await plugin.page_action(

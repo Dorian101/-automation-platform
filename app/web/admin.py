@@ -31,6 +31,7 @@ from aiohttp import web
 
 from app.db.sessions_repo import SessionsRepository
 from app.db.users_repo import User, UsersRepository
+from app.db.visits_repo import Visit, VisitsRepository
 from app.web.auth import SESSION_COOKIE, resolve_user
 from app.web.csrf import CSRF_FIELD, CsrfSigner
 from app.web.pages import menu_styles
@@ -106,11 +107,13 @@ class AdminArea:
         self,
         users: UsersRepository,
         sessions: SessionsRepository,
+        visits: VisitsRepository,
         nav_for: Callable[[web.Request], str],
         csrf: CsrfSigner,
     ) -> None:
         self._users = users
         self._sessions = sessions
+        self._visits = visits
         # The same signer as the rest of the web layer. A second one with its
         # own secret would refuse every token the other half produced, and the
         # failure would look like a forgery rather than a wiring mistake.
@@ -139,6 +142,7 @@ class AdminArea:
 
         sub.router.add_get("", self.index)
         sub.router.add_get("/users", self.users_page)
+        sub.router.add_get("/visits", self.visits_page)
         sub.router.add_post("/users/{user_id:\\d+}/disable", self.disable)
         sub.router.add_post("/users/{user_id:\\d+}/enable", self.enable)
 
@@ -162,8 +166,39 @@ class AdminArea:
         query = request.query.get("q", "").strip()
 
         found = self._users.search(query)
+        actor = resolve_user(request, request.app[USERS], request.app[SESSIONS])
+        token = html.escape(
+            self._csrf.session_token(request.cookies.get(SESSION_COOKIE, ""))
+        )
 
-        return self._page(found, query, request)
+        body = _fragment("admin_users_body.html", {
+            "__QUERY__": html.escape(query, quote=True),
+            "__ROWS__": _user_rows(found, token, actor),
+        })
+
+        return self._page("users", body, request)
+
+    async def visits_page(self, request: web.Request) -> web.Response:
+        """The event log, newest first, optionally narrowed to one page."""
+        query = request.query.get("q", "").strip()
+        found = self._visits.recent(path=query) if query else self._visits.recent()
+
+        body = _fragment("admin_visits.html", {
+            "__QUERY__": html.escape(query, quote=True),
+            "__PATH_OPTIONS__": "".join(
+                f'<option value="{html.escape(path, quote=True)}">'
+                for path in self._visits.paths()
+            ),
+            "__TOTAL__": str(self._visits.count()),
+            "__FILTERED__": (
+                f" &middot; на этой странице: <b>{self._visits.count(query)}</b>"
+                if query
+                else ""
+            ),
+            "__ROWS__": _visit_rows(found),
+        })
+
+        return self._page("visits", body, request)
 
     async def disable(self, request: web.Request) -> web.Response:
         return await self._set_active(request, False)
@@ -212,30 +247,33 @@ class AdminArea:
         return redirect(USERS_PATH)
 
     def _page(
-        self, found: list[User], query: str, request: web.Request
+        self, section: str, body: str, request: web.Request
     ) -> web.Response:
-        """The accounts page, with a form per account to change its state.
+        """One page of the area, in the shell the sections share.
 
-        A form per row rather than one form with a select: a table of people
-        and one button each is something you can read without decoding a
-        dropdown, and the row you are looking at is the row you are acting on.
+        The shell exists now that there are two sections. With one it would
+        have been a wrapper around a single document.
         """
-        source = (TEMPLATES_DIR / "admin_users.html").read_text(encoding="utf-8")
-        token = html.escape(
-            self._csrf.session_token(request.cookies.get(SESSION_COOKIE, ""))
-        )
-        actor = resolve_user(request, request.app[USERS], request.app[SESSIONS])
+        source = (TEMPLATES_DIR / "admin.html").read_text(encoding="utf-8")
 
         source = source.replace("__ADMIN_STYLES__", _admin_styles())
         source = source.replace("__MENU_STYLES__", menu_styles())
         source = source.replace("__NAV__", self._nav_for(request))
-        source = source.replace("__QUERY__", html.escape(query, quote=True))
-        source = source.replace("__ROWS__", _rows(found, token, actor))
+        source = source.replace("__BODY__", body)
+        source = source.replace("__TITLE__", _section_title(section))
+
+        for name in ("users", "visits"):
+            mark = " aria-current='page'" if name == section else ""
+            source = source.replace(f"__ACTIVE_{name.upper()}__", mark)
 
         return web.Response(text=source, content_type="text/html", charset="utf-8")
 
 
-def _rows(found: list[User], token: str, actor: User | None) -> str:
+def _section_title(section: str) -> str:
+    return {"users": "Пользователи", "visits": "Визиты"}[section]
+
+
+def _user_rows(found: list[User], token: str, actor: User | None) -> str:
     """One table of accounts, or a line saying there are none."""
     if not found:
         return '<p class="none">Ничего не найдено.</p>'
@@ -293,3 +331,39 @@ def _form_value(form, name: str) -> str:
 
 def _admin_styles() -> str:
     return (TEMPLATES_DIR / "_admin_styles.html").read_text(encoding="utf-8")
+
+
+def _fragment(template: str, replacements: dict[str, str]) -> str:
+    """Read one of the area's page bodies and fill in its placeholders."""
+    source = (TEMPLATES_DIR / template).read_text(encoding="utf-8")
+
+    for name, value in replacements.items():
+        source = source.replace(name, value)
+
+    return source
+
+
+def _visit_rows(found: list[Visit]) -> str:
+    """The log, newest first."""
+    if not found:
+        return '<p class="none">Пока ничего не записано.</p>'
+
+    labels = {"view": "просмотр", "signin": "вход", "signup": "регистрация"}
+    body = []
+
+    for visit in found:
+        who = html.escape(visit.identity) if visit.identity else "&mdash;"
+        body.append(
+            "<tr>"
+            f'<td class="when">{visit.at.strftime("%d.%m.%Y %H:%M:%S")}</td>'
+            f'<td>{labels.get(visit.kind, html.escape(visit.kind))}</td>'
+            f'<td class="name">{html.escape(visit.path)}</td>'
+            f"<td>{who}</td>"
+            "</tr>"
+        )
+
+    return (
+        "<table><thead><tr>"
+        "<th>Когда</th><th>Событие</th><th>Страница</th><th>Кто</th>"
+        "</tr></thead><tbody>" + "".join(body) + "</tbody></table>"
+    )

@@ -515,6 +515,45 @@ background with no way out. The action is still refused; the browser is just
 sent somewhere a fresh token is waiting, and the refusal is left in the log
 where a reader will not mistake it for their own mistake.
 
+### Visits
+
+`/admin/visits` is a log of what happened on the public side: a view of a
+public page, a sign-in, a sign-up. Newest first, filterable by page.
+
+**No address, no fingerprint, nothing that names a stranger.** A reader with
+no session is recorded as having arrived and nothing more; a demonstration
+guest is recorded under a random token that resolves to no account. An
+address would have told the owner nothing they did not already have — the
+useful part of a visit is when it happened, and "who was that" is answered by
+lining the time up with a résumé site, not by having collected something to
+correlate against.
+
+**One writer, a middleware, not a line in each handler.** `_is_a_visit` says
+what counts: a GET of a public page that answered 2xx or 3xx. The console is
+deliberately left out — it is where the owner works, it would bury everything
+else, and it is already known. Sign-in and sign-up are recorded by the
+handlers that succeed at them, because the moment they happen is not the
+moment the request arrives.
+
+**A demonstration guest's identity comes from the handler, not from the
+request.** The guest token is minted in the handler and set as a cookie in
+the response; a first-time visitor has no cookie on the request either, so
+reading it after the fact would mint a second token and file the visit under
+a namespace that never existed. The handler leaves the identity on the
+request, and the log reads it from there.
+
+**The landing page mints no guest**, so its row has no name — it only lists
+what there is to look at, and a namespace per passer-by would be rows for
+nothing.
+
+**Repeat visits are a query, not a column.** The table is an event log;
+counting rows for a token answers "how often" without a second mechanism that
+can disagree with the first.
+
+**`prune-visits` from a timer**, the same shape as `prune-guests`. It is the
+only thing that removes from the table, which is written on every public
+request.
+
 **Not here on purpose:** creating accounts and resetting passwords. A person
 signs up, or resets their own password, through the ordinary forms. The CLI
 commands for both stay for the cases where a browser is not available, which

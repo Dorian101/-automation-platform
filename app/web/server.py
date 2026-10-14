@@ -17,6 +17,7 @@ from app.db.database import Database
 from app.db.links_repo import TelegramLinksRepository
 from app.db.sessions_repo import SessionsRepository
 from app.db.users_repo import UsersRepository
+from app.db.visits_repo import SIGNIN, SIGNUP, VIEW, VisitsRepository
 from app.plugins.manager import PluginManager
 
 from .admin import AdminArea
@@ -40,7 +41,7 @@ from .csrf import (
     is_probably_a_token,
     new_token,
 )
-from .demo import DemoService, is_public_demo_path
+from .demo import VISITOR, DemoService, is_public_demo_path
 from .pages import menu_styles, nav, render_plugin_page
 from .ratelimit import RateLimiter, client_ip
 from .responses import redirect as _redirect
@@ -157,6 +158,7 @@ class WebServer:
         self._csrf = CsrfSigner(Config.CSRF_SECRET)
         self._runner: web.AppRunner | None = None
         self._demo = DemoService(manager, database)
+        self._visits = VisitsRepository(database)
 
     async def _index(self, request: web.Request) -> web.Response:
         identity = self._identity(request)
@@ -646,6 +648,10 @@ class WebServer:
 
         logger.info("Signed in %r from %s", user.username, client_ip(request))
 
+        self._visits.record(
+            SIGNIN, path="/login", identity=str(self._users.identity_for(user))
+        )
+
         return response
 
     async def _logout(self, request: web.Request) -> web.Response:
@@ -768,6 +774,10 @@ class WebServer:
             "Account created for %r from %s", user.username, client_ip(request)
         )
 
+        self._visits.record(
+            SIGNUP, path="/signup", identity=str(self._users.identity_for(user))
+        )
+
         return response
 
     def _render_login(
@@ -850,6 +860,19 @@ class WebServer:
         return _redirect("/login")
 
     @web.middleware
+    async def _record_visit(self, request: web.Request, handler):
+        response = await handler(request)
+
+        if _is_a_visit(request, response):
+            self._visits.record(
+                VIEW,
+                path=request.path,
+                identity=_visitor(request, self._users, self._sessions),
+            )
+
+        return response
+
+    @web.middleware
     async def _authenticate(self, request: web.Request, handler):
         denied = verify_access(request)
 
@@ -865,7 +888,9 @@ class WebServer:
         return await handler(request)
 
     def build_app(self) -> web.Application:
-        app = web.Application(middlewares=[self._authenticate])
+        app = web.Application(
+            middlewares=[self._authenticate, self._record_visit]
+        )
         # A response_prepare hook runs for every response aiohttp sends, even
         # the one an exception turns into a 500 — middleware, running before
         # the handler, would not be reached when no response is ever built.
@@ -908,7 +933,7 @@ class WebServer:
         # its own gate with it: everything under /admin is behind one check
         # that lives with the routes rather than beside each of them.
         AdminArea(
-            self._users, self._sessions, self._nav, self._csrf
+            self._users, self._sessions, self._visits, self._nav, self._csrf
         ).install(app)
 
         return app
@@ -1023,6 +1048,55 @@ def _telegram_panel(link, nonce: str, csrf: str) -> str:
         f'data-auth-url="/account/telegram/link?nonce={nonce}">'
         "</script>"
     )
+
+
+def _is_a_visit(request: web.Request, response: web.StreamResponse) -> bool:
+    """Whether this request is worth a row in the log.
+
+    A successful read of a page the public can see, and nothing else. The
+    console is left out on purpose: it is where the owner works, it would bury
+    everything else, and it is already known. Sign-in and sign-up are recorded
+    by the handlers that succeed at them, because the moment they happen is
+    not the moment the request arrives.
+
+    Only a 2xx or a redirect. A page that answered 403 or 500 was not read by
+    anybody, and a log of attempts to read pages is a different table.
+    """
+    if request.method != "GET":
+        return False
+
+    if not (200 <= response.status < 400):
+        return False
+
+    if request.path in ("/about", "/project"):
+        return True
+
+    return is_public_demo_path(request.path)
+
+
+def _visitor(
+    request: web.Request,
+    users: UsersRepository,
+    sessions: SessionsRepository,
+) -> str | None:
+    """Who the log should name, or None when there is nobody to name.
+
+    A demonstration guest leaves its identity on the request, because the
+    handler is what mints the token: a visitor arriving without a cookie has
+    none on the request either, so reading it here would produce a second
+    token and file the visit under a namespace that never existed.
+
+    A reader with a session has an account. A reader with neither has
+    neither, and inventing a name for them would be inventing a person.
+    """
+    identity = resolve_identity(request, users, sessions)
+
+    if identity is not None:
+        return str(identity)
+
+    guest = request.get(VISITOR)
+
+    return str(guest) if guest is not None else None
 
 
 def _form_token(request: web.Request) -> str:
