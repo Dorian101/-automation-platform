@@ -755,6 +755,22 @@ class TestSecurityHeaders:
         assert "https://telegram.org" in csp
         assert "form-action 'self'" in csp
 
+    async def test_the_telegram_widgets_frame_is_allowed(self, anonymous_client):
+        """The widget does not draw a button on this page.
+
+        It inserts an iframe pointing at oauth.telegram.org. With no
+        `frame-src` of its own that frame falls under `default-src 'self'`
+        and is blocked, and what the reader sees is an empty box where the
+        sign-in button should be — with nothing on the page to say the frame
+        was refused, and no error worth reporting because the script loaded
+        perfectly well.
+        """
+        csp = (await anonymous_client.get("/login")).headers[
+            "Content-Security-Policy"
+        ]
+
+        assert "frame-src https://oauth.telegram.org" in csp
+
     async def test_errors_carry_them_too(self, bare_client):
         response = await bare_client.get("/")
 

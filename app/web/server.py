@@ -122,6 +122,12 @@ SECURITY_HEADERS = {
     "Content-Security-Policy": (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://telegram.org; "
+        # The Telegram widget does not draw a button on this page: it inserts
+        # an iframe pointing at oauth.telegram.org. With no frame-src of its
+        # own, that frame falls under `default-src 'self'` and is blocked,
+        # which shows as an empty box where the sign-in button should be —
+        # and there is nothing on the page to say the frame was refused.
+        "frame-src https://oauth.telegram.org; "
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data:; "
         "frame-ancestors 'none'; "
@@ -1009,8 +1015,8 @@ def _telegram_panel(link, nonce: str, csrf: str) -> str:
     # The nonce rides along so the reply can be tied to the browser that
     # asked.
     return (
-        '<p class="hint">Link your Telegram account so reminders set here '
-        "arrive in the bot.</p>"
+        '<p class="hint">Привяжите Telegram, чтобы напоминания, созданные '
+        "здесь, приходили в бота.</p>"
         f'<script async src="https://telegram.org/js/telegram-widget.js?22" '
         f'data-telegram-login="{html.escape(Config.TELEGRAM_BOT_USERNAME)}" '
         f'data-size="large" '
