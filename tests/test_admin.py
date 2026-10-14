@@ -372,6 +372,10 @@ class TestChangingAnAccount:
     async def test_the_request_needs_a_token(
         self, admin_client, users, create_user
     ):
+        """The account must survive a POST with no token, and the browser
+        must land somewhere it can get a fresh one — not on a bare line of
+        text, which is what a reader who signed out in another tab used to
+        get for pressing a button that had worked a minute earlier."""
         create_user(username="hr", password=TEST_PASSWORD)
         target = users.get_by_username("hr")
 
@@ -381,7 +385,8 @@ class TestChangingAnAccount:
             allow_redirects=False,
         )
 
-        assert "Форма устарела" in await response.text()
+        assert response.status == 303
+        assert response.headers["Location"] == USERS_PATH
         assert users.get_by_username("hr").is_active is True
 
     async def test_an_administrator_cannot_disable_themselves(

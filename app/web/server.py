@@ -43,8 +43,8 @@ from .csrf import (
 from .demo import DemoService, is_public_demo_path
 from .pages import menu_styles, nav, render_plugin_page
 from .ratelimit import RateLimiter, client_ip
-from .responses import form_forged as _form_forged
 from .responses import redirect as _redirect
+from .responses import token_rejected
 from .telegram_auth import TelegramAuthError, verify_login
 
 logger = logging.getLogger(__name__)
@@ -372,7 +372,7 @@ class WebServer:
             request.cookies.get(SESSION_COOKIE, ""),
             _form_value(form, CSRF_FIELD),
         ):
-            return _form_forged()
+            return token_rejected(request, "/")
 
         existing = self._links.get_by_user_id(user.id)
 
@@ -662,7 +662,7 @@ class WebServer:
             return response
 
         if not self._csrf.accepts(token, _form_value(form, CSRF_FIELD)):
-            return _form_forged()
+            return token_rejected(request, "/login")
 
         identity = self._identity(request)
 

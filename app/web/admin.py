@@ -34,7 +34,7 @@ from app.db.users_repo import User, UsersRepository
 from app.web.auth import SESSION_COOKIE, resolve_user
 from app.web.csrf import CSRF_FIELD, CsrfSigner
 from app.web.pages import menu_styles
-from app.web.responses import form_forged, redirect
+from app.web.responses import redirect, token_rejected
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +190,7 @@ class AdminArea:
             request.cookies.get(SESSION_COOKIE, ""),
             _form_value(await request.post(), CSRF_FIELD),
         ):
-            return form_forged()
+            return token_rejected(request, USERS_PATH)
 
         actor = resolve_user(request, request.app[USERS], request.app[SESSIONS])
         target_id = int(request.match_info["user_id"])

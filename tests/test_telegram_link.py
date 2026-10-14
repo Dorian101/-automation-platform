@@ -457,7 +457,7 @@ class TestUnlinking:
             allow_redirects=False,
         )
 
-        assert response.status == 403
+        assert response.status == 303
         assert links.get_by_user_id(user.id).telegram_id == CHAT_ID
 
     async def test_the_button_removes_the_link(self, signed_in, links, users):

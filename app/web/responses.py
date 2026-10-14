@@ -1,13 +1,15 @@
 """The two answers a web handler keeps needing.
 
 Small, and shared rather than repeated: the administrative area and the main
-web layer both send browsers elsewhere and both refuse a POST that carries no
-token, and two copies of either is how they end up answering differently.
+web layer both send browsers elsewhere, and both have to say something when a
+POST arrives without a valid token.
 """
+
+import logging
 
 from aiohttp import web
 
-from .csrf import FORGED_FORM_MESSAGE
+logger = logging.getLogger(__name__)
 
 
 def redirect(location: str) -> web.Response:
@@ -20,15 +22,29 @@ def redirect(location: str) -> web.Response:
     return web.Response(status=303, headers={"Location": location})
 
 
-def form_forged() -> web.Response:
-    """Answer a session-backed POST that did not carry a valid token.
+def token_rejected(request: web.Request, location: str) -> web.Response:
+    """A POST arrived without a valid CSRF token. Change nothing, and send the
+    browser somewhere it can get a fresh one.
 
-    Plain text rather than a re-render: unlike the anonymous forms there is no
-    form on this page to refresh, and reloading takes the browser back to a
-    page where a fresh token waits.
+    A bare `403` in plain text was the wrong answer, and the reason took a
+    while to find. A token belongs to the session it was drawn for, so it
+    stops matching the moment that session ends — which happens on its own
+    whenever somebody signs out in one tab and signs back in, or signs in as
+    somebody else. Nothing was forged, the reader had done nothing wrong, and
+    the page they got was a line of text on a black background with no way out
+    of it and nothing to say what happened.
+
+    Nothing is lost by redirecting: a refused token did not perform the
+    action, whether the answer was 403 or 303, and a request author learns no
+    more from a redirect than from a refusal. What the refusal *was* good for
+    — leaving a trace — is kept in the log, where a reader will not mistake it
+    for their own mistake.
     """
-    return web.Response(
-        text=FORGED_FORM_MESSAGE,
-        status=403,
-        content_type="text/plain",
+    logger.warning(
+        "Refused a %s to %s without a valid token from %s",
+        request.method,
+        request.path,
+        request.remote,
     )
+
+    return redirect(location)

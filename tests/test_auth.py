@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
@@ -407,11 +409,14 @@ class TestCsrf:
 
         The submitter has the cookie but not the form the page rendered, which
         is exactly the gap a cross-site request would come in through.
+
+        Refused means the session survives, not that the reader gets a wall of
+        plain text: the browser is sent to sign in, where a fresh token waits.
         """
         response = await client.post("/logout", allow_redirects=False)
 
-        assert response.status == 403
-        assert "Форма устарела" in await response.text()
+        assert response.status == 303
+        assert response.headers["Location"] == "/login"
 
     async def test_the_account_still_stands_after_a_refused_logout(self, client):
         await client.post("/logout", allow_redirects=False)
@@ -874,3 +879,49 @@ class TestTokensSurviveARestart:
         second = CsrfSigner()
 
         assert not second.accepts("a-session", first.session_token("a-session"))
+
+
+class TestAStaleForm:
+    """A form drawn for a session that has since ended.
+
+    Not a forgery and not a mistake: the token belongs to the session it was
+    drawn for, so signing out in one tab and back in — or signing in as
+    somebody else — makes every open form belong to a session that no longer
+    exists. The action does not happen; that part is correct. What was wrong
+    is what the reader was shown.
+    """
+
+    async def test_the_logout_button_of_a_finished_session_does_nothing(
+        self, client, login
+    ):
+        """The token a page drew for one session, sent after the session was
+        replaced by a new sign-in — the sequence that leaves a button on a
+        stale tab with a token from the life before it."""
+        body = await (await client.get("/")).text()
+        stale = re.search(r'name="csrf" value="([^"]+)"', body).group(1)
+
+        # Somewhere else in the browser, this session is ended and a new one
+        # is started. The token above belongs to the life before.
+        await client.post(
+            "/logout", data={"csrf": stale}, allow_redirects=False
+        )
+        await login(client)
+
+        response = await client.post(
+            "/logout", data={"csrf": stale}, allow_redirects=False
+        )
+
+        assert response.status == 303
+        # Refused, and the refusal meant it: the account is still signed in.
+        assert (await client.get("/", allow_redirects=False)).status == 200
+
+    async def test_it_lands_where_a_fresh_token_is_waiting(
+        self, client
+    ):
+        response = await client.post("/logout", allow_redirects=False)
+
+        page = await client.get(response.headers["Location"], allow_redirects=False)
+
+        # Some page rendered, not a refusal.
+        assert page.status in (200, 303)
+        assert "Форма устарела" not in await response.text()

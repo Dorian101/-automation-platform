@@ -506,6 +506,15 @@ wiring mistake. It also has to be the same across restarts: the secret comes
 from `CSRF_SECRET`, and without it every form open at the moment a deploy
 goes out is refused with `Форма устарела` and no visible reason.
 
+**A refused CSRF token redirects; it does not answer 403.** A token belongs to
+the session it was drawn for, so it stops matching the moment that session
+ends — which happens on its own when somebody signs out in one tab and signs
+back in, or signs in as somebody else. Nothing was forged and the reader did
+nothing wrong, and the answer used to be one line of plain text on a black
+background with no way out. The action is still refused; the browser is just
+sent somewhere a fresh token is waiting, and the refusal is left in the log
+where a reader will not mistake it for their own mistake.
+
 **Not here on purpose:** creating accounts and resetting passwords. A person
 signs up, or resets their own password, through the ordinary forms. The CLI
 commands for both stay for the cases where a browser is not available, which
