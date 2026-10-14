@@ -603,6 +603,21 @@ Two modes, because a full run is about two minutes and most of it is scrypt
 hashing a password in each test rather than anything the change under review
 touched.
 
+**The suite runs at a cheaper scrypt cost than production.** The shipped one
+is 2^17, which costs about a quarter of a second per hash, and at one account
+per test it was most of the wall clock — the tests were measuring the password
+module. `TEST_SCRYPT_N` in `tests/conftest.py` lowers it for every test, and
+`test_passwords.py` keeps one test that hashes and verifies at the real figure,
+because otherwise nothing would notice if the shipped parameters stopped
+fitting in the memory `_derive` allows.
+
+**The schema is built once for the session and emptied per test.** Nine
+migrations applied per test measured 91 ms against 5 ms for TRUNCATE. The
+tests that run the migrations themselves take a different fixture that hands
+over a genuinely empty database, and `database_with_schema` rebuilds the schema
+if it finds it gone, so one such test cannot leave the rest of the run
+addressing tables that are not there.
+
 **While working — run only what the change can break.** This is the fast mode
 and it is the default during a sprint. Pick by area:
 

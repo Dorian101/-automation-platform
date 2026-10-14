@@ -17,7 +17,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from app.core.config import Config
 from app.db.links_repo import TelegramLinksRepository
 from app.db.users_repo import UsersRepository
-from app.web.server import LINK_NONCE_COOKIE, WebServer
+from app.web.server import LINK_NONCE_COOKIE
 from tests.conftest import (
     TEST_PASSWORD,
     TEST_USERNAME,
@@ -33,13 +33,8 @@ LINK_PATH = "/account/telegram/link"
 
 
 @pytest.fixture
-def web_server(manager, database_with_schema):
-    return WebServer(
-        manager=manager,
-        database=database_with_schema,
-        host="127.0.0.1",
-        port=0,
-    )
+def web_server(manager, database_with_schema, web_server_factory):
+    return web_server_factory(manager, database_with_schema)
 
 
 @pytest.fixture(autouse=True)

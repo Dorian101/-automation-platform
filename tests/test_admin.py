@@ -11,7 +11,6 @@ import re
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-from app.web.server import WebServer
 from tests.conftest import TEST_PASSWORD, TEST_USERNAME
 
 ADMIN_PREFIX = "/admin"
@@ -19,13 +18,8 @@ USERS_PATH = "/admin/users"
 
 
 @pytest.fixture
-def web_server(manager, database_with_schema):
-    return WebServer(
-        manager=manager,
-        database=database_with_schema,
-        host="127.0.0.1",
-        port=0,
-    )
+def web_server(manager, database_with_schema, web_server_factory):
+    return web_server_factory(manager, database_with_schema)
 
 
 @pytest.fixture

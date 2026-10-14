@@ -12,20 +12,64 @@ PASSWORD = "correct-horse-battery"
 
 class TestHashing:
     def test_records_the_algorithm_and_its_parameters(self):
+        """Whatever the module is configured for is what goes in the hash.
+
+        Compared against the constants rather than against a number, because
+        that is what the assertion is for: the parameters are *recorded*. The
+        cost they are worth is the next test's business.
+        """
+        import app.core.passwords as passwords
+
         stored = hash_password(PASSWORD)
         algorithm, n, r, p, salt, digest = stored.split("$")
 
         assert algorithm == ALGORITHM
-        assert int(n) >= 2**14
-        assert int(r) >= 8
+        assert int(n) == passwords.SCRYPT_N
+        assert int(r) == passwords.SCRYPT_R
+        assert int(p) == passwords.SCRYPT_P
         assert salt and digest
 
-    def test_meets_the_owasp_cost(self):
-        """OWASP's scrypt guidance calls for at least 2^17."""
-        stored = hash_password(PASSWORD)
-        n = int(stored.split("$")[1])
+    def test_meets_the_owasp_cost(self, shipped_scrypt_cost):
+        """OWASP's scrypt guidance calls for at least 2^17.
+
+        Read off the constant rather than out of a hash. Everything else here
+        runs at the cheap cost that conftest sets, and a hash made there would
+        only report what the fixture chose — which would turn this into a test
+        of the fixture.
+        """
+        n, r = shipped_scrypt_cost
 
         assert n >= 2**17
+        assert r >= 8
+
+
+class TestTheShippedCost:
+    """The one place that pays the real price.
+
+    Everywhere else in the suite the cost is lowered so that the tests are not
+    a measurement of the password module. That leaves a gap: nothing would
+    notice if the shipped parameters no longer fit in the memory `_derive`
+    allows, and the failure would be a `MemoryError` in production and on
+    nobody's laptop. So the configuration this replaces is checked once, here,
+    by actually running it.
+    """
+
+    def test_it_hashes_and_verifies_at_the_shipped_cost(
+        self, monkeypatch, shipped_scrypt_cost
+    ):
+        import app.core.passwords as passwords
+        from tests.conftest import TEST_SCRYPT_N
+
+        shipped = shipped_scrypt_cost[0]
+        monkeypatch.setattr(passwords, "SCRYPT_N", shipped)
+        stored = hash_password(PASSWORD)
+
+        assert int(stored.split("$")[1]) == shipped
+        assert verify_password(PASSWORD, stored) is True
+        assert verify_password("not-the-password", stored) is False
+        # Otherwise the test proves nothing: it would be measuring the cheap
+        # cost and calling it the shipped one.
+        assert TEST_SCRYPT_N < shipped
 
     def test_hashes_made_at_the_old_cost_still_verify(self, monkeypatch):
         """A cost bump must not invalidate every stored hash.

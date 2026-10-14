@@ -4,17 +4,10 @@ import re
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-from app.web.server import WebServer
-
 
 @pytest.fixture
-def web_server(expenses_manager, database_with_schema):
-    return WebServer(
-        manager=expenses_manager,
-        database=database_with_schema,
-        host="127.0.0.1",
-        port=0,
-    )
+def web_server(expenses_manager, database_with_schema, web_server_factory):
+    return web_server_factory(expenses_manager, database_with_schema)
 
 
 @pytest.fixture

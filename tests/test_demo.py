@@ -11,7 +11,6 @@ from aiohttp.test_utils import TestClient, TestServer
 from app.core.config import Config
 from app.core.identity import WEB, Identity, guest
 from app.web.demo import DemoService, is_public_demo_path
-from app.web.server import WebServer
 from tests.conftest import assert_no_placeholders
 
 
@@ -26,13 +25,8 @@ def _view(body: str) -> dict:
 
 
 @pytest.fixture
-def web_server(pages_manager, database_with_schema):
-    return WebServer(
-        manager=pages_manager,
-        database=database_with_schema,
-        host="127.0.0.1",
-        port=0,
-    )
+def web_server(pages_manager, database_with_schema, web_server_factory):
+    return web_server_factory(pages_manager, database_with_schema)
 
 
 @pytest.fixture

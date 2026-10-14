@@ -35,26 +35,160 @@ from app.plugins.expenses import ExpensesPlugin
 from app.plugins.manager import PluginManager
 from app.plugins.notes import NotesPlugin
 from app.web.auth import AUTH_HEADER
+from app.web.server import WebServer
 
 TEST_USERNAME = "alexey"
 TEST_PASSWORD = "correct-horse-battery"
 
+#: The scrypt cost every test runs at.
+#:
+#: The shipped one is 2^17, which is OWASP's figure for non-interactive use
+#: and takes about a quarter of a second per hash. At one account per test and
+#: several hundred tests, that alone was most of the suite's wall clock — the
+#: tests were measuring the password module and not the thing under test.
+#:
+#: The cost is recorded inside every hash, so a hash written at this value
+#: still verifies at the shipped one. What is being thrown away is the work
+#: factor, and nothing else: the algorithm, the salt, the stored format, the
+#: comparison and the parameters are the production ones.
+#:
+#: `test_passwords.py` keeps one test that hashes at the real cost, so that
+#: the configuration this replaces is still known to work.
+TEST_SCRYPT_N = 2**10
 
-@pytest.fixture
-def database():
-    db = Database()
-    _clean_db(db)
-    yield db
-    _clean_db(db)
+@pytest.fixture(scope="session")
+def shipped_scrypt_cost() -> tuple[int, int]:
+    """`(n, r)` the module is configured with, read before anything patches it.
+
+    A fixture rather than a module constant because `tests/conftest.py` under
+    the name `tests.conftest` is a *second* module object: a test importing the
+    constant from that name would evaluate the file again, after the patch, and
+    read back the cheap figure. Depending on the fixture also fixes the order,
+    which is what makes "before" mean anything.
+    """
+    import app.core.passwords as passwords
+
+    return passwords.SCRYPT_N, passwords.SCRYPT_R
 
 
-@pytest.fixture
-def database_with_schema():
+@pytest.fixture(autouse=True, scope="session")
+def _cheap_scrypt(shipped_scrypt_cost):
+    """Every test hashes cheaply unless it says otherwise."""
+    import app.core.passwords as passwords
+
+    passwords.SCRYPT_N = TEST_SCRYPT_N
+
+    yield
+
+    passwords.SCRYPT_N = shipped_scrypt_cost[0]
+
+
+@pytest.fixture(scope="session")
+def _schema():
+    """Build the schema once for the whole run.
+
+    Migrations were being applied per test — nine files, each a statement or
+    three — and dropped again on both sides. Measured at 91 ms against 5 ms
+    for emptying the tables, so it was very nearly all of the per-test setup
+    and none of it was testing anything the tests had not already asked for.
+    """
     db = Database()
     _clean_db(db)
     MigrationRunner(db).run()
+
+    yield
+
+    _clean_db(db)
+
+
+@pytest.fixture
+def database_with_schema(_schema):
+    """A schema, and an empty one.
+
+    TRUNCATE rather than DROP: the tables are the same tables the migrations
+    made, and emptying them is what a test needs. RESTART IDENTITY resets the
+    sequences, which a drop would have done too.
+    """
+    db = Database()
+    _ensure_schema(db)
+    _empty_db(db)
+    yield db
+    _empty_db(db)
+
+
+def _ensure_schema(db: Database) -> None:
+    """Rebuild the schema if a test has taken it away.
+
+    The tests that run the migrations themselves drop the tables on the way
+    in, and the schema is shared for the whole session — so without this, one
+    such test leaves every test after it addressing tables that are not there.
+    The failure points at whatever ran next, which is the worst possible
+    place for it to point.
+
+    One cheap query in the ordinary case. `users` is the first table the first
+    migration makes, so its absence means the schema is gone rather than
+    partly gone.
+    """
+    with db.connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT to_regclass('public.users') IS NOT NULL")
+            present = cur.fetchone()[0]
+
+    if present:
+        return
+
+    _clean_db(db)
+    MigrationRunner(db).run()
+
+
+@pytest.fixture
+def database(_schema):
+    """Nothing at all: not even a schema.
+
+    The tests that take this one go on to run the migrations themselves, and a
+    migration that finds its table already there is a `DuplicateTable` — so
+    this fixture has to hand over a genuinely empty database, which is why it
+    is not the cheap one above.
+    """
+    db = Database()
+    _clean_db(db)
     yield db
     _clean_db(db)
+
+
+def _empty_db(db: Database):
+    """Empty every table without dropping it.
+
+    Enumerated rather than listed by name, for the same reason `_clean_db` is:
+    a table added by a later migration has to be emptied without anyone
+    remembering to add it here.
+
+    **`schema_migrations` is left alone.** It is not test data, it is the
+    ledger of which migrations have been applied — and the schema it describes
+    now lives for the whole session. Emptying it would leave the tables in
+    place and the ledger claiming they are not there, which is the exact
+    state a second `MigrationRunner.run()` reads as "apply all nine" and
+    fails on the first.
+    """
+    with db.connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                DO $$
+                DECLARE
+                    tbl TEXT;
+                BEGIN
+                    FOR tbl IN SELECT tablename FROM pg_tables
+                    WHERE schemaname = 'public'
+                      AND tablename <> 'schema_migrations'
+                    LOOP
+                        EXECUTE format(
+                            'TRUNCATE TABLE %I RESTART IDENTITY CASCADE', tbl
+                        );
+                    END LOOP;
+                END
+                $$
+            """)
+        conn.commit()
 
 
 def _clean_db(db: Database):
@@ -81,6 +215,26 @@ def _clean_db(db: Database):
                 $$
             """)
         conn.commit()
+
+
+@pytest.fixture
+def web_server_factory():
+    """Build a `WebServer` pointed at a test database.
+
+    Six test modules each wanted one, and they differed only in which plugins
+    were registered. The arguments were seven lines of copying per module,
+    which is how a host and a port quietly end up different in two of them.
+    """
+
+    def _make(manager, database, **overrides):
+        settings = {"host": "127.0.0.1", "port": 0}
+        settings.update(overrides)
+
+        return WebServer(
+            manager=manager, database=database, **settings
+        )
+
+    return _make
 
 
 @pytest.fixture

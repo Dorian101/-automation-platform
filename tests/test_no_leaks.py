@@ -22,7 +22,10 @@ than an oversight. It is worth saying out loud: this catches an address and a
 URL, it does not catch somebody writing "ask the vendor" instead of a name.
 
 Checked over tracked files, so it reads the repository rather than whatever
-happens to be in the working directory.
+happens to be in the working directory — and in two tests rather than one per
+file per rule, because 216 tests that each read a file to find nothing is a
+slower way of saying nothing was found, and it makes the real failure harder
+to see in the output.
 """
 
 import re
@@ -87,7 +90,13 @@ ALLOWED_HOSTS = {
 }
 
 
-def tracked_files() -> list[Path]:
+@pytest.fixture(scope="module")
+def tracked() -> list[tuple[str, str]]:
+    """Every tracked documentation, configuration and source file, with its text.
+
+    Read once. The first version of this ran a test per file per rule, which
+    meant reading every file twice to find nothing.
+    """
     listed = subprocess.run(
         ["git", "ls-files"],
         cwd=ROOT,
@@ -96,55 +105,59 @@ def tracked_files() -> list[Path]:
         check=True,
     )
 
-    return [
-        ROOT / name
-        for name in listed.stdout.split()
-        if Path(name).suffix in SCANNED_SUFFIXES
-    ]
+    files = []
+
+    for name in listed.stdout.split():
+        path = ROOT / name
+
+        if path.suffix not in SCANNED_SUFFIXES:
+            continue
+
+        try:
+            files.append((name, path.read_text(encoding="utf-8")))
+        except (UnicodeDecodeError, OSError):
+            continue
+
+    return files
 
 
-def read(path: Path) -> str | None:
-    try:
-        return path.read_text(encoding="utf-8")
-    except (UnicodeDecodeError, OSError):
-        return None
+def test_no_address(tracked):
+    found = {
+        f"{name}: {value}"
+        for name, text in tracked
+        for value in IP_LIKE.findall(text)
+        if not _allowed_ip(value)
+    }
+
+    assert found == set(), "\n".join(sorted(found))
 
 
-@pytest.mark.parametrize(
-    "path", tracked_files(), ids=lambda p: str(p.relative_to(ROOT))
-)
-class TestNothingIsNamed:
-    def test_no_address(self, path: Path):
-        text = read(path)
+def test_no_host_in_a_url(tracked):
+    found = {
+        f"{name}: {host}"
+        for name, text in tracked
+        for host in URL_HOST.findall(text)
+        if not _allowed_host(host)
+    }
 
-        if text is None:
-            return
+    assert found == set(), "\n".join(sorted(found))
 
-        found = {
-            value
-            for value in IP_LIKE.findall(text)
-            if value not in ALLOWED_IPS
-            and not value.startswith("127.0.0")
-            # The documentation names these ranges as ranges; anything else in
-            # them is not an address either.
-            and not value.startswith(("198.18.", "192.0.2.", "198.51.100.",
-                                      "203.0.113."))
-        }
 
-        assert found == set(), f"{path.name}: {sorted(found)}"
+def _allowed_ip(value: str) -> bool:
+    return (
+        value in ALLOWED_IPS
+        or value.startswith("127.0.0")
+        or value.startswith("198.18.")
+        or value.startswith("192.0.2.")
+        or value.startswith("198.51.100.")
+        or value.startswith("203.0.113.")
+    )
 
-    def test_no_host_in_a_url(self, path: Path):
-        text = read(path)
 
-        if text is None:
-            return
-
-        found = {
-            host
-            for host in URL_HOST.findall(text)
-            if host not in ALLOWED_HOSTS
-            and not host.startswith(("127.0.0", "198.18."))
-            and not re.match(r"^\d{1,3}(\.\d{1,3})*$", host)
-        }
-
-        assert found == set(), f"{path.name}: {sorted(found)}"
+def _allowed_host(host: str) -> bool:
+    # A bare address in a URL is the previous test's business, not this one's.
+    return (
+        host in ALLOWED_HOSTS
+        or host.startswith(("127.0.0", "198.18."))
+        or bool(re.fullmatch(r"\d{1,3}(\.\d{1,3})*", host))
+    )

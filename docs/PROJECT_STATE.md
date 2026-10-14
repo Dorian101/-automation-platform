@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.24.0
+v0.25.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -49,6 +49,7 @@ The platform is operational.
 - an administrative area at `/admin`, one boolean on the account, granted from
   the host
 - accounts, search by name, and enabling and disabling from there
+- the visit log, and a test that keeps deployment details out of the repository
 
 ## Deployment
 

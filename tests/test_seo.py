@@ -14,7 +14,7 @@ import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
 from app.core.config import Config
-from app.web.server import INDEXABLE_PATHS, WebServer
+from app.web.server import INDEXABLE_PATHS
 
 #: A public name for the sitemap to put in its URLs. Set by the fixture, and
 #: invented here: a default in the application would be one deployment's domain
@@ -23,15 +23,11 @@ TEST_BASE_URL = "https://public.example"
 
 
 @pytest.fixture
-def web_server(pages_manager, database_with_schema, monkeypatch):
+def web_server(pages_manager, database_with_schema, monkeypatch,
+               web_server_factory):
     monkeypatch.setattr("app.web.server.PUBLIC_BASE_URL", TEST_BASE_URL)
 
-    return WebServer(
-        manager=pages_manager,
-        database=database_with_schema,
-        host="127.0.0.1",
-        port=0,
-    )
+    return web_server_factory(pages_manager, database_with_schema)
 
 
 @pytest.fixture
