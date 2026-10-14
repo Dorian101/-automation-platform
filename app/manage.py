@@ -4,6 +4,8 @@
     python -m app.manage list-users
     python -m app.manage disable-user <username>
     python -m app.manage enable-user <username>
+    python -m app.manage grant-admin <username>
+    python -m app.manage revoke-admin <username>
     python -m app.manage reset-password <username>
     python -m app.manage revoke-sessions <username>
     python -m app.manage link-telegram <username> <chat_id>
@@ -131,6 +133,60 @@ def enable_user(args: argparse.Namespace) -> int:
 
     print(f"Enabled {account.username}")
     logger.info("Enabled web account %r", account.username)
+    return 0
+
+
+def grant_admin(args: argparse.Namespace) -> int:
+    """Let an account reach the pages that act on the platform.
+
+    Takes effect on the next request, without ending any session: the flag is
+    read from the database on the way in rather than copied into the session,
+    so granting and taking back both apply to sessions that are already open.
+    That is also why this is safe to run while somebody is signed in.
+    """
+    users, _ = _ready_accounts()
+
+    account = users.get_by_username(args.username)
+
+    if account is None:
+        print(f"error: no user '{args.username}'", file=sys.stderr)
+        return 1
+
+    if account.is_admin:
+        print(f"{account.username} already has administrative access")
+        return 0
+
+    if not account.is_active:
+        print(
+            f"note: {account.username} is disabled and cannot sign in",
+            file=sys.stderr,
+        )
+
+    users.set_admin(account.id, True)
+
+    print(f"Granted administrative access to {account.username}")
+    logger.info("Granted administrative access to %r", account.username)
+    return 0
+
+
+def revoke_admin(args: argparse.Namespace) -> int:
+    """Take the administrative flag away. Sessions are left alone."""
+    users, _ = _ready_accounts()
+
+    account = users.get_by_username(args.username)
+
+    if account is None:
+        print(f"error: no user '{args.username}'", file=sys.stderr)
+        return 1
+
+    if not account.is_admin:
+        print(f"{account.username} has no administrative access")
+        return 0
+
+    users.set_admin(account.id, False)
+
+    print(f"Took administrative access from {account.username}")
+    logger.info("Took administrative access from %r", account.username)
     return 0
 
 
@@ -401,6 +457,22 @@ def build_parser() -> argparse.ArgumentParser:
     enable = subparsers.add_parser("enable-user", help="Allow sign-in again")
     enable.add_argument("username", help="Account name, matched case-insensitively")
     enable.set_defaults(func=enable_user)
+
+    grant = subparsers.add_parser(
+        "grant-admin",
+        help="Let an account reach the administrative area",
+    )
+    grant.add_argument("username", help="Account name, matched case-insensitively")
+    grant.set_defaults(func=grant_admin)
+
+    revoke_admin_parser = subparsers.add_parser(
+        "revoke-admin",
+        help="Take the administrative area away from an account",
+    )
+    revoke_admin_parser.add_argument(
+        "username", help="Account name, matched case-insensitively"
+    )
+    revoke_admin_parser.set_defaults(func=revoke_admin)
 
     reset = subparsers.add_parser(
         "reset-password",

@@ -5,7 +5,7 @@ from aiohttp import web
 from app.core.config import Config
 from app.core.identity import Identity
 from app.db.sessions_repo import SessionsRepository
-from app.db.users_repo import UsersRepository
+from app.db.users_repo import User, UsersRepository
 
 AUTH_HEADER = "X-Platform-Auth"
 
@@ -38,16 +38,17 @@ def verify_access(request: web.Request) -> web.Response | None:
     return None
 
 
-def resolve_identity(
+def resolve_user(
     request: web.Request,
     users: UsersRepository,
     sessions: SessionsRepository,
-) -> Identity | None:
-    """Return the identity behind the session cookie, if it is valid.
+) -> User | None:
+    """The account behind the session cookie, if the session is worth anything.
 
-    This is the single place a request becomes a user identity, which is why
-    per-user accounts needed no change in any plugin or repository: they all
-    receive the identity that comes out of here.
+    The one place a request becomes a user. `resolve_identity` is this plus a
+    projection, so the two cannot disagree about what counts as a live
+    session — and a check that "is this account active" exists in exactly one
+    place, rather than in each thing that later needs to ask.
     """
     token = request.cookies.get(SESSION_COOKIE, "")
 
@@ -62,6 +63,26 @@ def resolve_identity(
     user = users.get_by_id(user_id)
 
     if user is None or not user.is_active:
+        return None
+
+    return user
+
+
+def resolve_identity(
+    request: web.Request,
+    users: UsersRepository,
+    sessions: SessionsRepository,
+) -> Identity | None:
+    """Return the identity behind the session cookie, if it is valid.
+
+    The projection of `resolve_user`, and the single place the rest of the
+    application learns who is asking: every plugin and repository receives the
+    identity that comes out of here, which is why per-user accounts needed no
+    change in any of them.
+    """
+    user = resolve_user(request, users, sessions)
+
+    if user is None:
         return None
 
     return users.identity_for(user)

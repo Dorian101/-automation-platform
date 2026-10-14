@@ -29,8 +29,12 @@ DEMO_PREFIX = "/demo"
 # used first, what can be read afterwards.
 STATIC_LINKS = (("/about", "Обо мне"), ("/project", "Проект и метод"))
 
+#: Spelled out rather than imported from `admin.py`: that module imports this
+#: one for the menu styles, and a cycle would be a poor price for a constant.
+ADMIN_PREFIX = "/admin"
 
-def nav(current: str, pages: list[dict], guest: bool) -> str:
+
+def nav(current: str, pages: list[dict], guest: bool, admin: bool = False) -> str:
     """The one navigation, built from what the plugins actually declare.
 
     Five hand-written copies of this block is how the menu on the spending
@@ -41,6 +45,13 @@ def nav(current: str, pages: list[dict], guest: bool) -> str:
     pages at the demonstration's copies, because `/expenses` answers a visitor
     with a login form — the one place on the site that must not send a
     reader into a wall.
+
+    The administrative link is the same arrangement one level down: it is in
+    the menu for whoever holds the flag and absent for everybody else, and a
+    guest is not an exception to be handled because a guest has no flag and
+    so cannot be an administrator. The link is a convenience, not the check —
+    the check is the middleware in `admin.py`, and hiding a link is not what
+    keeps the page closed.
 
     Rendered into the page rather than fetched by script, so the links are
     there with JavaScript disabled and there is no state to keep in step.
@@ -60,6 +71,9 @@ def nav(current: str, pages: list[dict], guest: bool) -> str:
 
     if not guest:
         items.append((DEMO_PREFIX, "Демонстрация"))
+
+    if admin:
+        items.append((ADMIN_PREFIX, "Служебный раздел"))
 
     items.extend(STATIC_LINKS)
 

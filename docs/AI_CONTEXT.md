@@ -433,6 +433,44 @@ Server-side setup — the `automation` shell, the sudoers rules, the authorized_
 line and the pinned host key — is in DEPLOYMENT.md, not here. It is not in the
 repository because it is not in the repository.
 
+## The administrative area
+
+`/admin` is a sub-application in `app/web/admin.py` with a middleware in
+front of it, and that shape is the point. The check is not a line in each
+handler: a route added to the sub-application later is covered without
+anybody remembering, and a route registered on the main application is simply
+not under `/admin`. A check that has to be repeated per handler is a check
+that eventually is not repeated.
+
+**Not a plugin.** A plugin is a unit of user functionality with its own
+commands, tables and page; this acts on the platform, across every plugin's
+data, and belongs to the deployment. Putting it in `app/plugins/` would have
+meant a plugin that touches tables it does not own and a `BasePlugin` flag
+whose only job is to mark a page as privileged.
+
+**One boolean, not a roles table.** There is exactly one question asked of it:
+may this person open the pages that act on the platform rather than on their
+own data. The console already answers for everything else — it is behind a
+sign-in form, which is the "authorised user" role without the name. A second
+kind of person can appear later, and the table can be added then, with
+something to point at.
+
+**Read from the database on every request**, not from the session, so
+`revoke-admin` closes the door at once instead of at the next sign-in. That is
+also why it leaves sessions alone: there is nothing to revoke.
+
+**Both refusals copy the application rather than inventing.** No session: 303
+to `/login`, the answer every other address gives. Session but no flag: 404,
+the answer every address that does not exist gives. `/admin` is therefore not
+a thing a request author can distinguish from a typo, and `/ADMIN`,
+`/admin/` and `/admin/anything` are all refused as well.
+
+**A guest is not an exception to handle.** A guest has no row in `users` and
+so cannot hold the flag, and the administrative page is not on the
+demonstration. Same arrangement one level down from `demo`: the link is in
+the menu for whoever holds the flag and absent for everybody else, and hiding
+a link is not what keeps the page closed.
+
 ## Development rules
 
 - Complete one sprint at a time.

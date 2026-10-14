@@ -19,10 +19,12 @@ from app.db.sessions_repo import SessionsRepository
 from app.db.users_repo import UsersRepository
 from app.plugins.manager import PluginManager
 
+from .admin import AdminArea
 from .auth import (
     SESSION_COOKIE,
     clear_session_cookie,
     resolve_identity,
+    resolve_user,
     set_session_cookie,
     signup_allowed,
     signup_enabled,
@@ -810,14 +812,18 @@ class WebServer:
         same for everyone: a guest is offered the demonstration's copies of
         the plugin pages, since the real ones answer them with a login form —
         and only the ones that opted into the demonstration, since the rest
-        have no public copy to point at.
+        have no public copy to point at. An administrator is offered the link
+        to the area that is otherwise closed to them, which is a courtesy and
+        not the reason it is closed.
         """
-        is_guest = self._identity(request) is None
+        user = resolve_user(request, self._users, self._sessions)
+        is_guest = user is None
 
         return nav(
             request.path,
             self._manager.demo_pages() if is_guest else self._manager.pages(),
             guest=is_guest,
+            admin=user.is_admin if user is not None else False,
         )
 
     def _identity(self, request: web.Request) -> Identity | None:
@@ -889,6 +895,11 @@ class WebServer:
         # without a session, and it installs itself so that all of it is
         # readable in one place rather than spread through the route table.
         self._demo.install(app)
+
+        # The administrative area installs itself the same way, and it brings
+        # its own gate with it: everything under /admin is behind one check
+        # that lives with the routes rather than beside each of them.
+        AdminArea(self._users, self._sessions, self._nav).install(app)
 
         return app
 

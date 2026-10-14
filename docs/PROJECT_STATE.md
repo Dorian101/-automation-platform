@@ -46,6 +46,8 @@ The platform is operational.
   revoke sessions)
 - deployment runbook
 - automatic deploy on push to `main`, over SSH from GitHub Actions
+- an administrative area at `/admin`, one boolean on the account, granted from
+  the host
 
 ## Deployment
 

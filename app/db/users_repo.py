@@ -25,6 +25,7 @@ class User:
     id: int
     username: str
     is_active: bool
+    is_admin: bool
 
 
 class UsersRepository:
@@ -64,14 +65,14 @@ class UsersRepository:
                     """
                     INSERT INTO users (username, password_hash)
                     VALUES (%s, %s)
-                    RETURNING id, username, is_active
+                    RETURNING id, username, is_active, is_admin
                     """,
                     (trimmed, password_hash),
                 )
                 row = cur.fetchone()
             conn.commit()
 
-        return User(id=row[0], username=row[1], is_active=row[2])
+        return User(id=row[0], username=row[1], is_active=row[2], is_admin=row[3])
 
     def count(self) -> int:
         with self.database.connect() as conn:
@@ -84,21 +85,24 @@ class UsersRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT id, username, is_active
+                    SELECT id, username, is_active, is_admin
                     FROM users
                     ORDER BY lower(username)
                     """,
                 )
                 rows = cur.fetchall()
 
-        return [User(id=row[0], username=row[1], is_active=row[2]) for row in rows]
+        return [
+            User(id=row[0], username=row[1], is_active=row[2], is_admin=row[3])
+            for row in rows
+        ]
 
     def get_by_id(self, user_id: int) -> User | None:
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT id, username, is_active
+                    SELECT id, username, is_active, is_admin
                     FROM users
                     WHERE id = %s
                     """,
@@ -132,7 +136,7 @@ class UsersRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT id, username, is_active
+                    SELECT id, username, is_active, is_admin
                     FROM users
                     WHERE lower(username) = lower(%s)
                     """,
@@ -149,6 +153,25 @@ class UsersRepository:
                 cur.execute(
                     "UPDATE users SET is_active = %s WHERE id = %s",
                     (active, user_id),
+                )
+                changed = cur.rowcount
+            conn.commit()
+
+        return changed > 0
+
+    def set_admin(self, user_id: int, admin: bool) -> bool:
+        """Grant or take back the administrative flag; whether a row changed.
+
+        Separate from set_active because they answer different questions and
+        an account can be either without being the other: disabled is about
+        whether someone may sign in at all, administrative is about what they
+        may do once they have.
+        """
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE users SET is_admin = %s WHERE id = %s",
+                    (admin, user_id),
                 )
                 changed = cur.rowcount
             conn.commit()
@@ -190,7 +213,7 @@ class UsersRepository:
         if row is None:
             return None
 
-        return User(id=row[0], username=row[1], is_active=row[2])
+        return User(id=row[0], username=row[1], is_active=row[2], is_admin=row[3])
 
 
 def _dummy_hash() -> str:
