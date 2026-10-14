@@ -35,6 +35,7 @@ from .csrf import (
     FORGED_FORM_MESSAGE,
     CsrfSigner,
     has_valid_cookie,
+    is_probably_a_token,
     new_token,
 )
 from .demo import DemoService, is_public_demo_path
@@ -565,7 +566,7 @@ class WebServer:
         if self._identity(request) is not None:
             return _redirect("/")
 
-        return self._render_login()
+        return self._render_login(request)
 
     async def _login_submit(self, request: web.Request) -> web.Response:
         form = await request.post()
@@ -583,7 +584,7 @@ class WebServer:
                 "Rejected a login without a valid CSRF token from %s",
                 client_ip(request),
             )
-            return self._render_login(
+            return self._render_login(request,
                 error=FORGED_FORM_MESSAGE,
                 username=username,
                 status=400,
@@ -599,7 +600,7 @@ class WebServer:
                 username,
                 client_ip(request),
             )
-            return self._render_login(
+            return self._render_login(request,
                 error="Слишком много попыток. Попробуйте позже.",
                 username=username,
                 status=429,
@@ -615,7 +616,7 @@ class WebServer:
             logger.warning(
                 "Failed login attempt for %r from %s", username, client_ip(request)
             )
-            return self._render_login(
+            return self._render_login(request,
                 error="Неверное имя пользователя или пароль.",
                 username=username,
                 status=401,
@@ -673,7 +674,7 @@ class WebServer:
         if self._identity(request) is not None:
             return _redirect("/")
 
-        return self._render_signup()
+        return self._render_signup(request)
 
     async def _signup_submit(self, request: web.Request) -> web.Response:
         if not signup_enabled():
@@ -699,7 +700,7 @@ class WebServer:
                 "Rejected a sign-up without a valid CSRF token from %s",
                 client_ip(request),
             )
-            return self._render_signup(
+            return self._render_signup(request,
                 error=FORGED_FORM_MESSAGE,
                 username=username,
                 status=400,
@@ -711,14 +712,14 @@ class WebServer:
             Config.SIGNUP_WINDOW_SECONDS,
         ):
             logger.warning("Sign-up rate limit reached from %s", client_ip(request))
-            return self._render_signup(
+            return self._render_signup(request,
                 error="Слишком много попыток. Попробуйте позже.",
                 username=username,
                 status=429,
             )
 
         if not signup_allowed(invite):
-            return self._render_signup(
+            return self._render_signup(request,
                 error="Неверный инвайт-код.",
                 username=username,
                 status=403,
@@ -730,13 +731,13 @@ class WebServer:
             # PasswordError is a ValueError, so a short password and an empty
             # username both arrive here carrying a message written for the
             # person filling in the form.
-            return self._render_signup(
+            return self._render_signup(request,
                 error=str(error),
                 username=username,
                 status=400,
             )
         except UniqueViolation:
-            return self._render_signup(
+            return self._render_signup(request,
                 error="Это имя уже занято.",
                 username=username,
                 status=409,
@@ -761,11 +762,12 @@ class WebServer:
 
     def _render_login(
         self,
+        request: web.Request,
         error: str = "",
         username: str = "",
         status: int = 200,
     ) -> web.Response:
-        token = new_token()
+        token = _form_token(request)
 
         response = _render_card(
             "login.html",
@@ -782,11 +784,12 @@ class WebServer:
 
     def _render_signup(
         self,
+        request: web.Request,
         error: str = "",
         username: str = "",
         status: int = 200,
     ) -> web.Response:
-        token = new_token()
+        token = _form_token(request)
 
         response = _render_card(
             "signup.html",
@@ -999,6 +1002,28 @@ def _telegram_panel(link, nonce: str, csrf: str) -> str:
         f'data-auth-url="/account/telegram/link?nonce={nonce}">'
         "</script>"
     )
+
+
+def _form_token(request: web.Request) -> str:
+    """The token to print into a form and to hand the browser as a cookie.
+
+    Reuses whatever the browser already holds rather than minting a new one.
+    Minting on every page load meant that two open tabs disagreed: the first
+    tab was given a cookie and a form field, the second tab overwrote the
+    cookie, and the browser then sent the *new* cookie with the *old* form.
+    Double submission is meant to be the pair that matches, so any page load
+    that changes one half without the other breaks it — and it broke in a way
+    that looked like the site was refusing to let the owner in.
+
+    A value that fails `is_probably_a_token` is replaced, so a cookie that
+    was mangled in transit does not become the form's token as well.
+    """
+    existing = request.cookies.get(CSRF_COOKIE, "")
+
+    if is_probably_a_token(existing):
+        return existing
+
+    return new_token()
 
 
 def _set_csrf_cookie(response: web.Response, token: str) -> web.Response:

@@ -327,6 +327,55 @@ class TestCsrf:
 
         assert 'name="csrf"' in body
 
+    async def test_a_second_tab_does_not_break_the_first(
+        self, anonymous_client
+    ):
+        """Loading the form twice must not invalidate the first copy.
+
+        Double submission checks a cookie against a field. Minting a new token
+        per page load kept one cookie and two forms: the second load replaced
+        the cookie, so submitting the first form sent the new cookie with the
+        old field and was rejected. The owner could not sign in to their own
+        site with two tabs open, and the message said the form was forged.
+
+        Both tabs, their tokens, and a submission from the *older* one.
+        """
+        first = await anonymous_client.get("/login")
+        first_token = await _hidden_field(first, "csrf")
+
+        second = await anonymous_client.get("/login")
+        second_token = await _hidden_field(second, "csrf")
+
+        response = await anonymous_client.post(
+            "/login",
+            data={
+                "username": TEST_USERNAME,
+                "password": "wrong on purpose",
+                "csrf": first_token,
+            },
+            allow_redirects=False,
+        )
+
+        # 401 is the wrong password, which is the point: the token was
+        # accepted. 400 with "Форма устарела" is a rejected forgery.
+        assert response.status == 401, await response.text()
+        assert second_token == first_token
+
+    async def test_a_mangled_cookie_is_not_echoed_into_the_form(
+        self, anonymous_client
+    ):
+        """A cookie that is not shaped like a token is replaced rather than
+        printed, so the two halves cannot agree on rubbish and pass the check
+        while proving nothing."""
+        anonymous_client.session.cookie_jar.update_cookies(
+            {"platform_csrf": "not-a-token"}
+        )
+
+        body = await (await anonymous_client.get("/login")).text()
+
+        assert "not-a-token" not in body
+        assert 'name="csrf"' in body
+
     async def test_the_signup_form_hands_out_a_token(self, signup_client):
         body = await (await signup_client.get("/signup")).text()
 

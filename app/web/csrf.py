@@ -61,6 +61,21 @@ def new_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+def is_probably_a_token(value: str) -> bool:
+    """Whether a value is shaped like one of ours.
+
+    `token_urlsafe(32)` is 43 characters of URL-safe base64. Used before a
+    cookie is echoed back into a form: a value that was mangled in transit
+    would otherwise be printed into the form too, and the two halves would
+    agree on garbage and pass the check while proving nothing.
+
+    Not a security property. The comparison below is still constant-time and
+    still decides the outcome; this only avoids making a broken cookie into a
+    broken form.
+    """
+    return len(value) == 43 and all(c.isalnum() or c in "-_" for c in value)
+
+
 def has_valid_cookie(cookie: str, submitted: str) -> bool:
     """Whether the echoed form field matches the browser's cookie."""
     if not cookie or not submitted:
