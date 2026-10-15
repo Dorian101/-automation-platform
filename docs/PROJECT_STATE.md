@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.28.1
+v0.28.2
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -495,8 +495,10 @@ app/db/database.py
   without a session, and it is capped and rate limited rather than closed.
 * Web console is functional but minimal.
 * The demonstration namespace is pruned by a systemd timer on the host, daily
-  at 05:23. This is the one place where the repository and the machine can
-  disagree, and it did — see the note below about what the docs miss.
+  at 05:23. This is a place where the repository and the machine can
+  disagree, and it did — see the note below about what the docs miss. The
+  visit log has the same shape: a command and a window in here, a unit on the
+  host that is not installed.
 * Guest writes are capped (12 categories, 100 expenses, 25 applications), and
   the whole demonstration is rate limited to 200 requests an hour per address.
   Neither is a wall: a visitor with proxy addresses gets past the limit, and
@@ -524,10 +526,15 @@ app/db/database.py
 * webhook receiver, so something outside can drive the platform; the cost is a
   public endpoint that writes, which is the same shape as the demonstration
   and wants the same limits;
-* a `demo` flag on the plugin, before a third page plugin exists — see the
-  limitation above;
 * anchor identity to a stable key so an account can be renamed without moving
-  its data, which is what the deferred rename command needs.
+  its data, which is what the deferred rename command needs;
+* install the visit-log cleanup timer. `prune-visits` is written, tested and
+  documented, and the unit is not on the host — the same gap the guest timer
+  once had. It is not worth installing at the current rate: the table took
+  eighteen rows on its first day and the retention window is ninety, so
+  nothing is anywhere near needing it. Install it when the table reaches a few
+  thousand rows, when a search over old visits is wanted, or when the rows
+  show up in how long a dump takes — whichever arrives first.
 
 On the documents themselves: `PROJECT_STATE.md` is edited at the end of a
 sprint, which means it describes the code as of that moment and nothing about
