@@ -114,6 +114,16 @@ PUBLIC_PATHS = {
 # `_sitemap`. Set it in `.env` to the name your readers type.
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 
+#: What the site calls itself, for a link shared in a chat. Without it the
+#: messenger puts the bare address in the card, which is the one line of the
+#: preview nobody reads.
+#:
+#: The same words are written out in the card and console templates. They are
+#: not read from here, and that is on purpose: pulling a heading out of a
+#: template to put it in a meta tag makes the two dependent, and the one that
+#: would break is the one nobody sees on the page.
+SITE_NAME = "Платформа автоматизации"
+
 # What a search engine is allowed to index. Everything else on this site either
 # needs a session or is the console itself, and there is nothing in the
 # console a reader would want in an index anyway.
@@ -1326,6 +1336,7 @@ def _share_tags(source: str, path: str) -> str:
 
     tags = [
         'property="og:type" content="website"',
+        f'property="og:site_name" content="{SITE_NAME}"',
         f'property="og:title" content="{title.group(1)}"',
         f'property="og:description" content="{description.group(1)}"',
         'name="twitter:card" content="summary"',

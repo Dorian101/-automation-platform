@@ -350,6 +350,7 @@ class TestWhenTheLinkIsShared:
         body = await self._page(crawler, path)
 
         assert 'property="og:type"' in body
+        assert 'property="og:site_name"' in body
         assert 'property="og:title"' in body
         assert 'property="og:description"' in body
         assert 'name="twitter:card"' in body
@@ -393,6 +394,22 @@ class TestWhenTheLinkIsShared:
 
         assert 'property="og:title"' in body
         assert 'property="og:url"' not in body
+
+    async def test_the_card_calls_the_site_something(self, crawler):
+        """Without a site name the messenger prints the bare address, which is
+        the one line of the preview nobody reads."""
+        body = await self._page(crawler, "/about")
+
+        assert 'property="og:site_name" content="Платформа автоматизации"' in body
+
+    async def test_the_github_link_is_the_repository(self, crawler):
+        """It pointed at the profile — a list of repositories, which is a
+        worse thing to send a reader to than the thing itself."""
+        for path in PUBLIC_PAGES:
+            body = await self._page(crawler, path)
+
+            assert "github.com/Dorian101\"" not in body
+            assert "github.com/Dorian101/-automation-platform" in body
 
     async def test_the_about_page_offers_the_project(self, crawler):
         """The page a reader lands on from a résumé had no way to the one that
