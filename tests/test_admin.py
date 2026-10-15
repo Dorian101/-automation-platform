@@ -669,10 +669,31 @@ class TestHidingTheAdministrator:
 
         assert "web:guest:someone" in hidden
 
+    async def test_no_placeholder_reaches_the_browser(self, admin_client):
+        """A forgotten substitution shows as literal text.
+
+        The count line is composed in Python and its numbers are filled in
+        afterwards, so the two have to travel together through the same
+        substitution. They did not, once, and the page said __TOTAL__.
+        """
+        for suffix in ("", "?hide=1", "?q=/about"):
+            body = await (await admin_client.get(f"/admin/visits{suffix}")).text()
+
+            assert "__" not in body, suffix
+
+    async def test_the_box_filters_without_pressing_the_button(self, admin_client):
+        """It is a filter, so it filters when it moves. The form is a GET and
+        the button stays for a browser with script off."""
+        body = await (await admin_client.get("/admin/visits")).text()
+
+        assert 'addEventListener("change"' in body
+        assert "this.form.submit()" in body
+        assert '<button type="submit">Найти</button>' in body
+
     async def test_the_box_stays_ticked(self, admin_client):
         body = await (await admin_client.get("/admin/visits?hide=1")).text()
 
-        assert '<input type="checkbox" name="hide" value="1" checked>' in body
+        assert 'name="hide" value="1" checked' in body
 
     async def test_unticking_brings_them_back(self, admin_client, database_with_schema):
         from app.db.visits_repo import VisitsRepository

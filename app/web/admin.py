@@ -202,7 +202,12 @@ class AdminArea:
                 for path in self._visits.paths()
             ),
             "__CHECKED__": " checked" if hiding else "",
+            # The count line is composed here and the numbers are substituted
+            # after it, so these two have to travel with it. Left out, the page
+            # shows the placeholder's name — which is what happened.
             "__COUNT_LINE__": _count_line(query, hiding, len(found)),
+            "__TOTAL__": str(self._visits.count()),
+            "__FILTERED__": str(self._visits.count(query)) if query else "",
             "__ROWS__": _visit_rows(found),
         })
 

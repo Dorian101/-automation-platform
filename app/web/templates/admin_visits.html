@@ -5,7 +5,7 @@
          placeholder="Фильтр по странице" autocomplete="off" autofocus>
   <datalist id="paths">__PATH_OPTIONS__</datalist>
   <label class="hideadmin">
-    <input type="checkbox" name="hide" value="1"__CHECKED__>
+    <input type="checkbox" id="hide-admin" name="hide" value="1"__CHECKED__>
     Не показывать администратора
   </label>
   <button type="submit">Найти</button>
@@ -14,3 +14,12 @@
 <p class="count">__COUNT_LINE__</p>
 
 __ROWS__
+
+<script>
+  /* The box is a filter, so it filters the moment it moves. The form is a
+     GET and the button stays: with script off, pressing it does the same
+     thing. */
+  document.getElementById("hide-admin").addEventListener("change", function () {
+    this.form.submit();
+  });
+</script>
