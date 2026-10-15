@@ -89,6 +89,18 @@
   button:hover { border-color: var(--accent); }
   button.danger:hover { border-color: var(--error); color: var(--error); }
 
+  /* The checkbox sits in the search row rather than below it: it is part of
+     the same query, and a second form would need its own submit. */
+  .hideadmin {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+  .hideadmin input { accent-color: var(--accent); }
+
   .none { color: var(--muted); }
   .count { color: var(--muted); font-size: 0.9rem; margin: 0 0 1rem; }
   .count b { color: var(--text); font-weight: 600; }

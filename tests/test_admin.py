@@ -618,3 +618,86 @@ class TestPruningFromTheHost:
         assert main(["prune-visits"]) == 0
 
         assert VisitsRepository(database_with_schema).recent() == []
+
+
+class TestHidingTheAdministrator:
+    """The owner's own checking is recorded here like a stranger's.
+
+    Nothing in the log says which is which — no address is kept — so the page
+    cannot tell them apart either. This is the page deciding not to show them.
+    """
+
+    async def test_it_hides_the_administrators_own_events(
+        self, admin_client, new_client, database_with_schema
+    ):
+        from app.db.visits_repo import VisitsRepository
+
+        theirs = await new_client()
+        await theirs.get("/about")
+
+        VisitsRepository(database_with_schema).record(
+            "view", path="/project", identity=f"web:{TEST_USERNAME}"
+        )
+
+        # Past the attic, which carries the reader's own name everywhere.
+        body = await (await admin_client.get("/admin/visits")).text()
+        assert TEST_USERNAME in body[body.index("<h1>") :]
+
+        hidden = await (await admin_client.get("/admin/visits?hide=1")).text()
+
+        page = hidden[hidden.index("<h1>") :]
+        table = page[page.index("<table") : page.index("</table>")] if (
+            "<table" in page
+        ) else ""
+
+        assert TEST_USERNAME not in page
+        # The path still sits in the filter's suggestions — those list every
+        # page anyone has looked at, which is the point of them. What has to
+        # go is the row.
+        assert "/project" in hidden
+        assert "/project" not in table
+
+    async def test_it_keeps_everybody_elses(self, admin_client, database_with_schema):
+        from app.db.visits_repo import VisitsRepository
+
+        repo = VisitsRepository(database_with_schema)
+        repo.record("view", path="/demo/expenses", identity="web:guest:someone")
+        repo.record("view", path="/demo/expenses",
+                    identity=f"web:{TEST_USERNAME}")
+
+        hidden = await (await admin_client.get("/admin/visits?hide=1")).text()
+
+        assert "web:guest:someone" in hidden
+
+    async def test_the_box_stays_ticked(self, admin_client):
+        body = await (await admin_client.get("/admin/visits?hide=1")).text()
+
+        assert '<input type="checkbox" name="hide" value="1" checked>' in body
+
+    async def test_unticking_brings_them_back(self, admin_client, database_with_schema):
+        from app.db.visits_repo import VisitsRepository
+
+        VisitsRepository(database_with_schema).record(
+            "view", path="/project", identity=f"web:{TEST_USERNAME}"
+        )
+
+        body = await (await admin_client.get("/admin/visits")).text()
+
+        assert TEST_USERNAME in body[body.index("<h1>") :]
+
+    async def test_the_count_says_what_it_is_counting(
+        self, admin_client, database_with_schema
+    ):
+        """A total nobody can match against the table under it is a thing to
+        wonder about every time."""
+        from app.db.visits_repo import VisitsRepository
+
+        VisitsRepository(database_with_schema).record(
+            "view", path="/project", identity=f"web:{TEST_USERNAME}"
+        )
+
+        shown = await (await admin_client.get("/admin/visits?hide=1")).text()
+        everything = await (await admin_client.get("/admin/visits")).text()
+
+        assert "Показано: <b>0</b>" in shown
+        assert "Всего событий: <b>" in everything

@@ -4,9 +4,13 @@
   <input type="search" name="q" value="__QUERY__" list="paths"
          placeholder="Фильтр по странице" autocomplete="off" autofocus>
   <datalist id="paths">__PATH_OPTIONS__</datalist>
+  <label class="hideadmin">
+    <input type="checkbox" name="hide" value="1"__CHECKED__>
+    Не показывать администратора
+  </label>
   <button type="submit">Найти</button>
 </form>
 
-<p class="count">Всего событий: <b>__TOTAL__</b>__FILTERED__</p>
+<p class="count">__COUNT_LINE__</p>
 
 __ROWS__

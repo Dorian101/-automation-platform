@@ -179,9 +179,21 @@ class AdminArea:
         return self._page("users", body, request)
 
     async def visits_page(self, request: web.Request) -> web.Response:
-        """The event log, newest first, optionally narrowed to one page."""
+        """The event log, newest first, optionally narrowed to one page.
+
+        `hide=1` drops the administrator's own events. Not because they are
+        noise in themselves — but the owner reads this page to find out
+        whether anybody else came, and their own checking is recorded here
+        exactly like a stranger's, because nothing in the log says which is
+        which.
+        """
         query = request.query.get("q", "").strip()
+        hiding = request.query.get("hide") == "1"
+
         found = self._visits.recent(path=query) if query else self._visits.recent()
+
+        if hiding:
+            found = [v for v in found if v.identity != _mine(request)]
 
         body = _fragment("admin_visits.html", {
             "__QUERY__": html.escape(query, quote=True),
@@ -189,12 +201,8 @@ class AdminArea:
                 f'<option value="{html.escape(path, quote=True)}">'
                 for path in self._visits.paths()
             ),
-            "__TOTAL__": str(self._visits.count()),
-            "__FILTERED__": (
-                f" &middot; на этой странице: <b>{self._visits.count(query)}</b>"
-                if query
-                else ""
-            ),
+            "__CHECKED__": " checked" if hiding else "",
+            "__COUNT_LINE__": _count_line(query, hiding, len(found)),
             "__ROWS__": _visit_rows(found),
         })
 
@@ -331,6 +339,40 @@ def _form_value(form, name: str) -> str:
 
 def _admin_styles() -> str:
     return (TEMPLATES_DIR / "_admin_styles.html").read_text(encoding="utf-8")
+
+
+def _mine(request: web.Request) -> str | None:
+    """The identity the log files the administrator under, or None.
+
+    Through the repository's own conversion rather than by formatting the
+    account here. `User` is a dataclass, so `str()` on one gives its repr and
+    not its identity — and a filter comparing against that hides nobody while
+    looking like it works.
+    """
+    users = request.app[USERS]
+    actor = resolve_user(request, users, request.app[SESSIONS])
+
+    return str(users.identity_for(actor)) if actor is not None else None
+
+
+def _count_line(query: str, hiding: bool, shown: int) -> str:
+    """What the count above the table is counting.
+
+    While the administrator is being hidden it says how many rows are on the
+    page rather than how many the log holds, because the two are different
+    numbers and a total nobody can match against the table below it is a small
+    thing to wonder about every time.
+    """
+    if hiding:
+        return f"Показано: <b>{shown}</b>"
+
+    if query:
+        return (
+            "Всего событий: <b>__TOTAL__</b>"
+            " &middot; на этой странице: <b>__FILTERED__</b>"
+        )
+
+    return "Всего событий: <b>__TOTAL__</b>"
 
 
 def _fragment(template: str, replacements: dict[str, str]) -> str:
