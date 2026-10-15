@@ -34,6 +34,7 @@ from app.plugins.clipboard import ClipboardPlugin
 from app.plugins.expenses import ExpensesPlugin
 from app.plugins.manager import PluginManager
 from app.plugins.notes import NotesPlugin
+from app.plugins.reminders import RemindersPlugin
 from app.web.auth import AUTH_HEADER
 from app.web.server import WebServer
 
@@ -243,6 +244,19 @@ def manager(database_with_schema):
     mgr.register(NotesPlugin(database_with_schema))
     mgr.register(ClipboardPlugin(database_with_schema))
     return mgr
+
+
+@pytest.fixture
+def every_plugin(manager, database_with_schema):
+    """Every plugin the application ships.
+
+    A fixture that registers part of them is fine for a test about routing and
+    wrong for one that checks what the public pages *name*: a page that lists
+    /remind is not wrong because the fixture forgot reminders.
+    """
+    manager.register(RemindersPlugin(database_with_schema))
+
+    return manager
 
 
 @pytest.fixture

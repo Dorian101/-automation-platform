@@ -9,12 +9,16 @@ them.
 """
 
 import importlib
+import re
+from pathlib import Path
 
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
 from app.core.config import Config
 from app.web.server import INDEXABLE_PATHS
+
+ROOT = Path(__file__).resolve().parents[1]
 
 #: A public name for the sitemap to put in its URLs. Set by the fixture, and
 #: invented here: a default in the application would be one deployment's domain
@@ -244,3 +248,83 @@ class TestInterfaceLanguage:
             assert not description.isascii(), (
                 f"{module}: {description!r} is still English"
             )
+
+
+class TestTheProjectPage:
+    """A page of claims about the project, checked against the project.
+
+    The page had gone false twice in ways nothing caught: it said the deploy
+    was manual the day after it became automatic, and it counted the tests at
+    a number nothing on the planet verifies. A claim about the world is not a
+    claim about the code, so a test on the code does not reach it — and the
+    failure is invisible until a reader sees it.
+
+    What this covers is the cheap half: names that must exist. It cannot catch
+    "this was finished and the page still says it is not", which is why the
+    list of what is outstanding now points at the repository instead of being
+    copied here.
+    """
+
+    @pytest.fixture
+    async def page(self, crawler):
+        return await (await crawler.get("/project")).text()
+
+    async def test_the_counts_are_the_real_ones(self, page, pages_manager):
+        plugins = pages_manager.get_plugins()
+
+        assert f"<b>{len(plugins)}</b><span>плагинов" in page
+        assert f"<b>{sum(len(p.commands) for p in plugins)}</b>" \
+            "<span>команд" in page
+
+    async def test_every_command_it_names_is_a_command(self, page, every_plugin):
+        """The page names commands in prose; every one of them has to be a
+        command the platform answers."""
+        known = set()
+
+        for plugin in every_plugin.get_plugins():
+            known.update(plugin.commands)
+
+        named = set(re.findall(r"<code>(/[a-z]+)</code>", page))
+
+        assert named, "the page names no commands, so this proves nothing"
+        assert named <= known, f"named but not real: {sorted(named - known)}"
+
+    async def test_every_file_it_names_is_there(self, page):
+        """The page tells a reader which documents to read. A name that is not
+        in the repository sends them looking for something that is not there."""
+
+        for name in re.findall(r"<code>([A-Z_]+\.md|[a-z_]+\.py)</code>", page):
+            exists = (
+                (ROOT / "docs" / name).exists()
+                or (ROOT / name).exists()
+                or bool(list(ROOT.rglob(name)))
+            )
+            assert exists, f"{name} is named on the page and does not exist"
+
+    async def test_its_links_go_somewhere_real(self, page, web_server):
+        """Every internal address on the page has to be one the application
+        serves. A link to a page that was renamed is a 404 a reader finds
+        before finding the project.
+
+        Read out of the route table rather than a list written beside the
+        test: the first version of this had one, and it failed on a link the
+        *menu* had contributed — which is the menu doing its job. The obvious
+        fix would have been to shorten the list until the test passed.
+        """
+        served = {"/", "/login"}
+
+        for resource in web_server.build_app().router.resources():
+            canonical = getattr(resource, "canonical", None)
+            if canonical:
+                served.add(canonical)
+
+        for href in re.findall(r'href="(/[^"]*)"', page):
+            # `/demo/<page>` is the demonstration's own sub-application, one
+            # route per page and reached through the prefix.
+            assert href in served or href.startswith("/demo/"), href
+
+    async def test_it_no_longer_states_a_number_it_cannot_check(self, page):
+        """The test count was the worst of them: it understated by a hundred
+        and nothing would ever have noticed. The three numbers up there now
+        come from the code, so they cannot drift."""
+        assert "тестов</span>" not in page

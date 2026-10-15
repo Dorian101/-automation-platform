@@ -15,6 +15,7 @@ from app.core.identity import Identity
 from app.core.results import CommandError
 from app.db.database import Database
 from app.db.links_repo import TelegramLinksRepository
+from app.db.migrations import MigrationRunner
 from app.db.sessions_repo import SessionsRepository
 from app.db.users_repo import UsersRepository
 from app.db.visits_repo import SIGNIN, SIGNUP, VIEW, VisitsRepository
@@ -441,7 +442,29 @@ class WebServer:
         return _render_page("about.html", self._nav(request))
 
     async def _project(self, request: web.Request) -> web.Response:
-        return _render_page("project.html", self._nav(request))
+        return _render_page(
+            "project.html",
+            self._nav(request),
+            replacements=self._project_counts(),
+        )
+
+    def _project_counts(self) -> dict[str, str]:
+        """The three numbers the project page states about itself.
+
+        Read from the plugin manager rather than written into the template,
+        because a number typed into a page by hand is a number that starts
+        being wrong the moment anything is added. These three cannot drift:
+        the page and the tests are both looking at the same source.
+        """
+        plugins = self._manager.get_plugins()
+
+        return {
+            "__PLUGINS__": str(len(plugins)),
+            "__COMMANDS__": str(sum(len(p.commands) for p in plugins)),
+            "__MIGRATIONS__": str(
+                len(MigrationRunner(self._database).discover_migrations())
+            ),
+        }
 
     async def _commands(self, request: web.Request) -> web.Response:
         """The commands worth typing.
@@ -1241,13 +1264,19 @@ def _render_card(
     return web.Response(text=source, content_type="text/html", status=status)
 
 
-def _render_page(template: str, nav_html: str, status: int = 200) -> web.Response:
+def _render_page(
+    template: str,
+    nav_html: str,
+    status: int = 200,
+    replacements: Mapping[str, str] | None = None,
+) -> web.Response:
     """Render one of the public document pages.
 
-    They take no arguments and read nothing: a page that has to work without
-    a session must not quietly grow a dependency on one, so the only thing
-    substituted here is the stylesheet. If a page starts needing data, that
-    is the signal to reconsider whether it belongs in PUBLIC_PATHS at all.
+    A page that has to work without a session must not quietly grow a
+    dependency on one, so the substitutions here are the stylesheet and, where
+    a page states a fact about the project, numbers read from the code. If a
+    page starts needing anything per-visitor, that is the signal to reconsider
+    whether it belongs in PUBLIC_PATHS at all.
     """
     source = (TEMPLATES_DIR / template).read_text(encoding="utf-8")
     source = source.replace("__NAV__", nav_html)
@@ -1256,6 +1285,9 @@ def _render_page(template: str, nav_html: str, status: int = 200) -> web.Respons
         "__PAGE_STYLES__",
         (TEMPLATES_DIR / "_page_styles.html").read_text(encoding="utf-8"),
     )
+
+    for name, value in (replacements or {}).items():
+        source = source.replace(name, value)
 
     return web.Response(text=source, content_type="text/html", status=status)
 
