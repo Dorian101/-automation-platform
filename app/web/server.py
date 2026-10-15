@@ -2,6 +2,7 @@ import hmac
 import html
 import logging
 import os
+import re
 import secrets
 from collections.abc import Mapping
 from datetime import date
@@ -439,13 +440,14 @@ class WebServer:
         return user
 
     async def _about(self, request: web.Request) -> web.Response:
-        return _render_page("about.html", self._nav(request))
+        return _render_page("about.html", self._nav(request), path=request.path)
 
     async def _project(self, request: web.Request) -> web.Response:
         return _render_page(
             "project.html",
             self._nav(request),
             replacements=self._project_counts(),
+            path=request.path,
         )
 
     def _project_counts(self) -> dict[str, str]:
@@ -1269,6 +1271,7 @@ def _render_page(
     nav_html: str,
     status: int = 200,
     replacements: Mapping[str, str] | None = None,
+    path: str = "",
 ) -> web.Response:
     """Render one of the public document pages.
 
@@ -1289,7 +1292,49 @@ def _render_page(
     for name, value in (replacements or {}).items():
         source = source.replace(name, value)
 
+    if path:
+        source = source.replace("</head>", _share_tags(source, path) + "</head>")
+
     return web.Response(text=source, content_type="text/html", status=status)
+
+
+_TITLE = re.compile(r"<title>(.*?)</title>", re.DOTALL)
+_DESCRIPTION = re.compile(r'name="description" content="(.*?)"', re.DOTALL)
+
+
+def _share_tags(source: str, path: str) -> str:
+    """What a messenger shows when the link is pasted.
+
+    A résumé link is almost always passed on in a chat, and without these it
+    arrives as a bare address: no title, no line of explanation, nothing that
+    says what the page is before the reader decides to spend a second on it.
+
+    Built from the page's own `<title>` and description rather than written
+    beside them. A second copy of either is a second thing to keep right, and
+    the one that goes wrong is the one nobody sees — it is not on the page.
+
+    No `og:image`: there is no image to point at, and a tag naming a file
+    that does not exist is worse than no tag. The base URL is only there
+    because an absolute address is required, and a deployment without
+    `PUBLIC_BASE_URL` set gets no url at all rather than a wrong one.
+    """
+    title = _TITLE.search(source)
+    description = _DESCRIPTION.search(source)
+
+    if title is None or description is None:
+        return ""
+
+    tags = [
+        'property="og:type" content="website"',
+        f'property="og:title" content="{title.group(1)}"',
+        f'property="og:description" content="{description.group(1)}"',
+        'name="twitter:card" content="summary"',
+    ]
+
+    if PUBLIC_BASE_URL:
+        tags.append(f'property="og:url" content="{PUBLIC_BASE_URL}{path}"')
+
+    return "".join(f"<meta {tag}>\n" for tag in tags)
 
 
 def _error_block(message: str) -> str:

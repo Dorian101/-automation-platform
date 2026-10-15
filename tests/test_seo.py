@@ -328,3 +328,76 @@ class TestTheProjectPage:
         and nothing would ever have noticed. The three numbers up there now
         come from the code, so they cannot drift."""
         assert "тестов</span>" not in page
+
+
+PUBLIC_PAGES = ("/about", "/project")
+
+
+class TestWhenTheLinkIsShared:
+    """A résumé link is passed on in a chat, not opened from a search.
+
+    Without these tags the address arrives as a bare string: no title, no line
+    saying what the page is, nothing to look at before the reader decides
+    whether to spend a second on it. It is the cheapest thing on the site and
+    the only one on the path a recruiter actually walks.
+    """
+
+    async def _page(self, client, path: str) -> str:
+        return await (await client.get(path)).text()
+
+    @pytest.mark.parametrize("path", PUBLIC_PAGES)
+    async def test_it_declares_what_it_is(self, crawler, path):
+        body = await self._page(crawler, path)
+
+        assert 'property="og:type"' in body
+        assert 'property="og:title"' in body
+        assert 'property="og:description"' in body
+        assert 'name="twitter:card"' in body
+
+    @pytest.mark.parametrize("path", PUBLIC_PAGES)
+    async def test_the_tags_say_what_the_page_says(self, crawler, path):
+        """Read from the page rather than written beside it.
+
+        A second copy of the title is a second thing to keep right, and the
+        copy that goes wrong is not on the page — nobody reading the site
+        would ever see it. That is the same failure the project page had with
+        its counts.
+        """
+        body = await self._page(crawler, path)
+
+        title = re.search(r"<title>(.*?)</title>", body, re.S).group(1)
+        description = re.search(
+            r'name="description" content="(.*?)"', body, re.S
+        ).group(1)
+
+        assert f'property="og:title" content="{title}"' in body
+        assert f'property="og:description" content="{description}"' in body
+
+    @pytest.mark.parametrize("path", PUBLIC_PAGES)
+    async def test_the_address_is_absolute(self, crawler, path):
+        """A relative address means nothing to whoever fetches it."""
+        body = await self._page(crawler, path)
+
+        assert f'property="og:url" content="{TEST_BASE_URL}{path}"' in body
+
+    async def test_no_url_when_the_public_name_is_unknown(
+        self, web_server, monkeypatch
+    ):
+        """`PUBLIC_BASE_URL` is unset on a fresh clone. A url built from
+        nothing would name a host this deployment has never heard of — which
+        is why the setting has no default either."""
+        monkeypatch.setattr("app.web.server.PUBLIC_BASE_URL", "")
+
+        async with TestClient(TestServer(web_server.build_app())) as client:
+            body = await self._page(client, "/about")
+
+        assert 'property="og:title"' in body
+        assert 'property="og:url"' not in body
+
+    async def test_the_about_page_offers_the_project(self, crawler):
+        """The page a reader lands on from a résumé had no way to the one that
+        explains the work — only the menu, which you have to already be
+        looking for."""
+        body = await self._page(crawler, "/about")
+
+        assert 'href="/project"' in body
