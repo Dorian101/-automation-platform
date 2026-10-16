@@ -620,6 +620,63 @@ class TestPruningFromTheHost:
         assert VisitsRepository(database_with_schema).recent() == []
 
 
+class TestVisitTimestamps:
+    """The stored value is UTC; the reader is not.
+
+    Rows are written by CURRENT_TIMESTAMP on a host that keeps UTC and the
+    column carries no offset, so rendering the value as it arrives shows a
+    Moscow reader three hours of yesterday. This is the check that the
+    deployment's own time zone reaches the page.
+    """
+
+    async def test_a_row_is_shown_in_the_configured_zone(
+        self, admin_client, database_with_schema, monkeypatch
+    ):
+        from datetime import datetime
+
+        from app.core.config import Config
+
+        with database_with_schema.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO visits (at, kind, path) "
+                    "VALUES (%s, 'view', '/about')",
+                    (datetime(2026, 10, 16, 21, 8, 42),),
+                )
+            conn.commit()
+
+        monkeypatch.setattr(Config, "DISPLAY_TIMEZONE", "Europe/Moscow")
+        moscow = await (await admin_client.get("/admin/visits")).text()
+        assert "17.10.2026 00:08:42" in moscow
+
+        monkeypatch.setattr(Config, "DISPLAY_TIMEZONE", "UTC")
+        utc = await (await admin_client.get("/admin/visits")).text()
+        assert "16.10.2026 21:08:42" in utc
+
+    async def test_the_heading_says_which_clock_that_was(
+        self, admin_client, database_with_schema, monkeypatch
+    ):
+        from datetime import datetime
+
+        from app.core.config import Config
+
+        with database_with_schema.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO visits (at, kind, path) "
+                    "VALUES (%s, 'view', '/about')",
+                    (datetime(2026, 10, 16, 21, 8, 42),),
+                )
+            conn.commit()
+
+        monkeypatch.setattr(Config, "DISPLAY_TIMEZONE", "Europe/Moscow")
+        body = await (await admin_client.get("/admin/visits")).text()
+
+        # A bare timestamp does not say what clock it is on, and that is how
+        # three hours of confusion survive a deploy.
+        assert "Когда, MSK" in body
+
+
 class TestHidingTheAdministrator:
     """The owner's own checking is recorded here like a stranger's.
 

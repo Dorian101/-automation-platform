@@ -24,11 +24,13 @@ result if it is ever reached.
 import html
 import logging
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from aiohttp import web
 
+from app.core.config import Config
 from app.db.sessions_repo import SessionsRepository
 from app.db.users_repo import User, UsersRepository
 from app.db.visits_repo import Visit, VisitsRepository
@@ -395,14 +397,21 @@ def _visit_rows(found: list[Visit]) -> str:
     if not found:
         return '<p class="none">Пока ничего не записано.</p>'
 
+    # The column was written by CURRENT_TIMESTAMP on a UTC host and carries no
+    # offset, so what arrives here is UTC and printing it as-is reads three
+    # hours early to anybody not on that clock. Naming the zone in the heading
+    # as well is the cheap half of the fix: the other half is that a reader
+    # cannot tell which clock a bare timestamp is on.
+    zone = ZoneInfo(Config.DISPLAY_TIMEZONE)
     labels = {"view": "просмотр", "signin": "вход", "signup": "регистрация"}
     body = []
 
     for visit in found:
         who = html.escape(visit.identity) if visit.identity else "&mdash;"
+        when = visit.at.replace(tzinfo=UTC).astimezone(zone)
         body.append(
             "<tr>"
-            f'<td class="when">{visit.at.strftime("%d.%m.%Y %H:%M:%S")}</td>'
+            f'<td class="when">{when.strftime("%d.%m.%Y %H:%M:%S")}</td>'
             f'<td>{labels.get(visit.kind, html.escape(visit.kind))}</td>'
             f'<td class="name">{html.escape(visit.path)}</td>'
             f"<td>{who}</td>"
@@ -411,6 +420,7 @@ def _visit_rows(found: list[Visit]) -> str:
 
     return (
         "<table><thead><tr>"
-        "<th>Когда</th><th>Событие</th><th>Страница</th><th>Кто</th>"
+        f"<th>Когда, {html.escape(datetime.now(zone).tzname() or '')}</th>"
+        "<th>Событие</th><th>Страница</th><th>Кто</th>"
         "</tr></thead><tbody>" + "".join(body) + "</tbody></table>"
     )

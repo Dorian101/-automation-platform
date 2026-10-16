@@ -107,3 +107,11 @@ class Config:
     # Backups older than this are deleted after each run. 0 disables pruning
     # and keeps everything.
     BACKUP_RETENTION_DAYS = int(os.getenv("BACKUP_RETENTION_DAYS", "14"))
+
+    # Time zone the administration pages render timestamps in. Rows are written
+    # by CURRENT_TIMESTAMP on a host that keeps UTC, and the column carries no
+    # offset, so the stored value is UTC whatever this is set to — that is why
+    # prune-visits can compare against datetime.now() and stay correct. This
+    # only decides what a person reads. Any IANA name ZoneInfo accepts; empty
+    # means UTC.
+    DISPLAY_TIMEZONE = os.getenv("DISPLAY_TIMEZONE", "UTC") or "UTC"

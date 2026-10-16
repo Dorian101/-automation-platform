@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.28.2
+v0.29.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -481,6 +481,12 @@ app/db/database.py
 
 ## Current limitations
 
+* A visit is recorded without an address, deliberately. That makes the owner's
+  own checking indistinguishable from a stranger's in the log: the row says a
+  page was looked at and nothing about who looked. The page can hide the
+  administrator's authenticated sessions, and it does, but anonymous traffic
+  from the owner's own address is counted as somebody else's. Anyone reading
+  the numbers should know how much of the day is the owner checking the site.
 * Sign-up is gated by one shared invite code with no approval step behind it —
   whoever holds the code can join.
 * Web notifications are still dropped rather than delivered, but only for an

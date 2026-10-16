@@ -128,6 +128,23 @@ SIGNUP_WINDOW_SECONDS=3600
 `app/core/config.py` calls `load_dotenv()` itself. Do not "simplify" that away
 — see Gotchas.
 
+### Timestamps in the administration pages
+
+The visit log is written by `CURRENT_TIMESTAMP` on the host, which keeps UTC, and
+the column carries no offset. The stored value is therefore UTC on every
+deployment, and `prune-visits` compares it against a `datetime.now()` from the
+same host, which is why that pairing stays correct.
+
+Set `DISPLAY_TIMEZONE` to an IANA name to read it on your own clock:
+
+```
+DISPLAY_TIMEZONE=Europe/Moscow
+```
+
+It changes only what the `/admin/visits` page prints, and the column heading
+names the zone it printed in. Rows written before the change need no migration —
+they were UTC all along and now simply read correctly.
+
 ### Telegram linking
 
 Optional. With `TELEGRAM_BOT_USERNAME` empty the console shows no link button
