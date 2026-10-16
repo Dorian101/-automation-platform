@@ -1138,8 +1138,11 @@ def _leaves_no_trace(request: web.Request) -> bool:
     counts and the growth rate counting the owner, which is what the page is
     read for.
 
-    The header is the proxy's, and the proxy has already authenticated every
-    request that reaches this point, so a caller cannot inject one.
+    The address is the one the reverse proxy wrote, and Caddy replaces
+    `X-Forwarded-For` rather than passing a caller's through — checked against
+    the running deployment, not assumed: a spoofed header came back showing the
+    real address. Anything that made the proxy trust an incoming value would
+    reopen this, and would only cost a reader their own rows back.
     """
     if not Config.VISIT_IGNORE_IPS:
         return False

@@ -167,6 +167,13 @@ Nothing is added to any table, which is why this is a filter on the way in
 rather than a column: a column holding the address would answer the question
 the filter exists to answer, and would undo the decision not to store them.
 
+This works because Caddy **replaces** `X-Forwarded-For` instead of passing the
+caller's through, which was checked against the running deployment rather than
+assumed. Adding `trusted_proxies` to the `reverse_proxy` block would make the
+proxy trust an incoming value, and a caller could then list themselves among the
+excluded addresses and keep their own rows out of your log. Nothing else about
+the setting depends on it.
+
 Two things worth knowing before you fill it in:
 
 - **Put it in the server's `.env`, not in the repository.** `.env.example`
