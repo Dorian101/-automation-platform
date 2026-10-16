@@ -839,6 +839,37 @@ Things that cost real debugging time. Read before editing.
 - **Panel ≠ authoritative zone.** Check who actually serves the zone before
   trusting what a registrar's panel displays.
 
+## Local environment
+
+Only for the machine that develops this, never for a server.
+
+**The local `.env` must hold a development bot token.** The production token
+lives in the server's `.env` and has no business on a laptop: two pollers on one
+Telegram bot fight, Telegram answers the second `getUpdates` with
+`Conflict: terminated by other getUpdates request`, and the production bot
+stops fetching for as long as the local one runs. It has happened.
+
+The token is not optional either. The application refuses to start without
+`BOT_TOKEN`, and a well-formed token that Telegram rejects kills the process
+when polling fails — the web interface goes down with it.
+
+So that nobody has to remember this, a check sits next to the repository:
+
+```bash
+../automation-platform.agent/check-local-bot.sh
+```
+
+It asks Telegram which bot the local token belongs to and exits non-zero when
+the answer is the production one. Run it before `python -m app.main`, not after.
+
+Local PostgreSQL on the default port is the other requirement; migrations are
+applied on start, so an empty database is enough.
+
+The sibling `automation-platform.agent/` directory holds that script and the log
+of a local run. It is outside the repository and untracked on purpose:
+tooling that only makes sense on one machine does not belong in a project other
+people read.
+
 ## Local checks
 
 ```bash
@@ -846,7 +877,7 @@ uv run ruff check .
 uv run pytest
 ```
 
-415 tests. Run before pushing anything that touches config, auth or
+749 tests. Run before pushing anything that touches config, auth or
 migrations. The parts worth knowing about:
 
 - `tests/test_config.py` — subprocess test for the `.env` import-order bug;

@@ -592,6 +592,13 @@ uv run python -m app.main
 
 Production deployment uses systemd service on VPS.
 
+Running it locally is the same command and carries one condition: the local
+`.env` holds a **development bot token**, never the production one. Two pollers
+on one Telegram bot fight, and the production bot stops fetching for as long as
+the local process lives — which has happened once, and is why
+`../automation-platform.agent/check-local-bot.sh` exists and should be run first.
+Setup and the rest of the local arrangement are in `DEPLOYMENT.md`.
+
 ## Tests
 
 Run against a dedicated `automation_platform_test` database, dropped and
@@ -599,9 +606,8 @@ recreated per test. Covers identity, command parsing, repositories,
 migrations, plugins, the manager, notification channels, the web layer,
 accounts and sessions, password hashing, and database backups.
 
-Two modes, because a full run is about two minutes and most of it is scrypt
-hashing a password in each test rather than anything the change under review
-touched.
+Two modes, because hashing a password in every test was most of the wall clock
+rather than anything the change under review touched.
 
 **The suite runs at a cheaper scrypt cost than production.** The shipped one
 is 2^17, which costs about a quarter of a second per hash, and at one account
