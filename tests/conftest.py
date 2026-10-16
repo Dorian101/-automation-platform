@@ -312,16 +312,23 @@ async def _login(
     username=TEST_USERNAME,
     password=TEST_PASSWORD,
     expect_status: int = 303,
+    from_address: str | None = None,
 ):
     """Submit the login form the way a browser behind the proxy would.
 
     The transport header is added when a token is configured, exactly as the
     reverse proxy does in production. Tests that disable the token get no
     header, which is the point of disabling it.
+
+    `from_address` sets the address the proxy would have written, for the tests
+    that care about who a request is attributed to.
     """
     headers = (
         {AUTH_HEADER: Config.WEB_ACCESS_TOKEN} if Config.WEB_ACCESS_TOKEN else {}
     )
+
+    if from_address is not None:
+        headers["X-Forwarded-For"] = from_address
 
     # A real browser would already be sitting on the form, holding its token
     # in a hidden field and in a cookie. Fetching the page is what gives the

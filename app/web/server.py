@@ -694,9 +694,10 @@ class WebServer:
 
         logger.info("Signed in %r from %s", user.username, client_ip(request))
 
-        self._visits.record(
-            SIGNIN, path="/login", identity=str(self._users.identity_for(user))
-        )
+        if not _leaves_no_trace(request):
+            self._visits.record(
+                SIGNIN, path="/login", identity=str(self._users.identity_for(user))
+            )
 
         return response
 
@@ -820,9 +821,10 @@ class WebServer:
             "Account created for %r from %s", user.username, client_ip(request)
         )
 
-        self._visits.record(
-            SIGNUP, path="/signup", identity=str(self._users.identity_for(user))
-        )
+        if not _leaves_no_trace(request):
+            self._visits.record(
+                SIGNUP, path="/signup", identity=str(self._users.identity_for(user))
+            )
 
         return response
 
@@ -918,7 +920,7 @@ class WebServer:
     async def _record_visit(self, request: web.Request, handler):
         response = await handler(request)
 
-        if _is_a_visit(request, response):
+        if _is_a_visit(request, response) and not _leaves_no_trace(request):
             self._visits.record(
                 VIEW,
                 path=request.path,
@@ -1124,6 +1126,25 @@ def _is_a_visit(request: web.Request, response: web.StreamResponse) -> bool:
         return True
 
     return is_public_demo_path(request.path)
+
+
+def _leaves_no_trace(request: web.Request) -> bool:
+    """Whether this request belongs to an address the deployment excludes.
+
+    The owner checks the site more than a stranger visits it, and every check
+    lands in the same log. There is nothing on a row to recognise them by — no
+    address is stored — so the comparison happens here, on the way in, and the
+    address is not kept. Filtering on the way out instead would leave the
+    counts and the growth rate counting the owner, which is what the page is
+    read for.
+
+    The header is the proxy's, and the proxy has already authenticated every
+    request that reaches this point, so a caller cannot inject one.
+    """
+    if not Config.VISIT_IGNORE_IPS:
+        return False
+
+    return client_ip(request) in Config.VISIT_IGNORE_IPS
 
 
 def _visitor(

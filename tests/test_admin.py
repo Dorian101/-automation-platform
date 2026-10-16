@@ -620,6 +620,97 @@ class TestPruningFromTheHost:
         assert VisitsRepository(database_with_schema).recent() == []
 
 
+class TestExcludedAddresses:
+    """The owner's own traffic should not look like anybody else's.
+
+    Nothing on a row says who asked, so the only way to keep the owner's
+    checking out of the log is to not write it — filtering afterwards would
+    leave the counts, and the growth rate that decides when to prune, counting
+    the owner anyway.
+    """
+
+    async def test_an_excluded_address_leaves_no_row(
+        self, app_client, database_with_schema, monkeypatch
+    ):
+        from app.core.config import Config
+        from app.db.visits_repo import VisitsRepository
+
+        monkeypatch.setattr(Config, "VISIT_IGNORE_IPS", frozenset({"203.0.113.9"}))
+
+        await app_client.get("/about", headers={"X-Forwarded-For": "203.0.113.9"})
+
+        assert VisitsRepository(database_with_schema).recent() == []
+
+    async def test_everybody_else_is_still_recorded(
+        self, app_client, database_with_schema, monkeypatch
+    ):
+        from app.core.config import Config
+        from app.db.visits_repo import VisitsRepository
+
+        monkeypatch.setattr(Config, "VISIT_IGNORE_IPS", frozenset({"203.0.113.9"}))
+
+        await app_client.get("/about", headers={"X-Forwarded-For": "198.51.100.4"})
+
+        found = VisitsRepository(database_with_schema).recent()
+        assert [v.path for v in found] == ["/about"]
+
+    async def test_an_excluded_address_is_not_worth_a_row_of_its_own(
+        self, app_client, database_with_schema, monkeypatch
+    ):
+        """An empty list must mean "excluded", not "never configured".
+
+        Both states render as a page with nothing on it, and they call for
+        opposite conclusions: one means the filter works, the other means
+        nothing is being written at all.
+        """
+        from app.core.config import Config
+        from app.db.visits_repo import VisitsRepository
+
+        monkeypatch.setattr(Config, "VISIT_IGNORE_IPS", frozenset())
+
+        await app_client.get("/about", headers={"X-Forwarded-For": "203.0.113.9"})
+
+        found = VisitsRepository(database_with_schema).recent()
+        assert [v.path for v in found] == ["/about"]
+
+    async def test_the_address_is_never_written_anywhere(
+        self, app_client, database_with_schema, monkeypatch
+    ):
+        """The point of comparing on the way in is that nothing is kept.
+
+        A row that carried the address would answer the question this filter
+        exists to answer, and would undo the decision not to store addresses
+        that the rest of this log was built on.
+        """
+        from app.core.config import Config
+
+        monkeypatch.setattr(Config, "VISIT_IGNORE_IPS", frozenset({"203.0.113.9"}))
+
+        await app_client.get("/about", headers={"X-Forwarded-For": "198.51.100.4"})
+
+        with database_with_schema.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT count(*) FROM visits WHERE at::text LIKE %s",
+                    ("%198.51.100.4%",),
+                )
+                assert cur.fetchone()[0] == 0
+
+    async def test_a_sign_in_from_an_excluded_address_is_not_logged(
+        self, new_client, database_with_schema, monkeypatch, create_user, login
+    ):
+        """The owner signing in is the owner's own checking too."""
+        from app.core.config import Config
+        from app.db.visits_repo import VisitsRepository
+
+        monkeypatch.setattr(Config, "VISIT_IGNORE_IPS", frozenset({"203.0.113.9"}))
+
+        client = await new_client()
+        await login(client, from_address="203.0.113.9")
+
+        assert VisitsRepository(database_with_schema).recent() == []
+
+
 class TestVisitTimestamps:
     """The stored value is UTC; the reader is not.
 

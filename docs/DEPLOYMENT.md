@@ -145,6 +145,41 @@ It changes only what the `/admin/visits` page prints, and the column heading
 names the zone it printed in. Rows written before the change need no migration —
 they were UTC all along and now simply read correctly.
 
+### Keeping your own traffic out of the visit log
+
+The log records pages looked at and nothing about who looked: no address is
+stored. That leaves the owner's own checking sitting in the same table as a
+stranger's, indistinguishable, and the counts — including the growth rate that
+decides when `prune-visits` becomes worth installing — counting both.
+
+Set `VISIT_IGNORE_IPS` to a comma-separated list of addresses and requests from
+them leave no row at all. Your browser, a tool running on your machine, and your
+curl all come from one of them, so one setting covers all three. Your sign-ins
+stop being recorded too, which is the point: they were never the interesting
+part of the log.
+
+```
+VISIT_IGNORE_IPS=203.0.113.9,198.51.100.4
+```
+
+The address is compared against the proxy's `X-Forwarded-For` and then dropped.
+Nothing is added to any table, which is why this is a filter on the way in
+rather than a column: a column holding the address would answer the question
+the filter exists to answer, and would undo the decision not to store them.
+
+Two things worth knowing before you fill it in:
+
+- **Put it in the server's `.env`, not in the repository.** `.env.example`
+  documents the setting with example addresses; the real ones belong on the
+  machine they describe.
+- **A residential address usually rotates.** If the rule stops working, this
+  is why: the log is counting you again, and the entry needs updating. Proxies
+  and fixed addresses do not have this problem.
+
+The `hide=1` box on the page stays useful for the other case: a session of
+yours recognised as the administrator's from an address that is not on this
+list, such as a phone on a mobile network.
+
 ### Telegram linking
 
 Optional. With `TELEGRAM_BOT_USERNAME` empty the console shows no link button

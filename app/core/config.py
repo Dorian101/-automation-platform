@@ -115,3 +115,16 @@ class Config:
     # only decides what a person reads. Any IANA name ZoneInfo accepts; empty
     # means UTC.
     DISPLAY_TIMEZONE = os.getenv("DISPLAY_TIMEZONE", "UTC") or "UTC"
+
+    # Addresses whose requests leave no row in the visit log, comma separated.
+    # The owner reads that log to find out whether anybody else came, and their
+    # own checking is otherwise indistinguishable from a stranger's, because no
+    # address is ever stored and so none is on the row to recognise. Comparing
+    # the address and then discarding it is the one thing that does not have to
+    # be kept: this is a filter on the way in, not a column. Empty records
+    # everything, which is what a deployment with no owner traffic needs.
+    VISIT_IGNORE_IPS = frozenset(
+        address.strip()
+        for address in os.getenv("VISIT_IGNORE_IPS", "").split(",")
+        if address.strip()
+    )
