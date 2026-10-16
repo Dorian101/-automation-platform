@@ -39,6 +39,12 @@
   .lede + h2 { border-top: none; padding-top: 0; margin-top: 0; }
   h3 { font-size: 1rem; margin: 1.5rem 0 0.4rem; }
   .meta { color: var(--muted); font-size: 0.9rem; margin: 0 0 1rem; }
+  /* The architecture diagram is inline SVG so that it scales with the page and
+     needs no file of its own — this project serves no static assets, and one
+     diagram is not a reason to start. */
+  figure.diagram { margin: 1.5rem 0; }
+  figure.diagram svg { width: 100%; height: auto; display: block; }
+  figcaption { color: var(--muted); font-size: 0.85rem; margin: 0.6rem 0 0; }
   p { margin: 0 0 1rem; }
   ul, ol { margin: 0 0 1rem; padding-left: 1.25rem; }
   li { margin-bottom: 0.5rem; }

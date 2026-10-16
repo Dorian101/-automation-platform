@@ -80,10 +80,90 @@ __MENU_STYLES__
   </ul>
 
   <h2>Как устроено</h2>
-  <pre><code>Telegram ── aiogram ──┐
-                      ├── PluginManager ── PostgreSQL
-Браузер ── Caddy ── aiohttp ─┘
-              (TLS, транспортный секрет)</code></pre>
+  <figure class="diagram">
+  <svg viewBox="0 0 760 600" role="img" aria-labelledby="diagram-title">
+    <title id="diagram-title">Устройство платформы: транспорт, ядро, хранилище</title>
+    <style>
+      /* The page is dark only, so this carries no light theme. The fills are
+         the page's own palette at a low tint: the five semantic roles have to
+         stay distinguishable without inventing a second set of colours. */
+      .diagram .edge { stroke: #3a4150; stroke-width: 1.5; fill: none; }
+      .diagram .zone { fill: none; stroke: #2a2f3a; stroke-width: 1; stroke-dasharray: 6 5; }
+      .diagram .zone-name { font-size: 12px; fill: #8b93a3; }
+      .diagram .label { font-size: 15px; font-weight: 600; fill: #e4e7ec; }
+      .diagram .small { font-size: 12px; fill: #8b93a3; }
+      .diagram .box { stroke-width: 1; }
+      .diagram .external { fill: #33291a; stroke: #6b5a33; }
+      .diagram .input { fill: #14304d; stroke: #2f5f8f; }
+      .diagram .identity { fill: #232733; stroke: #3a4150; }
+      .diagram .process { fill: #1d2b52; stroke: #3f5a9e; }
+      .diagram .storage { fill: #0f3330; stroke: #2b6b62; }
+    </style>
+    <defs>
+      <marker id="d-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#3a4150" />
+      </marker>
+    </defs>
+
+    <!-- Connectors first, so the arrows sit behind the boxes. -->
+    <path class="edge" d="M 205 100 L 205 138 L 380 138" />
+    <path class="edge" d="M 560 100 L 560 138 L 380 138 L 380 182" marker-end="url(#d-arrow)" />
+    <path class="edge" d="M 380 230 L 380 256" marker-end="url(#d-arrow)" />
+    <path class="edge" d="M 380 316 L 380 342" marker-end="url(#d-arrow)" />
+    <path class="edge" d="M 380 384 L 380 462" marker-end="url(#d-arrow)" />
+    <path class="edge" d="M 638 384 L 638 462" marker-end="url(#d-arrow)" />
+
+    <rect class="zone" x="16" y="16" width="728" height="112" rx="10" />
+    <text class="zone-name" x="32" y="36">Транспорт</text>
+
+    <rect class="zone" x="16" y="148" width="728" height="254" rx="10" />
+    <text class="zone-name" x="32" y="168">Ядро процесса</text>
+
+    <rect class="zone" x="16" y="428" width="728" height="120" rx="10" />
+    <text class="zone-name" x="32" y="448">Хранение и доставка</text>
+
+    <rect class="box external" x="60" y="52" width="290" height="48" rx="8" />
+    <text class="label" x="205" y="76" text-anchor="middle" dominant-baseline="middle">Telegram-бот · aiogram polling</text>
+
+    <rect class="box input" x="410" y="52" width="300" height="48" rx="8" />
+    <text class="label" x="560" y="76" text-anchor="middle" dominant-baseline="middle">Веб-консоль · aiohttp</text>
+    <text class="small" x="560" y="116" text-anchor="middle">TLS и транспортный секрет — на стороне Caddy</text>
+
+    <rect class="box identity" x="270" y="184" width="220" height="46" rx="8" />
+    <text class="label" x="380" y="200" text-anchor="middle" dominant-baseline="middle">Identity: kind:id</text>
+    <text class="small" x="380" y="218" text-anchor="middle">PersonResolver связывает каналы</text>
+
+    <rect class="box process" x="160" y="258" width="440" height="58" rx="8" />
+    <text class="label" x="380" y="278" text-anchor="middle" dominant-baseline="middle">Dispatcher</text>
+    <text class="small" x="380" y="298" text-anchor="middle">parse_command → PluginManager.execute → CommandResult</text>
+
+    <rect class="box process" x="32" y="344" width="696" height="40" rx="8" />
+    <text id="diagram-plugins" class="label" x="380" y="364" text-anchor="middle" dominant-baseline="middle">system · notes · reminders · clipboard · expenses · applications</text>
+
+    <rect class="box storage" x="240" y="464" width="280" height="48" rx="8" />
+    <text class="label" x="380" y="488" text-anchor="middle" dominant-baseline="middle">PostgreSQL</text>
+    <text class="small" x="380" y="530" text-anchor="middle">репозитории и sql/migrations</text>
+
+    <rect class="box external" x="548" y="464" width="180" height="48" rx="8" />
+    <text class="label" x="638" y="482" text-anchor="middle" dominant-baseline="middle">Уведомления</text>
+    <text class="small" x="638" y="500" text-anchor="middle">→ чат Telegram</text>
+
+    <g transform="translate(32, 578)">
+      <rect class="box input" x="0" y="-10" width="14" height="14" rx="3" />
+      <text class="small" x="21" y="1">ввод</text>
+      <rect class="box process" x="72" y="-10" width="14" height="14" rx="3" />
+      <text class="small" x="93" y="1">обработка</text>
+      <rect class="box storage" x="192" y="-10" width="14" height="14" rx="3" />
+      <text class="small" x="213" y="1">хранение</text>
+      <rect class="box external" x="292" y="-10" width="14" height="14" rx="3" />
+      <text class="small" x="313" y="1">внешнее</text>
+      <rect class="box identity" x="382" y="-10" width="14" height="14" rx="3" />
+      <text class="small" x="403" y="1">идентичность</text>
+    </g>
+  </svg>
+  <figcaption>Два транспорта, одно ядро. Плагины не знают, откуда пришла
+  команда, поэтому бот и консоль получают новую функцию из одного кода.</figcaption>
+  </figure>
   <p>Caddy терминирует TLS и подставляет транспортный секрет — доказательство,
   что запрос пришёл через прокси, а не мимо него. Секрет ничего не говорит о
   том, <em>кто</em> пользователь: это делает уже сессионная cookie, выданная

@@ -276,6 +276,46 @@ class TestTheProjectPage:
         assert f"<b>{sum(len(p.commands) for p in plugins)}</b>" \
             "<span>команд" in page
 
+    async def test_the_diagram_lists_exactly_the_shipped_plugins(self, page):
+        """The diagram names the plugins by hand, in a picture.
+
+        The counts above come from the manager the page is served with, which in
+        a test is not every plugin. This list cannot come from there: the
+        diagram claims to show what the project ships, so it is checked against
+        what `main.py` registers. Otherwise a seventh plugin would leave the
+        diagram quietly showing six and nothing would say so. Both directions
+        matter — a plugin renamed in code and not here is the same defect.
+        """
+        from app.plugins.applications import ApplicationsPlugin
+        from app.plugins.clipboard import ClipboardPlugin
+        from app.plugins.expenses import ExpensesPlugin
+        from app.plugins.notes import NotesPlugin
+        from app.plugins.reminders import RemindersPlugin
+        from app.plugins.system import SystemPlugin
+
+        shipped = {
+            NotesPlugin.name,
+            RemindersPlugin.name,
+            ClipboardPlugin.name,
+            ExpensesPlugin.name,
+            ApplicationsPlugin.name,
+            SystemPlugin.name,
+        }
+        start = page.index('id="diagram-plugins"')
+        row = page[page.index(">", start) + 1 : page.index("</text>", start)]
+
+        listed = {part.strip() for part in row.split("·")}
+        assert listed == shipped
+
+    async def test_the_diagram_carries_a_text_alternative(self, page):
+        """A picture with no title is a picture nobody can read with a reader.
+
+        The boxes carry meaning the prose only partly repeats, so the SVG needs a
+        name of its own rather than being left anonymous.
+        """
+        assert 'role="img"' in page
+        assert '<title id="diagram-title">' in page
+
     async def test_every_command_it_names_is_a_command(self, page, every_plugin):
         """The page names commands in prose; every one of them has to be a
         command the platform answers."""

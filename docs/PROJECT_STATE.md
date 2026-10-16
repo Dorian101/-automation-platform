@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.30.2
+v0.31.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -295,7 +295,11 @@ Implemented:
 * GET /signup, POST /signup — registration; 404 while SIGNUP_INVITE_CODE is unset
 * POST /logout — ends the session
 * GET / — HTML console
-* GET /about, GET /project — static public documents, no session needed
+* GET /about, GET /project — static public documents, no session needed.
+  `/project` carries an inline SVG diagram of the architecture: the page
+  serves no static assets at all, so a picture on it is markup in the
+  template. Its plugin list is checked against what `main.py` registers,
+  because a picture cannot be checked the way a number can
 * GET /api/commands — plugin and command metadata
 * POST /api/command — command execution
 * POST /api/page/action — a plugin page reporting what was done, answered
