@@ -6,12 +6,17 @@
   <datalist id="paths">__PATH_OPTIONS__</datalist>
   <label class="hideadmin">
     <input type="checkbox" id="hide-admin" name="hide" value="1"__CHECKED__>
-    Не показывать администратора
+    Скрывать визиты с моей учётной записью
   </label>
   <button type="submit">Найти</button>
 </form>
 
 <p class="count">__COUNT_LINE__</p>
+
+<p class="legend">Прочерк в столбце «Кто» — визит без сессии. Такие визиты не
+принадлежат ни одной учётной записи, и отличить их от ваших собственных нечем:
+адрес не сохраняется. Визиты с ваших адресов сюда не попадают совсем — они
+отсекаются на входе настройкой <code>VISIT_IGNORE_IPS</code>.</p>
 
 __ROWS__
 

@@ -907,6 +907,13 @@ the answer is the production one. Run it before `python -m app.main`, not after.
 Local PostgreSQL on the default port is the other requirement; migrations are
 applied on start, so an empty database is enough.
 
+**A local run needs a working route to Telegram.** The application polls the bot
+and takes the web interface down with it when polling fails, so a machine that
+cannot reach `api.telegram.org` cannot serve the console either. Behind a
+provider that blocks it, that means the stand only starts with a proxy on, and
+the check above will time out before it can answer — it is reporting on the
+network, not on the token.
+
 The sibling `automation-platform.agent/` directory holds that script and the log
 of a local run. It is outside the repository and untracked on purpose:
 tooling that only makes sense on one machine does not belong in a project other
