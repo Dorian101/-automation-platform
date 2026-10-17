@@ -102,6 +102,43 @@ class TestCrawlerPaths:
 
 
 class TestReachableFromSomewhere:
+    async def test_the_icon_answers_without_a_session(self, crawler):
+        """A browser asks for the icon before it knows anything about the site.
+
+        It used to be redirected to the sign-in form, so the tab showed a login
+        screen and the request was counted as a visit. Both are wrong for a
+        file that carries neither a reader nor a page.
+        """
+        for path in ("/favicon.ico", "/favicon.svg"):
+            response = await crawler.get(path, allow_redirects=False)
+
+            assert response.status == 200, path
+            assert response.content_type == "image/svg+xml", path
+            assert await response.text()
+
+    async def test_the_icon_is_the_same_at_both_names(self, crawler):
+        """A browser picks one name and never asks about the other.
+
+        Serving two different icons would mean the tab depends on which browser
+        the reader happened to open.
+        """
+        ico = await (await crawler.get("/favicon.ico")).read()
+        svg = await (await crawler.get("/favicon.svg")).read()
+
+        assert ico == svg
+
+    async def test_the_icon_is_not_a_visit(self, crawler, database_with_schema):
+        """It is a file, not a page somebody looked at.
+
+        Counted, it would put a browser's own housekeeping into the log the
+        owner reads to find out whether anybody else came.
+        """
+        from app.db.visits_repo import VisitsRepository
+
+        await crawler.get("/favicon.ico")
+
+        assert VisitsRepository(database_with_schema).recent() == []
+
     async def test_the_login_page_links_to_the_public_pages(self, crawler):
         """The one route out of a page that only offers a form.
 

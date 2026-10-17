@@ -54,6 +54,10 @@ logger = logging.getLogger(__name__)
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
+# The tab icon, beside this module rather than in `templates/`: it is an asset,
+# not a page, and nothing renders it as markup.
+FAVICON_SVG = Path(__file__).resolve().parent / "favicon.svg"
+
 DAY_SECONDS = 86400
 
 # Binds a Login Widget payload to the browser that started it. The signature
@@ -100,6 +104,8 @@ PUBLIC_PATHS = {
     "/health",
     "/robots.txt",
     "/sitemap.xml",
+    "/favicon.ico",
+    "/favicon.svg",
 }
 
 # The public address of the site, for the sitemap. There is no request to read
@@ -608,6 +614,26 @@ class WebServer:
             content_type="application/xml",
         )
 
+    async def _favicon(self, request: web.Request) -> web.Response:
+        """The tab icon, at both names a browser might ask for.
+
+        Every browser requests `/favicon.ico` on its own when a page names no
+        icon, and answers 404 for the tab until one turns up. It used to answer
+        303 towards the sign-in form instead, because this route did not exist
+        and anything outside PUBLIC_PATHS is treated as somebody's page — so the
+        icon was a login screen, and the request counted as a visit.
+
+        Served from a file rather than assembled here, and left without a
+        `<link rel="icon">` in the templates on purpose: the documents are built
+        in thirteen places, and thirteen copies of one line to avoid a file
+        request is the wrong trade. The convention does the same job with none.
+        """
+        return web.Response(
+            body=FAVICON_SVG.read_bytes(),
+            content_type="image/svg+xml",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+
     async def _health(self, request: web.Request) -> web.Response:
         try:
             with self._database.connect() as conn:
@@ -970,6 +996,8 @@ class WebServer:
                 web.get("/robots.txt", self._robots),
                 web.get("/sitemap.xml", self._sitemap),
                 web.get("/health", self._health),
+                web.get("/favicon.ico", self._favicon),
+                web.get("/favicon.svg", self._favicon),
             ],
         )
 

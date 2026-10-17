@@ -78,6 +78,11 @@ ALLOWED_HOSTS = {
     "astral.sh",
     "sitemaps.org",
     "www.sitemaps.org",
+    # The XML namespace, which is an identifier rather than a place to fetch:
+    # an SVG document is not valid without it and no browser ever resolves it.
+    # The one that matters is the favicon, which is served as a standalone
+    # document and therefore needs the declaration that an inline one does not.
+    "www.w3.org",
     # Named in examples and in the reader's own public page, and belonging to
     # nobody who deploys this: a vacancy URL in the applications plugin, a
     # bot handle, and a link on the about page.

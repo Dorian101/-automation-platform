@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.31.0
+v0.32.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -300,6 +300,12 @@ Implemented:
   serves no static assets at all, so a picture on it is markup in the
   template. Its plugin list is checked against what `main.py` registers,
   because a picture cannot be checked the way a number can
+* GET /favicon.ico, GET /favicon.svg — the tab icon, public and not counted as
+  a visit. Served from `app/web/favicon.svg` with no `<link rel="icon">` in the
+  templates: the documents are assembled in thirteen places, and the browser's
+  own convention does the same job with none of them. Before this route
+  existed the request was answered with a redirect to the sign-in form, so the
+  tab showed a login screen
 * GET /api/commands — plugin and command metadata
 * POST /api/command — command execution
 * POST /api/page/action — a plugin page reporting what was done, answered
