@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.37.0
+v0.38.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -50,6 +50,8 @@ The platform is operational.
   the host
 - accounts, search by name, and enabling and disabling from there
 - the visit log, and a test that keeps deployment details out of the repository
+- the visit log stays cheap as it grows: hiding the administrator asks who the
+  owner is once per page rather than once per row
 
 ## Deployment
 
@@ -611,6 +613,11 @@ five minor releases behind.
   present at that moment. A plugin registered afterwards has a menu entry but
   no address. Only reachable by a test today; it would matter for anything
   that loads a plugin at runtime.
+* There is no connection pool. `Database.connect` opens a new PostgreSQL
+  connection per query, which is fine while queries are counted and expensive
+  the moment something calls a repository in a loop — a request per row was
+  four seconds on the visit log, and the fix was to ask once rather than to
+  pool. The next loop will cost the same again.
 
 ⸻
 

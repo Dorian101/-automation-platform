@@ -195,7 +195,11 @@ class AdminArea:
         found = self._visits.recent(path=query) if query else self._visits.recent()
 
         if hiding:
-            found = [v for v in found if v.identity != _mine(request)]
+            # Who the owner is does not change from one row to the next, and
+            # finding out is two queries. Asking per row cost the page four
+            # seconds once the log had a few hundred entries in it.
+            mine = _mine(request)
+            found = [v for v in found if v.identity != mine]
 
         body = _fragment("admin_visits.html", {
             "__QUERY__": html.escape(query, quote=True),

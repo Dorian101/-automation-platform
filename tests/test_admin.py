@@ -870,3 +870,41 @@ class TestHidingTheAdministrator:
 
         assert "Показано: <b>0</b>" in shown
         assert "Всего событий: <b>" in everything
+
+    async def test_hiding_costs_the_same_however_many_rows_there_are(
+        self, admin_client, database_with_schema, monkeypatch
+    ):
+        """Ticking the box must not open a connection per row.
+
+        It used to ask who the administrator is once per event in the log,
+        and every question is two queries, and every query is its own
+        connection — so the page cost four seconds at two hundred rows and
+        nobody could say why, because nothing it does is slow on its own.
+        """
+        from app.db.database import Database
+        from app.db.visits_repo import VisitsRepository
+
+        opened = []
+        connect = Database.connect
+
+        def counted(self):
+            opened.append(1)
+            return connect(self)
+
+        monkeypatch.setattr(Database, "connect", counted)
+
+        repo = VisitsRepository(database_with_schema)
+        for number in range(5):
+            repo.record("view", path="/project", identity=f"web:guest:{number}")
+
+        opened.clear()
+        await admin_client.get("/admin/visits?hide=1")
+        few = len(opened)
+
+        for number in range(30):
+            repo.record("view", path="/project", identity=f"web:guest:thirty-{number}")
+
+        opened.clear()
+        await admin_client.get("/admin/visits?hide=1")
+
+        assert len(opened) == few

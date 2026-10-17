@@ -113,6 +113,10 @@ repositories using context managers. The migration from SQLite is complete
 (DECISIONS 2026-07-16) and the app has been psycopg-only since — moving to
 PostgreSQL is done work, never propose it again.
 
+`Database.connect` opens a connection per query; there is no pool. Count
+queries, never let a loop call a repository — the cost is per row, and the
+visit log spent four seconds on a page doing nothing else wrong.
+
 Repositories:
 - notes_repo.py
 - reminders_repo.py
@@ -545,6 +549,12 @@ request, and the log reads it from there.
 **The landing page mints no guest**, so its row has no name — it only lists
 what there is to look at, and a namespace per passer-by would be rows for
 nothing.
+
+**Hiding the administrator asks who they are once, not once per row.** The box
+drops the owner's own events, and the identity is the same for every row — so
+it is resolved before the filter, outside it. Called inside, it was two
+queries and two connections per row: four seconds at two hundred events, with
+nothing on the page individually slow enough to notice.
 
 **Repeat visits are a query, not a column.** The table is an event log;
 counting rows for a token answers "how often" without a second mechanism that
