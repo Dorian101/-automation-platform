@@ -313,6 +313,7 @@ async def _login(
     password=TEST_PASSWORD,
     expect_status: int = 303,
     from_address: str | None = None,
+    probe: str | None = None,
 ):
     """Submit the login form the way a browser behind the proxy would.
 
@@ -321,7 +322,9 @@ async def _login(
     header, which is the point of disabling it.
 
     `from_address` sets the address the proxy would have written, for the tests
-    that care about who a request is attributed to.
+    that care about who a request is attributed to. `probe` sets the header a
+    trusted measurement carries, which is the other way a request says not to
+    be written down.
     """
     headers = (
         {AUTH_HEADER: Config.WEB_ACCESS_TOKEN} if Config.WEB_ACCESS_TOKEN else {}
@@ -329,6 +332,9 @@ async def _login(
 
     if from_address is not None:
         headers["X-Forwarded-For"] = from_address
+
+    if probe is not None:
+        headers["X-Platform-Probe"] = probe
 
     # A real browser would already be sitting on the form, holding its token
     # in a hidden field and in a cookie. Fetching the page is what gives the

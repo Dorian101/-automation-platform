@@ -187,6 +187,45 @@ The `hide=1` box on the page stays useful for the other case: a session of
 yours recognised as the administrator's from an address that is not on this
 list, such as a phone on a mobile network.
 
+### Measuring the site from somewhere else
+
+The address list has one blind spot, and it is a large one: it only knows the
+machines named in it. Work done against the site from anywhere else — a
+measurement from a laptop on a different network, a request through a proxy —
+arrives from an address that is on no list, and every one of them lands in the
+log as somebody visiting. That is not hypothetical here: measuring the site
+once put a hundred and thirty rows into the table in an afternoon.
+
+`VISIT_PROBE_TOKEN` is the other half. A request carrying it in the
+`X-Platform-Probe` header leaves no row, from whatever address it came:
+
+```
+VISIT_PROBE_TOKEN=<openssl rand -hex 32>
+```
+
+```
+curl -H "X-Platform-Probe: $VISIT_PROBE_TOKEN" https://<domain>/about
+```
+
+Both are compared on the way in and neither is stored, and the token covers
+sign-ins as well as page views. Caddy passes the header through without being
+told to, so nothing has to change in the Caddyfile — verified by asking for a
+page with it and watching the log stay empty, not by reading the config.
+
+Two things to know before you set it:
+
+- **It is a shared secret, not a credential.** Anyone holding it can keep
+  themselves out of the log, and a header is no secret at all against someone
+  who wants to send one. It keeps your own working out of a count meant to
+  answer one question — was anybody here. It is not a way to refuse a visitor,
+  and nothing depends on it being robust.
+- **Unset means nothing is trusted.** `compare_digest` calls two empty strings
+  equal, so an empty token would otherwise trust every request on the site. If
+  you never probe, leave it empty and the log records everything as before.
+
+Keeping both is the point: the address covers your browser, the token covers
+everything you do deliberately, and neither is a column on the table.
+
 ### Telegram linking
 
 Optional. With `TELEGRAM_BOT_USERNAME` empty the console shows no link button

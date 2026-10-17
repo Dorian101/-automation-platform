@@ -108,6 +108,12 @@ PUBLIC_PATHS = {
     "/favicon.svg",
 }
 
+# What a request carries to say it is the owner's own working rather than a
+# visit. Named beside the proxy's X-Platform-Auth because it is the same kind
+# of thing — something only the holder of the value knows — and different in
+# what it is for: the auth header is the door, this one is the log.
+PROBE_HEADER = "X-Platform-Probe"
+
 # The public address of the site, for the sitemap. There is no request to read
 # a host from: the app sits behind a reverse proxy, so the Host header is
 # whatever the proxy says and cannot be trusted to be the public name. One
@@ -1235,7 +1241,7 @@ def _is_a_visit(request: web.Request, response: web.StreamResponse) -> bool:
 
 
 def _leaves_no_trace(request: web.Request) -> bool:
-    """Whether this request belongs to an address the deployment excludes.
+    """Whether this request belongs to nobody the log is counting.
 
     The owner checks the site more than a stranger visits it, and every check
     lands in the same log. There is nothing on a row to recognise them by — no
@@ -1249,7 +1255,18 @@ def _leaves_no_trace(request: web.Request) -> bool:
     the running deployment, not assumed: a spoofed header came back showing the
     real address. Anything that made the proxy trust an incoming value would
     reopen this, and would only cost a reader their own rows back.
+
+    An address covers only the machine it was written on. The secret covers
+    requests from anywhere, which is what measuring needs: those come from a
+    different address every time and none of them is in the list. Both are
+    compared on the way in and neither is written down.
     """
+    if Config.VISIT_PROBE_TOKEN and hmac.compare_digest(
+        request.headers.get(PROBE_HEADER, "").strip(),
+        Config.VISIT_PROBE_TOKEN,
+    ):
+        return True
+
     if not Config.VISIT_IGNORE_IPS:
         return False
 

@@ -711,6 +711,85 @@ class TestExcludedAddresses:
         assert VisitsRepository(database_with_schema).recent() == []
 
 
+class TestTrustedProbes:
+    """Work done against the site should not look like anybody visiting it.
+
+    An address is the wrong filter for this. It has to be set on the machine
+    the owner browses from, which stops matching the moment the address
+    changes, and it does nothing at all for a request made from somewhere
+    else — including the measuring, which is not the owner at all but has no
+    address the deployment knows and turns out to arrive from every one in
+    turn.
+
+    A secret carried in a header goes with the request instead of with the
+    caller. It is not a way to keep a visitor out of the log: anyone who has
+    it can hide, and a header is a poor secret against someone determined.
+    It is for keeping the owner's own tooling out of a count that is meant to
+    answer one question — was anybody here.
+    """
+
+    async def test_a_probe_leaves_no_row(self, app_client, database_with_schema,
+                                         monkeypatch):
+        from app.core.config import Config
+        from app.db.visits_repo import VisitsRepository
+
+        monkeypatch.setattr(Config, "VISIT_PROBE_TOKEN", "s3cret")
+
+        await app_client.get(
+            "/about", headers={"X-Platform-Probe": "s3cret"}
+        )
+
+        assert VisitsRepository(database_with_schema).recent() == []
+
+    async def test_a_page_without_the_secret_is_still_recorded(
+        self, app_client, database_with_schema, monkeypatch
+    ):
+        """The secret has to be the only way in, not a switch on the log."""
+        from app.core.config import Config
+        from app.db.visits_repo import VisitsRepository
+
+        monkeypatch.setattr(Config, "VISIT_PROBE_TOKEN", "s3cret")
+
+        await app_client.get("/about", headers={"X-Platform-Probe": "wrong"})
+        await app_client.get("/about")
+
+        found = VisitsRepository(database_with_schema).recent()
+        assert [v.path for v in found] == ["/about", "/about"]
+
+    async def test_an_unset_secret_leaves_no_door_open(
+        self, app_client, database_with_schema, monkeypatch
+    ):
+        """A deployment that never set one records everything.
+
+        `compare_digest` calls two empty strings equal, so an empty secret
+        compared against a missing header would trust every request on the
+        site — the exact opposite of what an unset variable should mean.
+        """
+        from app.core.config import Config
+        from app.db.visits_repo import VisitsRepository
+
+        monkeypatch.setattr(Config, "VISIT_PROBE_TOKEN", "")
+
+        await app_client.get("/about", headers={"X-Platform-Probe": ""})
+
+        found = VisitsRepository(database_with_schema).recent()
+        assert [v.path for v in found] == ["/about"]
+
+    async def test_a_probe_is_not_logged_on_sign_in_either(
+        self, new_client, database_with_schema, monkeypatch, create_user, login
+    ):
+        """Measuring a sign-in is as much a probe as measuring a page."""
+        from app.core.config import Config
+        from app.db.visits_repo import VisitsRepository
+
+        monkeypatch.setattr(Config, "VISIT_PROBE_TOKEN", "s3cret")
+
+        client = await new_client()
+        await login(client, probe="s3cret")
+
+        assert VisitsRepository(database_with_schema).recent() == []
+
+
 class TestVisitTimestamps:
     """The stored value is UTC; the reader is not.
 

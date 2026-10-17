@@ -556,6 +556,18 @@ it is resolved before the filter, outside it. Called inside, it was two
 queries and two connections per row: four seconds at two hundred events, with
 nothing on the page individually slow enough to notice.
 
+**Two ways out of the log, and both are compared on the way in.**
+`VISIT_IGNORE_IPS` matches the address the reverse proxy wrote, which covers
+the machine the owner browses from and nothing else. `VISIT_PROBE_TOKEN`
+matches the `X-Platform-Probe` header, which travels with the request and so
+covers work done from anywhere — an address filter alone is useless for that,
+because measuring the site arrives from every address in turn. Both live in
+`_leaves_no_trace`, which the view, sign-in and sign-up paths all ask.
+
+Neither keeps a determined visitor out: the address list is a list, and the
+token is a header anyone who has it can send. The log is not an audit trail
+and was not built as one.
+
 **Repeat visits are a query, not a column.** The table is an event log;
 counting rows for a token answers "how often" without a second mechanism that
 can disagree with the first.

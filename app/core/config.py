@@ -145,3 +145,18 @@ class Config:
         for address in os.getenv("VISIT_IGNORE_IPS", "").split(",")
         if address.strip()
     )
+
+    # The secret a request carries to be left out of the visit log, sent as
+    # X-Platform-Probe. An address alone cannot do this job: it is written on
+    # the machine the owner browses from, so it stops matching the moment that
+    # address changes, and it says nothing about a request made from anywhere
+    # else — including measuring, which is not the owner at all and arrives
+    # from every address in turn. A secret travels with the request instead of
+    # with the caller.
+    #
+    # This is not a way to keep a visitor out of the log. Anyone holding it can
+    # hide, and a header is a poor secret against someone determined. What it
+    # is for is keeping the owner's own working out of a count meant to answer
+    # one question: was anybody here. Empty trusts nothing, which is what a
+    # deployment that never sets it should mean.
+    VISIT_PROBE_TOKEN = os.getenv("VISIT_PROBE_TOKEN", "").strip()

@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.38.0
+v0.39.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -52,6 +52,8 @@ The platform is operational.
 - the visit log, and a test that keeps deployment details out of the repository
 - the visit log stays cheap as it grows: hiding the administrator asks who the
   owner is once per page rather than once per row
+- `VISIT_PROBE_TOKEN`, so the owner's own measuring from any address stays out
+  of the visit log
 
 ## Deployment
 
@@ -577,6 +579,12 @@ five minor releases behind.
   it. The counts are honest about external visitors and approximate about the
   owner, and there is no way to make that exact without storing something the
   log was built not to store.
+* `VISIT_PROBE_TOKEN` covers the part an address cannot: work done against the
+  site from somewhere else, which arrives from every address in turn and is on
+  none of the lists. It is a header, so it is only as private as the requests
+  carrying it — anyone who has the value can keep themselves out of the log,
+  and a browser cannot be made to send it. It is for the owner's own
+  measuring, not a way to refuse a visitor.
 * Sign-up is gated by one shared invite code with no approval step behind it —
   whoever holds the code can join.
 * Web notifications are still dropped rather than delivered, but only for an
