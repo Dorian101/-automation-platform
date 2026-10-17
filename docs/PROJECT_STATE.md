@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.34.0
+v0.35.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -516,6 +516,18 @@ were worth the sprint:
   not a peak of 128 MiB per request.
 * `systemd` ran the service without sandbox directives, which decides how far a
   compromise reaches.
+
+* `script-src` carried `unsafe-inline`, which turns any escaping mistake
+  anywhere in the layer into script that runs. It now carries a per-response
+  nonce instead. Hashes were the tidier shape and would not work: the console's
+  script holds the page path and the action URL, which change per plugin, so its
+  content is not constant. The templates ask for the nonce by placeholder and one
+  middleware writes the same value into the body and the header, because the
+  thirteen places a document is assembled should not each be handed it.
+
+  `style-src` keeps `unsafe-inline` on purpose — an inline style executes
+  nothing, and the stylesheets here are inlined because nothing is served as a
+  file.
 
 The limiter also gained a ceiling on stored windows. It is a backstop, not the
 fix: the docstring had claimed the store was bounded by the limits, which held

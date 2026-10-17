@@ -862,6 +862,88 @@ class TestSecurityHeaders:
 
         assert "frame-src https://oauth.telegram.org" in csp
 
+    async def test_script_src_has_no_unsafe_inline(self, anonymous_client):
+        """The one directive that made an injection executable.
+
+        Everything else in the policy can be reasoned about; this one turns any
+        escaping mistake anywhere in the layer into script that runs.
+        """
+        csp = (await anonymous_client.get("/login")).headers[
+            "Content-Security-Policy"
+        ]
+        script_src = csp.split("script-src", 1)[1].split(";", 1)[0]
+
+        assert "unsafe-inline" not in script_src
+
+    async def test_every_inline_script_carries_the_nonce_from_the_header(
+        self, client
+    ):
+        """A nonce that no script carries blocks everything, and so does a nonce
+        the header has never heard of. Both fail silently.
+
+        The console is the strictest case: its rendering is one inline script, so
+        a refused script leaves a blank page rather than a missing button.
+        """
+        import re
+
+        response = await client.get("/")
+        csp = response.headers["Content-Security-Policy"]
+        body = await response.text()
+
+        found = re.search(r"'nonce-([^']+)'", csp)
+        assert found, f"no nonce in the policy: {csp}"
+
+        nonce = found.group(1)
+        # A script that is neither external nor a non-executing data block.
+        inline = re.findall(r"<script(?![^>]*\bsrc=)(?![^>]*\btype=)([^>]*)>", body)
+
+        assert inline, "the page has no inline script, so this proves nothing"
+
+        for attributes in inline:
+            assert f'nonce="{nonce}"' in attributes, attributes
+
+    async def test_the_nonce_differs_between_two_responses(self, anonymous_client):
+        """Per response, not per process.
+
+        A nonce that survived would be readable by whatever injected the script
+        it guards, which is the whole thing it is for.
+        """
+        import re
+
+        def nonce_of(body: str) -> str:
+            return re.search(r"'nonce-([^']+)'", body).group(1)
+
+        first = await anonymous_client.get("/login")
+        second = await anonymous_client.get("/login")
+
+        assert nonce_of(first.headers["Content-Security-Policy"]) != nonce_of(
+            second.headers["Content-Security-Policy"]
+        )
+
+    async def test_no_template_carries_an_inline_script_without_asking(
+        self,
+    ):
+        """Structural, and the reason the one above is not the whole guard.
+
+        A template edited to add a script, and not a nonce, passes every test
+        that looks at a page already rendered — and ships a page whose script
+        the policy refuses. This one reads the templates directly.
+        """
+        import re
+        from pathlib import Path
+
+        templates = Path(__file__).resolve().parents[1] / "app/web/templates"
+
+        for template in sorted(templates.glob("*.html")):
+            source = template.read_text(encoding="utf-8")
+            for attributes in re.findall(
+                r"<script(?![^>]*\bsrc=)(?![^>]*\btype=)([^>]*)>", source
+            ):
+                assert "__CSP_NONCE__" in attributes, (
+                    f"{template.name} has an inline script with no nonce: "
+                    f"<script{attributes}>"
+                )
+
     async def test_errors_carry_them_too(self, bare_client):
         response = await bare_client.get("/")
 

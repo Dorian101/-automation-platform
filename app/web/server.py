@@ -140,13 +140,35 @@ INDEXABLE_PATHS = ("/about", "/project", "/demo")
 # scripts and styles, which the console relies on; everything else stays
 # locked to the app's own origin. form-action 'self' is what keeps a stray
 # <form> from shipping a session cookie somewhere it does not belong.
-SECURITY_HEADERS = {
-    "X-Frame-Options": "DENY",
-    "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy": "no-referrer",
-    "Content-Security-Policy": (
+#: Where a template asks for the nonce. Substituted into the body and into the
+#: header by one place, so a template never has to be handed the value to use
+#: it — which is what keeps this to one edit rather than one per render path.
+CSP_NONCE_PLACEHOLDER = "__CSP_NONCE__"
+
+
+def _content_security_policy(nonce: str) -> str:
+    """The policy for one response.
+
+    `script-src` carries a nonce rather than `unsafe-inline`. Every inline
+    script on the site is template text, so a hash would read well enough — but
+    the console's script holds the page path and the action URL, which change
+    per plugin, so its content is not constant and cannot be hashed. A nonce
+    does not care what the script contains, which is the only reason it works
+    for that page and a hash would not.
+
+    `style-src` keeps `unsafe-inline` on purpose. The stylesheets here are
+    inlined into the document rather than served as files, an inline style
+    attribute executes nothing, and narrowing it buys protection against an
+    attack that cannot script the page in the first place.
+    """
+    script_sources = ["'self'", "https://telegram.org"]
+
+    if nonce:
+        script_sources.append(f"'nonce-{nonce}'")
+
+    return (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://telegram.org; "
+        f"script-src {' '.join(script_sources)}; "
         # The Telegram widget does not draw a button on this page: it inserts
         # an iframe pointing at oauth.telegram.org. With no frame-src of its
         # own, that frame falls under `default-src 'self'` and is blocked,
@@ -159,7 +181,13 @@ SECURITY_HEADERS = {
         "object-src 'none'; "
         "base-uri 'self'; "
         "form-action 'self'"
-    ),
+    )
+
+
+SECURITY_HEADERS = {
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
 }
 
 
@@ -975,6 +1003,33 @@ class WebServer:
         return response
 
     @web.middleware
+    async def _nonce(self, request: web.Request, handler):
+        """Write the script nonce into the body, then into the header.
+
+        Outermost on purpose. A nonce that governs the response has to be there
+        for everything the inner layers can return, including the refusals they
+        answer with instead of calling the handler.
+
+        Minted per response rather than per process: a nonce that outlived one
+        response would be readable by whatever injected the script it guards,
+        which is the whole thing a nonce is for.
+        """
+        response = await handler(request)
+
+        if response.content_type == "text/html":
+            value = secrets.token_urlsafe(16)
+            body = response.text
+
+            if CSP_NONCE_PLACEHOLDER in body:
+                response.text = body.replace(CSP_NONCE_PLACEHOLDER, value)
+
+            response.headers.setdefault(
+                "Content-Security-Policy", _content_security_policy(value)
+            )
+
+        return response
+
+    @web.middleware
     async def _authenticate(self, request: web.Request, handler):
         denied = verify_access(request)
 
@@ -991,7 +1046,7 @@ class WebServer:
 
     def build_app(self) -> web.Application:
         app = web.Application(
-            middlewares=[self._authenticate, self._record_visit]
+            middlewares=[self._nonce, self._authenticate, self._record_visit]
         )
         # A response_prepare hook runs for every response aiohttp sends, even
         # the one an exception turns into a 500 — middleware, running before
@@ -1068,6 +1123,10 @@ async def _security_headers(request: web.Request, response: web.Response) -> Non
     HSTS is added only when the Secure flag is on, which the deployment keeps
     on for every TLS endpoint: on a plain-http prefix the header would be a
     promise nothing honours.
+
+    The content policy is not here but in `_nonce`, because a nonce is written
+    into the body and a body cannot be rewritten at this point: the length is
+    already settled, and changing it produces a 400.
     """
     for name, value in SECURITY_HEADERS.items():
         response.headers.setdefault(name, value)
