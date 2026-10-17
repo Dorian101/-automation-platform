@@ -674,6 +674,25 @@ class WebServer:
                 status=400,
             )
 
+        # The address window is checked first and its key carries no username.
+        # Order is the point: this is the window that stops a caller producing a
+        # fresh key per name tried, so it has to run before the per-user window
+        # that creates those keys.
+        if not self._rate.allow(
+            _rate_key(request, "login-address"),
+            Config.LOGIN_ATTEMPTS_PER_ADDRESS_PER_WINDOW,
+            Config.RATE_LIMIT_WINDOW_SECONDS,
+        ):
+            logger.warning(
+                "Login rate limit reached for the address %s",
+                client_ip(request),
+            )
+            return self._render_login(request,
+                error="Слишком много попыток. Попробуйте позже.",
+                username=username,
+                status=429,
+            )
+
         if not self._rate.allow(
             _rate_key(request, "login", username),
             Config.LOGIN_ATTEMPTS_PER_WINDOW,

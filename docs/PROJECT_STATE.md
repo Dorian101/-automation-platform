@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.33.0
+v0.34.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -501,12 +501,26 @@ were worth the sprint:
   because the dependency asks for `speedups`, and the read is on the path that
   talks to Telegram, so it was live rather than theoretical. Fixed in 3.14.5.
 * The login rate limit keys on address *and* username, and it runs before the
-  password is checked. A fresh name is a fresh allowance, so one address gets
-  unlimited attempts — and every attempt costs a scrypt at N=2^17, roughly
-  128 MiB, deliberately, so that a missing account and a wrong password take the
-  same time.
+  password is checked, so a fresh name was a fresh allowance and one address
+  could try names for ever. Every attempt costs a scrypt at N=2^17, measured at
+  0.258 s, deliberately, so that a missing account and a wrong password take the
+  same time. Fixed with a second window counted per address across every name,
+  checked *before* the per-user one — which also stops a refused attempt
+  creating the key it was refused on, and so bounds the limiter's key space.
+
+  The reported consequence was memory rather than time, and that did not hold:
+  `verify_password` is synchronous inside an asynchronous handler, so it blocks
+  the event loop, and six concurrent attempts ran strictly one after another
+  rather than in parallel. The cost is therefore serialized too — the exposure
+  was CPU time, each attempt freezing the whole site for a quarter of a second,
+  not a peak of 128 MiB per request.
 * `systemd` ran the service without sandbox directives, which decides how far a
   compromise reaches.
+
+The limiter also gained a ceiling on stored windows. It is a backstop, not the
+fix: the docstring had claimed the store was bounded by the limits, which held
+per key and not across keys, since a key is caller-supplied and login folded a
+username into it.
 
 Findings that are code properties but not live risks, and why: the transport
 secret check answers 401 without the secret, so it is set and active — it would

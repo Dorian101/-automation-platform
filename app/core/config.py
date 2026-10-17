@@ -72,6 +72,23 @@ class Config:
     # a deployment that is itself behind a limiting edge.
     RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
     LOGIN_ATTEMPTS_PER_WINDOW = int(os.getenv("LOGIN_ATTEMPTS_PER_WINDOW", "5"))
+
+    # Attempts per address per window, counted across every username.
+    #
+    # The per-user window above cannot carry this weight. Its key is the address
+    # *and* the name, which is deliberate so that one person's typos do not lock
+    # out a whole office behind one proxy — but it also means a fresh name is a
+    # fresh allowance, so an address that varies the name is never limited at
+    # all. Since a login costs a scrypt at N=2^17, roughly 0.26 s of blocked
+    # event loop on this hardware, an unlimited number of names is an unlimited
+    # number of seconds the whole site stops answering.
+    #
+    # Sized above the per-user window rather than equal to it, for the same
+    # reason that window carries the name: several people legitimately share one
+    # address, and each of them gets their own allowance inside this one.
+    LOGIN_ATTEMPTS_PER_ADDRESS_PER_WINDOW = int(
+        os.getenv("LOGIN_ATTEMPTS_PER_ADDRESS_PER_WINDOW", "20")
+    )
     SIGNUP_ATTEMPTS_PER_WINDOW = int(os.getenv("SIGNUP_ATTEMPTS_PER_WINDOW", "10"))
     SIGNUP_WINDOW_SECONDS = int(os.getenv("SIGNUP_WINDOW_SECONDS", "3600"))
 

@@ -6,6 +6,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from app.core.config import Config
 from app.web.auth import AUTH_HEADER, SESSION_COOKIE, signup_allowed
 from app.web.csrf import CsrfSigner
+from app.web.ratelimit import MAX_KEYS, RateLimiter
 from app.web.server import WebServer
 from tests.conftest import TEST_PASSWORD, TEST_USERNAME, _hidden_field
 
@@ -717,6 +718,91 @@ class TestRateLimiting:
         other = await _login_post(anonymous_client, username="other-user")
 
         assert other.status == 401
+
+    async def test_a_fresh_username_is_not_a_fresh_allowance(
+        self,
+        anonymous_client,
+        tight_login,
+        monkeypatch,
+    ):
+        """The window above is per username, so on its own it never runs out.
+
+        Every attempt costs a scrypt, which blocks the event loop for a quarter
+        of a second — a login form that never slows down is a way to keep the
+        whole site from answering. The address window counts attempts whatever
+        name they carry, so a caller that varies the name still runs out.
+        """
+        monkeypatch.setattr(Config, "LOGIN_ATTEMPTS_PER_ADDRESS_PER_WINDOW", 3)
+
+        # Two spent on the first name, one on the second, and the third name is
+        # refused — not because of its own window, which is empty, but because
+        # the address has had its three.
+        assert (await _login_post(anonymous_client)).status == 401
+        assert (await _login_post(anonymous_client)).status == 401
+        assert (await _login_post(anonymous_client, username="b")).status == 401
+
+        fresh = await _login_post(anonymous_client, username="never-tried-before")
+
+        assert fresh.status == 429
+
+    async def test_the_address_window_leaves_room_for_the_office(
+        self,
+        anonymous_client,
+        tight_login,
+        monkeypatch,
+    ):
+        """A shared address must still reach the per-user windows inside it.
+
+        The address window exists to bound the damage, not to replace the
+        username in the key: several people legitimately share one proxy, and
+        the reason it is not equal to the per-user window is that they do.
+        """
+        monkeypatch.setattr(Config, "LOGIN_ATTEMPTS_PER_ADDRESS_PER_WINDOW", 4)
+
+        # Each user gets their own two, and the address has four to give.
+        for _ in range(2):
+            await _login_post(anonymous_client)
+        for _ in range(2):
+            await _login_post(anonymous_client, username="colleague")
+
+        # Both personal windows are spent, and the address is spent with them.
+        assert (await _login_post(anonymous_client)).status == 429
+        assert (
+            await _login_post(anonymous_client, username="colleague")
+        ).status == 429
+
+    async def test_a_denied_attempt_leaves_no_key_behind(
+        self,
+        anonymous_client,
+        secured_server,
+        tight_login,
+    ):
+        """Memory follows the attempts allowed, not the attempts made.
+
+        Creating a window on a refusal — which is what `dict[key]` does — means a
+        caller who keeps trying names they are already refused still fills the
+        store, one key per name, and nothing ever empties them.
+        """
+        limiter = secured_server._rate
+
+        for _ in range(4):
+            await _login_post(anonymous_client, username="refused-name")
+
+        keys = [key for key in limiter._hits if "refused-name" in key]
+
+        # The window exists and holds the attempts that were allowed against it,
+        # and the refusals did not add to it or to anything else.
+        assert len(keys) == 1
+        assert len(limiter._hits[keys[0]]) == 2
+
+    async def test_the_store_stops_growing_past_its_ceiling(self):
+        """The backstop for a caller that produces keys the limits do not bound."""
+        limiter = RateLimiter()
+
+        for index in range(MAX_KEYS + 50):
+            limiter.allow(f"key-{index}", limit=5, window_seconds=60)
+
+        assert len(limiter._hits) <= MAX_KEYS
 
     async def test_signup_is_limited_per_address(
         self,
