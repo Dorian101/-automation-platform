@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.35.0
+v0.36.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -515,7 +515,9 @@ were worth the sprint:
   was CPU time, each attempt freezing the whole site for a quarter of a second,
   not a peak of 128 MiB per request.
 * `systemd` ran the service without sandbox directives, which decides how far a
-  compromise reaches.
+  compromise reaches. Applied as a drop-in and checked against the running
+  process rather than the file; the backup and guest-cleanup units are still
+  unsandboxed.
 
 * `script-src` carried `unsafe-inline`, which turns any escaping mistake
   anywhere in the layer into script that runs. It now carries a per-response
@@ -537,9 +539,11 @@ username into it.
 Findings that are code properties but not live risks, and why: the transport
 secret check answers 401 without the secret, so it is set and active — it would
 only open if the variable were forgotten. Caddy's admin API listens on loopback
-only. The cited Caddy advisories are about Windows `file_server`, file matchers
-and `rewrite`, none of which the Caddyfile uses; the version is behind anyway
-and is worth a planned upgrade.
+only. Caddy moved from the distribution package to the official repository,
+2.6.2 to 2.11.7, which was worth doing for the same reason: the advisories are
+about Windows `file_server`, file matchers and `rewrite`, none of which this
+Caddyfile uses, but a reverse proxy in front of the whole site should not be
+five minor releases behind.
 
 ## Current limitations
 

@@ -19,7 +19,7 @@ Fill this in first. Everything below refers back to it.
 | Public IP | `<ip>` |
 | OS | Ubuntu 24.04 |
 | PostgreSQL | 16.15 |
-| Caddy | 2.6.2 |
+| Caddy | 2.11.7, from the official repository, not Ubuntu's |
 | Checkout | `/opt/automation-platform`, owned by `automation` |
 | Domain | `<domain>` |
 | Nameservers | `<ns1>`, `<ns2>` |
@@ -312,9 +312,75 @@ everything else, so a transient PostgreSQL outage recovers on its own.
 systemctl daemon-reload && systemctl enable --now automation-platform
 ```
 
+### Sandboxing
+
+The service runs with its privileges taken away, which is what decides how far
+a compromise of the process reaches. Applied as a drop-in, so the unit above
+stays the plain one:
+
+`/etc/systemd/system/automation-platform.service.d/override.conf`
+
+```ini
+[Service]
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/automation-platform /var/backups/automation-platform
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+```
+
+Write the file rather than using `systemctl edit`: that opens `$EDITOR`, and a
+host without one fails to save while reporting nothing.
+
+`ProtectSystem=strict` makes the whole hierarchy read-only apart from the two
+paths named, which is why they are named. Bytecode caching is not affected —
+Python skips writing it rather than failing — and the application itself writes
+nothing outside the database.
+
+The backup and guest-cleanup units are **not** sandboxed yet. They are separate
+units and were left alone deliberately rather than forgotten: each needs its own
+`ReadWritePaths`, and neither is worth a mistake.
+
+To check what systemd actually applied, rather than what the file says:
+
+```bash
+systemctl show automation-platform -p NoNewPrivileges -p ProtectSystem -p ReadWritePaths
+```
+
 ## Caddy
 
-Version 2.6.2 comes from the Ubuntu universe repository.
+Install from the official repository. Ubuntu's universe package is a minor
+release behind and carries advisories, so the distribution copy is not the one
+to run. The repository's suite is called `any-version` and its path is
+`deb/debian`, **not** `debian/ubuntu` — a line built from the Ubuntu codename
+returns 404 and the repository silently does not attach.
+
+```bash
+apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+  | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+chmod o+r /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/caddy-stable-archive-keyring.gpg] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main" \
+  > /etc/apt/sources.list.d/caddy-stable.list
+apt-get update
+```
+
+`apt-cache policy caddy` should then name a candidate above the installed
+version. When installing, keep the local `Caddyfile`:
+
+```bash
+apt-get install -y -o Dpkg::Options::="--force-confold" caddy
+```
+
+To go back to the distribution package, remove the list file, refresh, and
+install the recorded version explicitly with `--allow-downgrades`.
 
 Caddy holds no credentials any more — it used to run `basicauth`, and that has
 been removed. All authentication is the application's job now, which is what

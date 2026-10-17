@@ -83,6 +83,10 @@ ALLOWED_HOSTS = {
     # The one that matters is the favicon, which is served as a standalone
     # document and therefore needs the declaration that an inline one does not.
     "www.w3.org",
+    # Where Caddy's own packages are installed from, named by the runbook so a
+    # fresh host can be brought up without the distribution's copy. Another
+    # vendor's server, not anybody's deployment.
+    "dl.cloudsmith.io",
     # Named in examples and in the reader's own public page, and belonging to
     # nobody who deploys this: a vacancy URL in the applications plugin, a
     # bot handle, and a link on the about page.
