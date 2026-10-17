@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.36.0
+v0.37.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -530,6 +530,26 @@ were worth the sprint:
   `style-src` keeps `unsafe-inline` on purpose — an inline style executes
   nothing, and the stylesheets here are inlined because nothing is served as a
   file.
+
+* The CSRF cookie was sent without `Secure` while the session cookie obeyed
+  `SESSION_COOKIE_SECURE`. The justification in the code was that a plain-http
+  deployment would keep working, which does not hold: a browser will not accept
+  a Secure cookie over http, so the session could not be established there
+  whatever that cookie did. It now follows the session. The demonstration's
+  guest cookie stays insecure, because it is the one cookie here with no
+  session behind it and marking it Secure would break the demonstration over
+  http for nothing.
+
+Sessions were reviewed and left alone, which is a decision rather than an
+omission. There is one row per *sign-in*, not per device, and nothing revokes
+the older ones: nine live sessions across two accounts, from nine sign-ins in a
+month. What the finding asks for is therefore mostly already true or not worth
+having — the token is minted anew on every sign-in, `revoke-admin` closes the
+door at once because the flag is read from the database per request, an idle
+timeout does not help against a thief who uses what they took, and the rows
+are cleaned whenever a session is created. A cap on sessions per user would
+evict real devices rather than a thief, and there is no account to log out: no
+one has got in.
 
 The limiter also gained a ceiling on stored windows. It is a backstop, not the
 fix: the docstring had claimed the store was bounded by the limits, which held

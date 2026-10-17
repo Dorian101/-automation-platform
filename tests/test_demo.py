@@ -10,7 +10,7 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from app.core.config import Config
 from app.core.identity import WEB, Identity, guest
-from app.web.demo import DemoService, is_public_demo_path
+from app.web.demo import COOKIE, DemoService, is_public_demo_path
 from tests.conftest import assert_no_placeholders
 
 
@@ -44,6 +44,36 @@ async def visitor(web_server):
     test_server = TestServer(web_server.build_app())
     async with TestClient(test_server) as client:
         yield client
+
+
+class TestGuestCookieIsNotSecure:
+    """The one cookie on the site that must travel over plain http.
+
+    The demonstration is the only part that needs no account, so it is the only
+    part that works over http at all. A browser refuses a Secure cookie that
+    arrives over plain http, so marking this one would give every page load a
+    fresh namespace and the visitor would lose their rows walking from one demo
+    page to the next.
+
+    Its token names a namespace of invented data, so nothing is lost by letting
+    it ride in the clear — unlike the session and CSRF cookies, which follow
+    `SESSION_COOKIE_SECURE`.
+    """
+
+    async def test_it_goes_out_without_the_secure_flag(
+        self, visitor, monkeypatch
+    ):
+        monkeypatch.setattr(Config, "SESSION_COOKIE_SECURE", True)
+
+        response = await visitor.get("/demo/expenses")
+        cookies = [
+            cookie
+            for cookie in response.headers.getall("Set-Cookie")
+            if cookie.startswith(f"{COOKIE}=")
+        ]
+
+        assert cookies, "the demonstration issued no guest cookie"
+        assert "Secure" not in cookies[0]
 
 
 class TestPublicPaths:

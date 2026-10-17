@@ -1,6 +1,7 @@
 import re
 
 import pytest
+from aiohttp import CookieJar
 from aiohttp.test_utils import TestClient, TestServer
 
 from app.core.config import Config
@@ -28,8 +29,22 @@ def _proxy_headers() -> dict[str, str]:
 
 
 def _client(server, proxy: bool = True) -> TestClient:
+    """A browser, minus the two things a test host cannot provide.
+
+    The jar is told not to enforce the Secure attribute. A deployment that sets
+    it is serving https by definition, and every test here speaks http — so an
+    enforcing jar would simulate a configuration that cannot exist: a Secure
+    cookie arriving over plain http, which no browser would issue or return.
+
+    Nothing is lost. The flags themselves are asserted on the response headers,
+    which is where they are actually decided.
+    """
     headers = _proxy_headers() if proxy else None
-    return TestClient(TestServer(server.build_app()), headers=headers)
+    return TestClient(
+        TestServer(server.build_app()),
+        headers=headers,
+        cookie_jar=CookieJar(unsafe=True),
+    )
 
 
 async def _signup(
@@ -280,11 +295,33 @@ class TestSessionCookie:
         assert "httponly" in header.lower()
         assert "samesite=lax" in header.lower()
 
-    async def test_is_secure_in_production(self, anonymous_client, login, monkeypatch):
+    async def test_is_secure_in_production(
+        self, anonymous_client, create_user, monkeypatch
+    ):
+        """The flag is read when the response is built, not when the form was.
+
+        The form is fetched with the flag still off, because the CSRF cookie now
+        follows it: this host speaks http, so a Secure cookie would not make the
+        round trip. Setting it afterwards is also the honest order — a deployment
+        that turns the flag on is not serving a login form that was already open
+        over plain http.
+        """
+        page = await anonymous_client.get("/login", allow_redirects=False)
+        csrf = await _hidden_field(page, "csrf")
+
         monkeypatch.setattr(Config, "SESSION_COOKIE_SECURE", True)
 
-        response = await login(anonymous_client)
+        response = await anonymous_client.post(
+            "/login",
+            data={
+                "username": TEST_USERNAME,
+                "password": TEST_PASSWORD,
+                "csrf": csrf,
+            },
+            allow_redirects=False,
+        )
 
+        assert response.status == 303
         assert "secure" in response.headers["Set-Cookie"].lower()
 
     async def test_is_not_secure_over_plain_http(self, anonymous_client, login):
@@ -829,6 +866,39 @@ class TestRateLimiting:
         assert second.status == 429
         assert "Попробуйте позже" in await second.text()
         assert users.count() == 1
+
+
+class TestCsrfCookieSecureFlag:
+    """The double-submit cookie follows the session cookie.
+
+    The guest cookie does not, and lives in `tests/test_demo.py` with the rest
+    of the demonstration.
+
+    The deployment is https-only whenever the session cookie is Secure, so any
+    cookie that only matters to a form ending in a session should follow it.
+    The demonstration's guest cookie must not: it is the one cookie here with
+    no session behind it, and a browser refuses a Secure cookie received over
+    http, so marking it would break the demonstration for nothing.
+    """
+
+    async def test_the_csrf_cookie_follows_the_session_cookie(
+        self, anonymous_client, monkeypatch
+    ):
+        monkeypatch.setattr(Config, "SESSION_COOKIE_SECURE", True)
+
+        response = await anonymous_client.get("/login")
+
+        assert "Secure" in response.headers.getall("Set-Cookie")[0]
+
+    async def test_and_stays_off_over_http(
+        self, anonymous_client, monkeypatch
+    ):
+        """Local development serves http, and a Secure cookie would not stick."""
+        monkeypatch.setattr(Config, "SESSION_COOKIE_SECURE", False)
+
+        response = await anonymous_client.get("/login")
+
+        assert "Secure" not in response.headers.getall("Set-Cookie")[0]
 
 
 class TestSecurityHeaders:

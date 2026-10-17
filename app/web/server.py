@@ -1311,11 +1311,17 @@ def _set_csrf_cookie(response: web.Response, token: str) -> web.Response:
     is enough because the whole point is that a *cross*-site form does not get
     to carry cookies.
 
-    Unlike the session cookie it is not marked Secure. The value is not a
-    secret — the identical string sits in the page's HTML — so it needs only
-    to survive the same request that carries the session, and letting it ride
-    over plain http keeps the forms working on a deployment whose session
-    cookie a browser would already refuse to send there.
+    Secure follows the session cookie rather than being decided here, and the
+    flag is the right one to follow: this cookie only matters to a form that
+    ends in a session, so a deployment with `SESSION_COOKIE_SECURE` on is
+    https-only by definition — a browser will not accept a Secure cookie over
+    http, which means the session could not be established there whatever this
+    cookie did.
+
+    That is also why the demonstration's guest cookie stays insecure, which is
+    the one thing this change does not do: that cookie carries a session with
+    it nowhere, being the only part of the site that needs no account, so
+    marking it Secure would break the demonstration over http and buy nothing.
     """
     response.set_cookie(
         CSRF_COOKIE,
@@ -1324,6 +1330,7 @@ def _set_csrf_cookie(response: web.Response, token: str) -> web.Response:
         path="/",
         httponly=True,
         samesite="lax",
+        secure=Config.SESSION_COOKIE_SECURE,
     )
 
     return response
