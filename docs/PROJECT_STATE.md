@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.32.0
+v0.33.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -488,6 +488,32 @@ PostgreSQL
 app/db/database.py
 
 ⸻
+
+## Security
+
+One round of manual review on 2026-10-17 covered the web layer, the
+dependencies, and the Caddy and systemd configuration. Three of the findings
+were worth the sprint:
+
+* `aiohttp` was three advisories behind — request smuggling on a WebSocket
+  upgrade, an out-of-bounds heap read in the C response parser, and compressed
+  WebSocket frames accepted without negotiation. The C parser is built here,
+  because the dependency asks for `speedups`, and the read is on the path that
+  talks to Telegram, so it was live rather than theoretical. Fixed in 3.14.5.
+* The login rate limit keys on address *and* username, and it runs before the
+  password is checked. A fresh name is a fresh allowance, so one address gets
+  unlimited attempts — and every attempt costs a scrypt at N=2^17, roughly
+  128 MiB, deliberately, so that a missing account and a wrong password take the
+  same time.
+* `systemd` ran the service without sandbox directives, which decides how far a
+  compromise reaches.
+
+Findings that are code properties but not live risks, and why: the transport
+secret check answers 401 without the secret, so it is set and active — it would
+only open if the variable were forgotten. Caddy's admin API listens on loopback
+only. The cited Caddy advisories are about Windows `file_server`, file matchers
+and `rewrite`, none of which the Caddyfile uses; the version is behind anyway
+and is worth a planned upgrade.
 
 ## Current limitations
 
