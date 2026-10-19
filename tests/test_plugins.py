@@ -233,6 +233,79 @@ class TestRemindersPlugin:
         assert len(due) == 1
         assert due[0][1] == "garbage"
 
+    async def test_reminders_lists_soonest_first(
+        self, database_with_schema, notifier,
+    ):
+        plugin = RemindersPlugin(notifier, database_with_schema)
+
+        plugin.repo.add(
+            telegram(42),
+            "later",
+            datetime.now(UTC).replace(tzinfo=None).isoformat(),
+        )
+        plugin.repo.add(telegram(42), "sooner", _one_minute_ago())
+
+        result = await plugin.execute("/reminders", "", telegram(42))
+
+        assert "sooner" in result.text
+        assert "later" in result.text
+        assert result.text.index("sooner") < result.text.index("later")
+
+    async def test_reminders_empty(self, database_with_schema, notifier):
+        plugin = RemindersPlugin(notifier, database_with_schema)
+
+        result = await plugin.execute("/reminders", "", telegram(42))
+
+        assert result.text == "No reminders"
+
+    async def test_cancel_removes_by_position(
+        self, database_with_schema, notifier,
+    ):
+        plugin = RemindersPlugin(notifier, database_with_schema)
+
+        plugin.repo.add(telegram(42), "first", _one_minute_ago())
+        plugin.repo.add(telegram(42), "second", _one_minute_ago())
+
+        result = await plugin.execute("/cancel", "2", telegram(42))
+
+        assert result.text == "Cancelled reminder 2"
+
+        remaining = plugin.repo.entries(telegram(42))
+        assert [text for _, text, _ in remaining] == ["first"]
+
+    async def test_cancel_position_out_of_range(
+        self, database_with_schema, notifier,
+    ):
+        plugin = RemindersPlugin(notifier, database_with_schema)
+
+        plugin.repo.add(telegram(42), "only", _one_minute_ago())
+
+        with pytest.raises(CommandError, match="No reminder 3"):
+            await plugin.execute("/cancel", "3", telegram(42))
+
+    async def test_cancel_non_numeric_position(
+        self, database_with_schema, notifier,
+    ):
+        plugin = RemindersPlugin(notifier, database_with_schema)
+
+        with pytest.raises(CommandError, match="Usage"):
+            await plugin.execute("/cancel", "abc", telegram(42))
+
+    async def test_cancel_is_scoped_to_the_account(
+        self, database_with_schema, notifier,
+    ):
+        """One account cannot cancel another's reminder by guessing an id."""
+        plugin = RemindersPlugin(notifier, database_with_schema)
+
+        plugin.repo.add(telegram(42), "mine", _one_minute_ago())
+        plugin.repo.add(telegram(99), "theirs", _one_minute_ago())
+
+        # telegram(42) sees only its own reminder; deleting position 1 removes
+        # "mine", and "theirs" survives.
+        await plugin.execute("/cancel", "1", telegram(42))
+
+        assert [text for _, text, _ in plugin.repo.entries(telegram(99))] == ["theirs"]
+
 
 class TestSystemPlugin:
     async def test_help_lists_commands(self, manager, web_identity):

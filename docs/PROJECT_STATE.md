@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.43.0
+v0.44.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -220,6 +220,8 @@ Purpose:
 Implemented:
 
 * create reminders
+* /reminders lists the unsent ones, soonest first; /cancel removes one by
+  its position in that list, addressed like a note — never by row id
 * PostgreSQL storage
 * background worker
 * self-managed lifecycle
@@ -655,7 +657,6 @@ deployment that never sets it records everything as before.
 
 ## Potential tasks:
 
-* add reminder to /cancel and /reminders listing;
 * webhook receiver, so something outside can drive the platform; the cost is a
   public endpoint that writes, which is the same shape as the demonstration
   and wants the same limits;

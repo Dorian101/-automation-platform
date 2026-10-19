@@ -28,6 +28,8 @@ class RemindersPlugin(BasePlugin):
     description = "Напоминания"
     commands = {
         "/remind": "Создать напоминание",
+        "/reminders": "Показать напоминания",
+        "/cancel": "Отменить напоминание по номеру",
     }
 
     def __init__(self, notifier: Notifier, database: Database | None = None):
@@ -58,6 +60,12 @@ class RemindersPlugin(BasePlugin):
         args: str,
         identity: Identity,
     ) -> CommandResult:
+        if command == "/reminders":
+            return self._list(identity)
+
+        if command == "/cancel":
+            return self._cancel(args, identity)
+
         minutes_str, _, text = args.partition(" ")
 
         if not text.strip():
@@ -92,6 +100,48 @@ class RemindersPlugin(BasePlugin):
         self.repo.add(identity, text.strip(), remind_at)
 
         return reply(f"Reminder set in {minutes} min")
+
+    def _list(self, identity: Identity) -> CommandResult:
+        reminders = self.repo.entries(identity)
+
+        if not reminders:
+            return reply("No reminders")
+
+        lines = ["Reminders (soonest first):"]
+        for position, (_, text, remind_at) in enumerate(reminders, 1):
+            lines.append(
+                f"{position}. {_format_remind_at(remind_at)} — {text}"
+            )
+
+        return reply("\n".join(lines))
+
+    def _cancel(self, args: str, identity: Identity) -> CommandResult:
+        number = args.strip()
+
+        try:
+            position = int(number)
+        except ValueError:
+            raise CommandError("Usage: /cancel <number>") from None
+
+        if position < 1:
+            raise CommandError("Usage: /cancel <number>")
+
+        reminders = self.repo.entries(identity)
+
+        if position > len(reminders):
+            raise CommandError(
+                f"No reminder {position}. Use /reminders to see {len(reminders)}.",
+            )
+
+        reminder_id = reminders[position - 1][0]
+
+        if not self.repo.delete(identity, reminder_id):
+            # Only reachable if the list changed between the two calls.
+            raise CommandError(
+                f"No reminder {position}. Use /reminders to see the list.",
+            )
+
+        return reply(f"Cancelled reminder {position}")
 
     async def _worker(self) -> None:
         while True:
@@ -157,3 +207,17 @@ class RemindersPlugin(BasePlugin):
         )
 
         return True
+
+
+def _format_remind_at(remind_at: datetime) -> str:
+    """The reminder's moment, in the reader's local time.
+
+    ``remind_at`` comes back from the database as a naive UTC timestamp. It is
+    rendered local because a person comparing "soon" against the clock on the
+    wall should not have to convert; the offset is named so the reader is not
+    left to guess which clock a bare number is on.
+    """
+    local = remind_at.replace(tzinfo=UTC).astimezone()
+    zone = local.tzname() or local.strftime("%z")
+
+    return f"{local.strftime('%Y-%m-%d %H:%M')} {zone}"

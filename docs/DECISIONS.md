@@ -1353,3 +1353,28 @@ of short-lived ones, which is what the full run exposed: a pool carries
 background threads, so a fresh `Database` per test was a cost with no benefit.
 784 tests pass. The "no connection pool" limitation is gone from the project
 state.
+
+## 2026-10-20
+
+### Decision
+List and cancel reminders by position, the way notes are addressed
+
+### Reason
+A reminder, once set, could not be seen or removed: there was nothing to
+answer "what is coming up" or "that one is stale, take it back". The notes
+plugin had already settled the addressing question — a note is deleted by its
+position in the numbered list, never by row id — and a reminder wants the same
+answer for the same reason: the id is a global sequence, so printing it leaks
+how many reminders other people have and hands out a number to guess.
+
+### How it is done
+- `RemindersRepository.entries` returns the unsent reminders soonest first, and
+  `delete` removes one scoped to the account and to the unsent state.
+- The plugin answers `/reminders` with a numbered list and `/cancel <n>` with a
+  removal by that position, refusing a number past the end or a non-number.
+- The timestamp is shown in the reader's local time with the offset named, so
+  "soon" can be compared against the clock on the wall.
+
+### Result
+A reminder is now cancellable the moment it is set, and what is coming is
+visible without waiting for a delivery. 796 tests pass.

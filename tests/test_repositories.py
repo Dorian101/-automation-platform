@@ -103,6 +103,52 @@ class TestRemindersRepository:
 
         assert Identity.parse(stored) == identity
 
+    def test_entries_lists_unsent_soonest_first(self, database_with_schema):
+        repo = RemindersRepository(database_with_schema)
+        identity = Identity(kind=WEB, id="default")
+
+        repo.add(identity, "later", _iso(timedelta(hours=1)))
+        repo.add(identity, "sooner", _iso(timedelta(minutes=5)))
+
+        entries = repo.entries(identity)
+
+        assert [text for _, text, _ in entries] == ["sooner", "later"]
+
+    def test_entries_omit_sent(self, database_with_schema):
+        repo = RemindersRepository(database_with_schema)
+        identity = Identity(kind=WEB, id="default")
+
+        repo.add(identity, "keep", _iso(timedelta(minutes=5)))
+        repo.add(identity, "sent", _iso(-timedelta(minutes=5)))
+        repo.mark_sent(repo.get_due()[0][0])
+
+        assert [text for _, text, _ in repo.entries(identity)] == ["keep"]
+
+    def test_delete_is_scoped_to_the_account(self, database_with_schema):
+        repo = RemindersRepository(database_with_schema)
+
+        repo.add(Identity(kind=WEB, id="a"), "mine", _iso(timedelta(minutes=5)))
+        repo.add(Identity(kind=WEB, id="b"), "theirs", _iso(timedelta(minutes=5)))
+        mine_id = repo.entries(Identity(kind=WEB, id="a"))[0][0]
+
+        # The other account's id is a guessable sequence; deleting by it alone
+        # must not reach their row.
+        assert repo.delete(Identity(kind=WEB, id="a"), mine_id) is True
+        assert [
+            text for _, text, _ in repo.entries(Identity(kind=WEB, id="b"))
+        ] == ["theirs"]
+
+    def test_delete_stops_at_a_sent_reminder(self, database_with_schema):
+        repo = RemindersRepository(database_with_schema)
+        identity = Identity(kind=WEB, id="default")
+
+        repo.add(identity, "done", _iso(-timedelta(minutes=5)))
+        repo.mark_sent(repo.get_due()[0][0])
+
+        # The id still exists but the row is sent, so /cancel must not remove it.
+        sent_id = repo.entries(identity)
+        assert sent_id == []
+
 
 class TestClipboardRepository:
     def test_get_last_returns_newest(self, database_with_schema):

@@ -184,7 +184,7 @@ project exists to leave behind, reached from the other direction.
 ## Current plugins
 
 - Notes: /add, /notes, /del, /clear
-- Reminders: /remind, delivers through notification channels
+- Reminders: /remind, /reminders, /cancel; delivers through notification channels
 - Clipboard: /copy, /paste
 - Expenses: page at /expenses, web-only
 - Applications: page at /applications, web-only, statuses are a state machine
