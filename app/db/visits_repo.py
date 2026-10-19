@@ -22,8 +22,9 @@ SIGNUP = "signup"
 
 #: How many rows one page shows. A screen of events, not a report: the
 #: question being answered is "was anybody here today", and the answer is in
-#: the first few dozen rows or it is not here at all.
-DEFAULT_LIMIT = 200
+#: the first few dozen rows or it is not here at all. The rest is reached by
+#: turning the page, not by scrolling.
+DEFAULT_LIMIT = 50
 
 #: How long anything is kept. A deployment that wants a different number
 #: changes this one and runs `prune-visits`.
@@ -36,6 +37,32 @@ class Visit:
     kind: str
     path: str
     identity: str | None
+
+
+def _where(path: str, exclude: str | None) -> tuple[str, list]:
+    """The conditions a query of the log is cut by, and what to fill them with.
+
+    One place, so that counting and reading cut the same rows. The exclusion
+    is written as `IS DISTINCT FROM` rather than `!=` because a visit by a
+    reader with no session has no identity at all, and `NULL != 'web:somebody'`
+    is not true in SQL — which would have left every anonymous row out of the
+    count the moment the owner asked to be hidden.
+    """
+    conditions: list[str] = []
+    arguments: list = []
+
+    if path:
+        conditions.append("path = %s")
+        arguments.append(path)
+
+    if exclude is not None:
+        conditions.append("identity IS DISTINCT FROM %s")
+        arguments.append(exclude)
+
+    if not conditions:
+        return "", arguments
+
+    return "WHERE " + " AND ".join(conditions), arguments
 
 
 class VisitsRepository:
@@ -73,27 +100,30 @@ class VisitsRepository:
         self,
         path: str = "",
         limit: int = DEFAULT_LIMIT,
+        offset: int = 0,
+        exclude: str | None = None,
     ) -> list[Visit]:
-        """The newest events, optionally only those of one page."""
-        if path:
-            query = """
-                SELECT at, kind, path, identity FROM visits
-                WHERE path = %s
-                ORDER BY at DESC, id DESC
-                LIMIT %s
-            """
-            arguments = (path, limit)
-        else:
-            query = """
-                SELECT at, kind, path, identity FROM visits
-                ORDER BY at DESC, id DESC
-                LIMIT %s
-            """
-            arguments = (limit,)
+        """The newest events, optionally only those of one page.
+
+        `offset` walks the log a page at a time, and `exclude` drops one
+        identity from the rows. The exclusion belongs here rather than in the
+        reader, because a filter applied after the page was chosen leaves two
+        different numbers in the room: the rows on the page and the rows the
+        page was cut from. `count` takes the same exclusion for the same
+        reason.
+        """
+        where, arguments = _where(path, exclude)
+        arguments = arguments + [limit, offset]
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
-                cur.execute(query, arguments)
+                cur.execute(
+                    "SELECT at, kind, path, identity FROM visits "
+                    f"{where} "
+                    "ORDER BY at DESC, id DESC "
+                    "LIMIT %s OFFSET %s",
+                    arguments,
+                )
                 rows = cur.fetchall()
 
         return [Visit(at=row[0], kind=row[1], path=row[2], identity=row[3])
@@ -111,18 +141,18 @@ class VisitsRepository:
 
         return [row[0] for row in rows]
 
-    def count(self, path: str = "") -> int:
-        if path:
-            with self.database.connect() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        "SELECT count(*) FROM visits WHERE path = %s", (path,)
-                    )
-                    return cur.fetchone()[0]
+    def count(self, path: str = "", exclude: str | None = None) -> int:
+        """How many events the log holds, on the same terms as `recent`.
+
+        The exclusion is the same one, so the number and the rows it counts
+        are the same rows. A total that included what the table hides is a
+        number nobody can match against the table under it.
+        """
+        where, arguments = _where(path, exclude)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT count(*) FROM visits")
+                cur.execute(f"SELECT count(*) FROM visits {where}", arguments)
                 return cur.fetchone()[0]
 
     def prune(self, days: int = RETENTION_DAYS) -> int:

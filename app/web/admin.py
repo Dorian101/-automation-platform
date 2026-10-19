@@ -26,6 +26,7 @@ import logging
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 from aiohttp import web
@@ -33,7 +34,7 @@ from aiohttp import web
 from app.core.config import Config
 from app.db.sessions_repo import SessionsRepository
 from app.db.users_repo import User, UsersRepository
-from app.db.visits_repo import Visit, VisitsRepository
+from app.db.visits_repo import DEFAULT_LIMIT, Visit, VisitsRepository
 from app.web.auth import SESSION_COOKIE, resolve_user
 from app.web.csrf import CSRF_FIELD, CsrfSigner
 from app.web.pages import menu_styles
@@ -188,18 +189,29 @@ class AdminArea:
         whether anybody else came, and their own checking is recorded here
         exactly like a stranger's, because nothing in the log says which is
         which.
+
+        The log is read a page at a time, and the page number is `page=2`.
+        The exclusion is asked for in the query rather than applied to the
+        rows afterwards, so that the count and the table are cut by the same
+        line: a total that included what the table hides is a number nobody
+        can match against the table under it.
         """
         query = request.query.get("q", "").strip()
         hiding = request.query.get("hide") == "1"
 
-        found = self._visits.recent(path=query) if query else self._visits.recent()
+        # Who the owner is does not change from one row to the next, and
+        # finding out is two queries. Asking per row cost the page four
+        # seconds once the log had a few hundred entries in it.
+        mine = _mine(request) if hiding else None
+        exclude = mine if hiding else None
 
-        if hiding:
-            # Who the owner is does not change from one row to the next, and
-            # finding out is two queries. Asking per row cost the page four
-            # seconds once the log had a few hundred entries in it.
-            mine = _mine(request)
-            found = [v for v in found if v.identity != mine]
+        total = self._visits.count(path=query, exclude=exclude)
+        whole = total if not query else self._visits.count(exclude=exclude)
+        pages = max(1, -(-total // DEFAULT_LIMIT))
+        page = min(_page_number(request.query.get("page", "")), pages)
+        offset = (page - 1) * DEFAULT_LIMIT
+
+        found = self._visits.recent(path=query, offset=offset, exclude=exclude)
 
         body = _fragment("admin_visits.html", {
             "__QUERY__": html.escape(query, quote=True),
@@ -208,12 +220,8 @@ class AdminArea:
                 for path in self._visits.paths()
             ),
             "__CHECKED__": " checked" if hiding else "",
-            # The count line is composed here and the numbers are substituted
-            # after it, so these two have to travel with it. Left out, the page
-            # shows the placeholder's name — which is what happened.
-            "__COUNT_LINE__": _count_line(query, hiding, len(found)),
-            "__TOTAL__": str(self._visits.count()),
-            "__FILTERED__": str(self._visits.count(query)) if query else "",
+            "__COUNT_LINE__": _count_line(total, whole, len(found), offset),
+            "__PAGER__": _pager(page, pages, query, hiding),
             "__ROWS__": _visit_rows(found),
         })
 
@@ -366,24 +374,91 @@ def _mine(request: web.Request) -> str | None:
     return str(users.identity_for(actor)) if actor is not None else None
 
 
-def _count_line(query: str, hiding: bool, shown: int) -> str:
+def _count_line(total: int, whole: int, shown: int, offset: int) -> str:
     """What the count above the table is counting.
 
-    While the administrator is being hidden it says how many rows are on the
-    page rather than how many the log holds, because the two are different
-    numbers and a total nobody can match against the table below it is a small
+    Three numbers and all of them are true: how many events the log holds,
+    how many of them the filter keeps, and which of those are on the screen.
+    The first two used to disagree in a way nobody could match against the
+    table under it — the total counted the owner's own visits while the table
+    hid them — and a total nobody can match against the table is a small
     thing to wonder about every time.
+
+    The filter's number only appears when it differs, because a page with no
+    filter has one total and not two of the same.
     """
-    if hiding:
-        return f"Показано: <b>{shown}</b>"
+    parts = [f"Всего событий: <b>{whole}</b>"]
+
+    if total != whole:
+        parts.append(f"под фильтром: <b>{total}</b>")
+
+    if total:
+        parts.append(f"показано <b>{offset + 1}–{offset + shown}</b>")
+
+    return " &middot; ".join(parts)
+
+
+def _page_number(raw: str) -> int:
+    """The page asked for, or the first one.
+
+    A page number is a thing a person types, so it is checked rather than
+    trusted: anything that is not a whole number of pages, or is not one at
+    all, is the first page. A number past the last page is not fixed here —
+    the caller knows how many pages there are and clamps it to the last, so
+    that a stale link lands on real rows instead of an empty table.
+    """
+    try:
+        number = int(raw)
+    except ValueError:
+        return 1
+
+    return number if number >= 1 else 1
+
+
+def _visit_url(page: int, query: str, hiding: bool) -> str:
+    """The address of one page of the log, with the filters still on.
+
+    The page number is left out of the first page's address, because a link
+    to the first page is the page itself and not a page of something.
+    """
+    arguments: dict[str, str] = {}
 
     if query:
-        return (
-            "Всего событий: <b>__TOTAL__</b>"
-            " &middot; на этой странице: <b>__FILTERED__</b>"
-        )
+        arguments["q"] = query
 
-    return "Всего событий: <b>__TOTAL__</b>"
+    if hiding:
+        arguments["hide"] = "1"
+
+    if page > 1:
+        arguments["page"] = str(page)
+
+    encoded = urlencode(arguments)
+
+    return f"/admin/visits?{encoded}" if encoded else "/admin/visits"
+
+
+def _pager(page: int, pages: int, query: str, hiding: bool) -> str:
+    """The way to the other pages, and the way back.
+
+    The filters travel with it: a reader who narrowed the log and then turned
+    the page expects to still be looking at the same narrowing, and a pager
+    that dropped it would answer a question nobody asked.
+    """
+    parts = []
+
+    if page > 1:
+        earlier = html.escape(
+            _visit_url(page - 1, query, hiding), quote=True
+        )
+        parts.append(f'<a class="pagerlink" href="{earlier}">&larr; раньше</a>')
+
+    parts.append(f"<span>страница {page} из {pages}</span>")
+
+    if page < pages:
+        later = html.escape(_visit_url(page + 1, query, hiding), quote=True)
+        parts.append(f'<a class="pagerlink" href="{later}">позже &rarr;</a>')
+
+    return '<nav class="pager">' + " ".join(parts) + "</nav>"
 
 
 def _fragment(template: str, replacements: dict[str, str]) -> str:

@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.40.0
+v0.41.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -54,6 +54,8 @@ The platform is operational.
   owner is once per page rather than once per row
 - `VISIT_PROBE_TOKEN`, so the owner's own measuring from any address stays out
   of the visit log
+- the visit log is read a page at a time — `page=2`, fifty rows to a page — and
+  the filter and the box travel from page to page
 
 ## Deployment
 

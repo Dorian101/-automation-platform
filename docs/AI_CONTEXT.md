@@ -562,6 +562,28 @@ it is resolved before the filter, outside it. Called inside, it was two
 queries and two connections per row: four seconds at two hundred events, with
 nothing on the page individually slow enough to notice.
 
+**The exclusion is asked for in the query, not applied to the rows.** It used
+to be a Python filter over the rows the page had already chosen, which put two
+different numbers in the room: the rows on the page, and the rows the page was
+cut from. The count and the table are now cut by the same line — `count` takes
+the same exclusion as `recent` — so the total is the number of rows the log
+holds for other readers, and it matches the table under it. The exclusion is
+written `IS DISTINCT FROM` and not `!=`, because a visit by a reader with no
+session has no identity at all and `NULL != 'web:somebody'` is not true in
+SQL; that would have dropped every anonymous row from the count the moment
+the owner asked to be hidden.
+
+**The log is read a page at a time.** `page=2`, fifty rows to a page, and a
+page number past the last is clamped to the last rather than answered with an
+empty table — a stale link lands on real rows. The filter and the box travel
+with the pager, because a reader who narrowed the log and then turned the
+page expects to still be looking at the same narrowing.
+
+**The count line says three things and all three are true:** how many events
+the log holds, how many of them the filter keeps, and which of those are on
+the screen. The filter's number only appears when it differs, because a page
+with no filter has one total and not two of the same.
+
 **Two ways out of the log, and both are compared on the way in.**
 `VISIT_IGNORE_IPS` matches the address the reverse proxy wrote, which covers
 the machine the owner browses from and nothing else. `VISIT_PROBE_TOKEN`

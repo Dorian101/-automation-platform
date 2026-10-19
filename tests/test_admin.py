@@ -17,6 +17,16 @@ ADMIN_PREFIX = "/admin"
 USERS_PATH = "/admin/users"
 
 
+def _rows(body: str) -> list[str]:
+    """The identities in the visit table, in the order the page shows them.
+
+    The last cell of each row is who the visit is filed under, which is the
+    one thing in a row that says which row it is when every row came from the
+    same page.
+    """
+    return re.findall(r'<td class="name">.*?</td><td>(.*?)</td></tr>', body)
+
+
 @pytest.fixture
 def web_server(manager, database_with_schema, web_server_factory):
     return web_server_factory(manager, database_with_schema)
@@ -562,7 +572,9 @@ class TestTheVisitLog:
         assert "/project" in body
         assert "/project" not in table
         assert "/about" in table
-        assert "на этой странице" in body
+        # The count says how much the log holds and how much of it the filter
+        # keeps, and the two are about different sets.
+        assert "под фильтром" in body
 
     async def test_an_empty_log_says_so(self, admin_client):
         """A filter that matches nothing still has to render as a page
@@ -872,6 +884,105 @@ class TestVisitTimestamps:
         assert "Когда, MSK" in body
 
 
+class TestPaging:
+    """The log is longer than one screen and it keeps growing.
+
+    A page that shows the first rows and stops is not a log you can read: the
+    question it answers is "was anybody here", and the answer has to reach
+    back past the point where the screen ran out.
+    """
+
+    async def test_the_second_page_holds_what_the_first_did_not(
+        self, admin_client, database_with_schema
+    ):
+        from app.db.visits_repo import DEFAULT_LIMIT, VisitsRepository
+
+        repo = VisitsRepository(database_with_schema)
+        for number in range(DEFAULT_LIMIT + 12):
+            repo.record("view", path="/about", identity=f"web:guest:{number}")
+
+        total = len(repo.recent(limit=1000))
+
+        first = await (await admin_client.get("/admin/visits")).text()
+        second = await (await admin_client.get("/admin/visits?page=2")).text()
+
+        first_rows = _rows(first)
+        second_rows = _rows(second)
+
+        assert len(first_rows) == DEFAULT_LIMIT
+        assert len(second_rows) == total - DEFAULT_LIMIT
+        assert not set(first_rows) & set(second_rows)
+
+    async def test_the_pages_are_the_log_in_order(
+        self, admin_client, database_with_schema
+    ):
+        """The second page continues the first rather than repeating it."""
+        from app.db.visits_repo import DEFAULT_LIMIT, VisitsRepository
+
+        repo = VisitsRepository(database_with_schema)
+        for number in range(DEFAULT_LIMIT + 5):
+            repo.record("view", path="/about", identity=f"web:guest:{number}")
+
+        first = await (await admin_client.get("/admin/visits")).text()
+        second = await (await admin_client.get("/admin/visits?page=2")).text()
+
+        whole = _rows(first) + _rows(second)
+        every = [v.identity for v in repo.recent(limit=1000)]
+
+        assert whole == every
+
+    async def test_a_page_past_the_last_one_is_the_last_one(
+        self, admin_client, database_with_schema
+    ):
+        """A stale link lands on real rows, not on an empty table."""
+        from app.db.visits_repo import VisitsRepository
+
+        repo = VisitsRepository(database_with_schema)
+        for number in range(3):
+            repo.record("view", path="/about", identity=f"web:guest:{number}")
+
+        total = len(repo.recent(limit=1000))
+
+        body = await (await admin_client.get("/admin/visits?page=99")).text()
+
+        assert len(_rows(body)) == total
+        assert "страница 1 из 1" in body
+
+    async def test_the_pager_keeps_the_filter_and_the_box(
+        self, admin_client, database_with_schema
+    ):
+        """Turning a page must not drop what the reader asked for."""
+        from app.db.visits_repo import DEFAULT_LIMIT, VisitsRepository
+
+        repo = VisitsRepository(database_with_schema)
+        for number in range(DEFAULT_LIMIT + 5):
+            repo.record("view", path="/about", identity=f"web:guest:{number}")
+
+        body = await (await admin_client.get(
+            "/admin/visits?q=%2Fabout&hide=1"
+        )).text()
+
+        assert "page=2" in body
+        assert "q=%2Fabout" in body
+        assert "hide=1" in body
+
+    async def test_the_count_says_what_is_shown_and_what_there_is(
+        self, admin_client, database_with_schema
+    ):
+        from app.db.visits_repo import DEFAULT_LIMIT, VisitsRepository
+
+        repo = VisitsRepository(database_with_schema)
+        for number in range(DEFAULT_LIMIT + 12):
+            repo.record("view", path="/about", identity=f"web:guest:{number}")
+
+        total = len(repo.recent(limit=1000))
+
+        body = await (await admin_client.get("/admin/visits")).text()
+
+        assert f"Всего событий: <b>{total}</b>" in body
+        assert f"показано <b>1–{DEFAULT_LIMIT}</b>" in body
+
+
 class TestHidingTheAdministrator:
     """The owner's own checking is recorded here like a stranger's.
 
@@ -962,7 +1073,12 @@ class TestHidingTheAdministrator:
         self, admin_client, database_with_schema
     ):
         """A total nobody can match against the table under it is a thing to
-        wonder about every time."""
+        wonder about every time.
+
+        So the total does not count what the table hides. It used to: the
+        exclusion was applied to the rows after the count had been taken, and
+        the two numbers were about different sets.
+        """
         from app.db.visits_repo import VisitsRepository
 
         VisitsRepository(database_with_schema).record(
@@ -972,8 +1088,35 @@ class TestHidingTheAdministrator:
         shown = await (await admin_client.get("/admin/visits?hide=1")).text()
         everything = await (await admin_client.get("/admin/visits")).text()
 
-        assert "Показано: <b>0</b>" in shown
+        # Hidden: the administrator's own event is not in the total either, so
+        # the total is the number of events left for other readers.
+        assert "Всего событий: <b>0</b>" in shown
+
+        # Not hidden: the same event is in the total and in the table.
         assert "Всего событий: <b>" in everything
+        assert "под фильтром" not in everything
+
+    async def test_the_total_counts_the_other_readers_only(
+        self, admin_client, database_with_schema
+    ):
+        """The number and the table are about the same rows.
+
+        The case above is the empty one — a log holding nothing but the
+        owner's own events, where the total is zero. This is the case that
+        happens: a log holding both, where the total has to be the other
+        readers' events and not the whole log minus something.
+        """
+        from app.db.visits_repo import VisitsRepository
+
+        repo = VisitsRepository(database_with_schema)
+        repo.record("view", path="/project", identity=f"web:{TEST_USERNAME}")
+        for number in range(3):
+            repo.record("view", path="/project", identity=f"web:guest:{number}")
+
+        body = await (await admin_client.get("/admin/visits?hide=1")).text()
+
+        assert "Всего событий: <b>3</b>" in body
+        assert "показано <b>1–3</b>" in body
 
     async def test_hiding_costs_the_same_however_many_rows_there_are(
         self, admin_client, database_with_schema, monkeypatch
