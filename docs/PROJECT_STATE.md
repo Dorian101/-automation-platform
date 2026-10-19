@@ -624,10 +624,9 @@ deployment that never sets it records everything as before.
   without a session, and it is capped and rate limited rather than closed.
 * Web console is functional but minimal.
 * The demonstration namespace is pruned by a systemd timer on the host, daily
-  at 05:23. This is a place where the repository and the machine can
-  disagree, and it did — see the note below about what the docs miss. The
-  visit log has the same shape: a command and a window in here, a unit on the
-  host that is not installed.
+  at 05:23, and the visit log by another at 05:47. This is a place where the
+  repository and the machine can disagree, and it did — see the note below
+  about what the docs miss.
 * Guest writes are capped (12 categories, 100 expenses, 25 applications), and
   the whole demonstration is rate limited to 200 requests an hour per address.
   Neither is a wall: a visitor with proxy addresses gets past the limit, and
@@ -670,14 +669,6 @@ deployment that never sets it records everything as before.
 * a preview image for the résumé link (`og:image`). Every share preview on the
   site is a bare title today, and a picture is the first binary asset the
   project would carry — which is why it was left alone rather than hurried;
-* install the visit-log cleanup timer. `prune-visits` is written, tested and
-  documented, and the unit is not on the host — the same gap the guest timer
-  once had. The table took eighteen rows on its first day and the retention
-  window is ninety, so nothing is near needing it yet; the page reads it a
-  page at a time, so a long table is inconvenient rather than unreadable.
-  Install it when the table reaches a few thousand rows, when a search over
-  old visits is wanted, or when the rows show up in how long a dump takes —
-  whichever arrives first.
 
 On the documents themselves: `PROJECT_STATE.md` is edited at the end of a
 sprint, which means it describes the code as of that moment and nothing about

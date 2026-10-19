@@ -614,9 +614,9 @@ counting rows for a token answers "how often" without a second mechanism that
 can disagree with the first.
 
 **`prune-visits` from a timer, the same shape as `prune-guests`** — the
-command is written, tested and documented, and the unit is **not** on the
-host. It is the only thing that removes from the table, which is written on
-every public request, so the table grows until somebody installs it.
+command is written, tested and documented, and the timer runs daily at 05:47
+on the host. It is the only thing that removes from the table, which is
+written on every public request.
 
 **Not here on purpose:** creating accounts and resetting passwords. A person
 signs up, or resets their own password, through the ordinary forms. The CLI

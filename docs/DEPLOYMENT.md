@@ -905,12 +905,47 @@ WorkingDirectory=/opt/automation-platform
 ExecStart=/opt/automation-platform/.venv/bin/python -m app.manage prune-guests
 ```
 
-The visit log is cleaned the same way, with
-`prune-visits` in place of `prune-guests` and a second unit — **which is not
-installed on this host.** Copy both blocks above, change the name to
-`automation-platform-visits`, the command to
-`-m app.manage prune-visits`, and the description. The window is
-`RETENTION_DAYS` in `app/db/visits_repo.py`.
+The visit log is cleaned the same way, with its own unit and an hour later,
+so the two jobs never overlap:
+
+`/etc/systemd/system/automation-platform-visits.service`:
+
+```ini
+[Unit]
+Description=Automation Platform visit log cleanup
+After=postgresql.service
+
+[Service]
+Type=oneshot
+User=automation
+WorkingDirectory=/opt/automation-platform
+ExecStart=/opt/automation-platform/.venv/bin/python -m app.manage prune-visits
+```
+
+`/etc/systemd/system/automation-platform-visits.timer`:
+
+```ini
+[Unit]
+Description=Daily Automation Platform visit log cleanup
+
+[Timer]
+OnCalendar=*-*-* 05:47:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+The window is `RETENTION_DAYS` in `app/db/visits_repo.py` (90 by default), so
+the first run on an empty log removes nothing — which is a normal result.
+
+```bash
+systemctl daemon-reload
+systemctl enable --now automation-platform-visits.timer
+systemctl start automation-platform-visits.service
+journalctl -u automation-platform-visits.service -n 20 --no-pager
+systemctl list-timers automation-platform-visits.timer
+```
 
 `/etc/systemd/system/automation-platform-guests.timer`:
 
