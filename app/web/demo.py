@@ -176,12 +176,22 @@ class DemoService:
         if limited is not None:
             return limited
 
+        # Minted here as well, so that the reader who arrives and the reader
+        # who clicks on are the same row rather than two. Nothing is filled in
+        # for them — `_view` is what writes a namespace, and this does not call
+        # it — so arriving costs a cookie and a log row and nothing else.
+        identity, token = read_guest(request)
+        request[VISITOR] = identity
+
         links = self._manager.demo_pages()
 
-        return web.Response(
+        response = web.Response(
             text=render_demo_landing(links, self._nav()),
             content_type="text/html",
         )
+        set_guest_cookie(response, token)
+
+        return response
 
     async def page(self, request: web.Request) -> web.Response:
         """A plugin's page, rendered for a guest."""

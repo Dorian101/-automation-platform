@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.39.0
+v0.40.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -327,6 +327,8 @@ Demonstration:
   public; the rest still needs a session
 * a visitor is `web:guest:<token>` from a cookie — never a row in `users`,
   never a password, never a session
+* the landing issues that cookie too, so one reader is one token from `/demo`
+  onwards rather than arriving unnamed and being named at the first click
 * a guest namespace is seeded on arrival, so the cleanup can run at any time
 * writes are capped per guest
 * the page states that the data is invented

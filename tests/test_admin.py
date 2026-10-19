@@ -455,13 +455,23 @@ class TestTheVisitLog:
         assert found[0].path == "/demo/expenses"
         assert found[0].identity.startswith("web:guest:")
 
-    async def test_the_landing_is_recorded_without_a_name(
+    async def test_the_landing_starts_the_guest_it_goes_on_using(
         self, app_client, database_with_schema
     ):
-        """The landing mints no guest: it only lists what there is to look
-        at, and a namespace for somebody who never clicked would be a row per
-        passer-by for nothing. So the visit is real and the reader is not
-        named — which is what an unnamed row in a log is for.
+        """A visitor is somebody from the front door, not from the second click.
+
+        It used to mint nothing here, on the grounds that a namespace for
+        somebody who never clicked would be a row per passer-by for nothing.
+        The namespace was never the cost — a token is a cookie, and rows appear
+        only when a page is opened, which is what the plugin page does and this
+        does not.
+
+        What that behaviour actually cost was the link. The arrival was filed
+        as nobody and the same reader's next click was filed under a token, so
+        one person was two rows with nothing saying they were one — which is
+        the question the page exists to answer. Come and went without clicking
+        is still visible afterwards: a token on its own, on `/demo`, appearing
+        exactly once.
         """
         from app.db.visits_repo import VisitsRepository
 
@@ -470,7 +480,22 @@ class TestTheVisitLog:
         found = VisitsRepository(database_with_schema).recent()
 
         assert found[0].path == "/demo"
-        assert found[0].identity is None
+        assert found[0].identity.startswith("web:guest:")
+
+    async def test_the_landing_and_the_page_after_it_are_one_reader(
+        self, app_client, database_with_schema, pages_manager
+    ):
+        """One visitor, one token, however many pages they walk."""
+        from app.db.visits_repo import VisitsRepository
+
+        await app_client.get("/demo")
+        await app_client.get("/demo/expenses")
+
+        found = VisitsRepository(database_with_schema).recent()
+
+        assert [v.path for v in found] == ["/demo/expenses", "/demo"]
+        assert found[0].identity == found[1].identity
+        assert found[0].identity.startswith("web:guest:")
 
     async def test_a_page_that_nobody_may_see_is_not(
         self, admin_client, database_with_schema

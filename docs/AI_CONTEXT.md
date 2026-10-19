@@ -546,9 +546,15 @@ reading it after the fact would mint a second token and file the visit under
 a namespace that never existed. The handler leaves the identity on the
 request, and the log reads it from there.
 
-**The landing page mints no guest**, so its row has no name — it only lists
-what there is to look at, and a namespace per passer-by would be rows for
-nothing.
+**The landing mints a guest too**, so one reader is one token from the front
+door onwards. It used not to, so that somebody who only listed what there was
+to look at would not leave a namespace behind — but a token is a cookie, and
+namespaces are written by `_view`, which the landing does not call. Arriving
+cost a cookie and a row and nothing else, while what it saved was nothing: the
+arrival was filed as nobody and the same reader's next click under a token, so
+one person was two rows with nothing joining them. Came and left without
+clicking still shows afterwards — a token on `/demo`, appearing once, on its
+own.
 
 **Hiding the administrator asks who they are once, not once per row.** The box
 drops the owner's own events, and the identity is the same for every row — so
