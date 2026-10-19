@@ -1113,3 +1113,168 @@ data.
 namespace surviving between requests, the banner, the caps, pruning leaving an
 account untouched, and the structural check that the module never resolves a
 session. 586 pass.
+
+## 2026-10-19
+
+### Decision
+Read the visit log a page at a time, and cut the owner's own events out in the query
+
+### Reason
+The log is an event log that only grows, and the page read the first two
+hundred rows of it and stopped. Worse, the two numbers on the page were about
+different sets: the count was taken over the whole log, and the table was the
+first two hundred rows, so the number a reader saw and the rows under it did
+not agree even before a filter was applied.
+
+The `hide=1` box made that worse rather than better, because it was applied in
+Python to rows the page had already chosen. Hiding the administrator was
+therefore a filter over the slice, not over the log: the total counted their
+visits, the table did not show them, and a page that says one number above a
+table of a different size is a small thing to wonder about every time.
+
+The fix is not to filter earlier but to ask for the same thing in one place.
+The exclusion is now a condition of the query, `count` takes it too, and the
+two are cut by the same line. The total is the number of rows the log holds
+for other readers, and it matches the table under it.
+
+The exclusion is written `IS DISTINCT FROM` and not `!=`, and that is not
+stylistic. A visit by a reader with no session has no identity at all, and
+`NULL != 'web:somebody'` is not true in SQL — a `!=` would have silently
+dropped every anonymous row from the count the moment the owner asked to be
+hidden, which is the opposite of what the box is for.
+
+### How it is done
+- `VisitsRepository.recent` takes an `offset` and an `exclude`; `count` takes
+  the same exclusion. Both build their condition through one helper, so
+  reading and counting cannot drift apart.
+- The page reads `page=2`, fifty rows to a page. A page number past the last
+  is clamped to the last rather than answered with an empty table, so a stale
+  link lands on real rows.
+- The filter and the box travel with the pager, because a reader who narrowed
+  the log and then turned the page expects to still be looking at the same
+  narrowing.
+- The count line says three things: how many events the log holds, how many of
+  them the filter keeps, and which of those are on the screen. The filter's
+  number only appears when it differs, because a page with no filter has one
+  total and not two of the same.
+
+### Result
+782 tests. The paging ones count connections rather than seconds, because
+seconds would be slow and flaky: five events opened twenty-one connections and
+thirty-five opened eighty-one before the fix, and the numbers are the same now.
+
+The same investigation found the cause of a four-second page, which was not
+where it was looked for. The visitor's own events were excluded by asking who
+the owner is — two queries, two connections — **once per row**, and there is
+no connection pool, so a page of two hundred events opened four hundred
+connections to PostgreSQL. The server was never slow: fifty measurements from
+the host itself never passed 0.146 s, and the delay was identical with the
+proxy off. The mistake worth recording is that all fifty of those probes were
+`/about` and `/login`, and the slow page was never measured, so the page was
+exonerated by a measurement that could not have found anything.
+
+## 2026-10-19
+
+### Decision
+Keep the owner's own measuring out of the visit log with a secret, not with an address
+
+### Reason
+The log records pages looked at and nothing about who looked: no address is
+stored, deliberately, because an address would tell the owner nothing they did
+not already have. The consequence is that the owner's own checking sits in the
+same table as a stranger's, and the only thing that could tell them apart was
+an address compared on the way in and then thrown away.
+
+An address is the wrong filter for most of the work done against the site.
+It is written on one machine, so it stops matching the moment that machine's
+address changes, and it says nothing about a request made from anywhere else.
+Measuring the site from a laptop on a different network, or through a proxy,
+arrives from an address that is on no list — and every such request is
+recorded as somebody visiting. That is not a hypothetical cost: measuring the
+site once put a hundred and thirty rows into the table in an afternoon.
+
+The alternative of not measuring the public pages was rejected. Ordinary work
+visits them, and asking a tool to keep away from the pages it was asked to
+look at is not a rule that survives a week.
+
+### How it is done
+- `VISIT_PROBE_TOKEN` and the `X-Platform-Probe` header. A request carrying it
+  leaves no row, from whatever address it came, and covers sign-ins as well as
+  page views.
+- Compared in the same place the address is compared — on the way in, and
+  never stored, so nothing is added to any table.
+- Empty trusts nothing. `compare_digest` calls two empty strings equal, so an
+  unset token compared against a missing header would have trusted every
+  request on the site. The empty check comes first for the same reason it does
+  in the invite code.
+- Caddy passes the header through without being configured to, which was
+  checked by asking for a page with it and watching the log stay empty, not by
+  reading the config.
+
+### Result
+It is a shared secret and not a credential, and the documentation says so
+where somebody will read it before relying on it: anyone holding the value can
+keep themselves out of the log, and a header is no secret against someone
+determined to send one. It is not a way to refuse a visitor, and the log was
+never an audit trail.
+
+## 2026-10-19
+
+### Decision
+The demonstration's front door mints the same guest its pages do
+
+### Reason
+A visitor arriving at `/demo` was recorded with no name at all, and the guest
+namespace began at the first click into a plugin page. The result on screen
+was one person as two rows with nothing joining them — an unnamed arrival and
+a named visit — which is the question the page is opened to answer.
+
+The old behaviour was deliberate, and the reason was recorded next to the test
+that held it: a namespace for somebody who never clicked would be a row per
+passer-by for nothing. But the namespace was never the cost. A token is a
+cookie; rows appear only when a page is opened, which is what `_view` does and
+the landing does not call. Arriving cost a cookie and a log row and nothing
+else, while what it saved was nothing at all.
+
+The "came and went without clicking" signal is not lost by this. It becomes a
+token appearing exactly once, on `/demo`, on its own — which says more than an
+unnamed row did, because an unnamed row read the same way as an unnamed row
+from anybody else.
+
+### How it is done
+- `landing` calls `read_guest` and `set_guest_cookie`, as the plugin page and
+  the action route already did, and leaves the identity on the request.
+- The test that asserted the opposite was rewritten rather than deleted, and
+  its reasoning kept: the exclusion of a namespace per passer-by is still
+  true, it simply was never what the landing did.
+
+### Result
+Six rows under one token across three pages and two browser sessions, against
+twenty-seven tokens with one row each before. The reason for the many was
+never a second bug: it was a fresh browser context each time, and a fresh
+context is a fresh cookie, which is correct.
+
+## 2026-10-19
+
+### Decision
+Leave HTTP/3 enabled, and record that the hypothesis behind disabling it was wrong
+
+### Reason
+A five-second delay on one page of the administration area was measured, and
+the trail of suspects ran through the server, the proxy and the protocol. The
+server was excluded by fifty measurements on the host itself. The proxy was
+excluded by the delay being identical with it off. The protocol was not
+excluded: the browser spoke h3 and a command line spoke h2, over the same
+connection to the same server, with four hundred milliseconds against eight
+seconds.
+
+HTTP/3 was therefore disabled in Caddy. It changed nothing, and the change was
+reverted rather than left behind on a theory that had been measured wrong. The
+delay was in the application all along.
+
+It is recorded because the reasoning was not wrong — UDP is genuinely worse
+where it is throttled, and a Russian reader on a corporate network is exactly
+the case where it would be — and because the measurement that settled it is
+the one worth keeping: aiohttp's access log writes the time the request
+started in brackets and the time the line was written in the prefix, and the
+gap between them is the duration, on every request, for free.

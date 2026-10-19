@@ -23,7 +23,7 @@ Fill this in first. Everything below refers back to it.
 | Checkout | `/opt/automation-platform`, owned by `automation` |
 | Domain | `<domain>` |
 | Nameservers | `<ns1>`, `<ns2>` |
-| Exposed ports | 22 (SSH), 443 (HTTPS) |
+| Exposed ports | 22 (SSH), 80 (HTTPS redirect and the ACME challenge), 443 (HTTPS, TCP and UDP for HTTP/3) |
 
 PostgreSQL, the bot and Caddy all run on this one box. The app listens on
 `127.0.0.1:8080` and is never reachable from outside.
@@ -117,16 +117,33 @@ PROXY_URL=          # empty: api.telegram.org is reachable from Germany
 TELEGRAM_BOT_USERNAME=   # empty: no Telegram link button (see Telegram linking)
 TELEGRAM_LOGIN_MAX_AGE_SECONDS=300   # how long a Login Widget signature stays fresh
 
+# How the administration pages print timestamps. Rows are stored in UTC.
+DISPLAY_TIMEZONE=UTC
+
 # Rate limits on the public forms (per process; the defaults are shown).
 # 0 disables a limit, which is only sensible behind a limiting edge.
 RATE_LIMIT_WINDOW_SECONDS=60
 LOGIN_ATTEMPTS_PER_WINDOW=5
+LOGIN_ATTEMPTS_PER_ADDRESS_PER_WINDOW=20
 SIGNUP_ATTEMPTS_PER_WINDOW=10
 SIGNUP_WINDOW_SECONDS=3600
+DEMO_ATTEMPTS_PER_WINDOW=200
+DEMO_WINDOW_SECONDS=3600
+
+# Keeping your own traffic out of the visit log, and the secret that does
+# it from anywhere (both are described below).
+VISIT_IGNORE_IPS=
+VISIT_PROBE_TOKEN=
+
+# Where the daily database dump goes. Outside the checkout, and it must
+# exist and belong to the user the job runs as.
+BACKUP_DIR=/var/backups/automation-platform
+BACKUP_RETENTION_DAYS=14
 ```
 
 `app/core/config.py` calls `load_dotenv()` itself. Do not "simplify" that away
-— see Gotchas.
+— see Gotchas. `.env.example` carries the same list with the defaults and a
+comment on each; this block is the subset a deployment cannot do without.
 
 ### Timestamps in the administration pages
 
@@ -514,7 +531,7 @@ Expected shape of each:
 | wrong `/login` posts beyond the allowance | `429` `Слишком много попыток. Попробуйте позже.` |
 | `/robots.txt` or `/sitemap.xml` with the header, no cookie | `200` — a crawler has no session and cannot get one |
 
-A fresh database logs `Applied 7 new migration(s)` on first start. An existing
+A fresh database logs `Applied 9 new migration(s)` on first start. An existing
 one logs only what it is missing, and a deployment with nothing to apply
 logs `Database schema is up to date` — in which case **no backup is taken**,
 because the dump exists to precede a migration and there was none.
@@ -889,8 +906,9 @@ ExecStart=/opt/automation-platform/.venv/bin/python -m app.manage prune-guests
 ```
 
 The visit log is cleaned the same way, with
-`prune-visits` in place of `prune-guests` and a second unit. Copy both blocks
-above, change the name to `automation-platform-visits`, the command to
+`prune-visits` in place of `prune-guests` and a second unit — **which is not
+installed on this host.** Copy both blocks above, change the name to
+`automation-platform-visits`, the command to
 `-m app.manage prune-visits`, and the description. The window is
 `RETENTION_DAYS` in `app/db/visits_repo.py`.
 
@@ -1031,7 +1049,7 @@ uv run ruff check .
 uv run pytest
 ```
 
-749 tests. Run before pushing anything that touches config, auth or
+782 tests. Run before pushing anything that touches config, auth or
 migrations. The parts worth knowing about:
 
 - `tests/test_config.py` — subprocess test for the `.env` import-order bug;

@@ -308,7 +308,7 @@ Implemented:
   because a picture cannot be checked the way a number can
 * GET /favicon.ico, GET /favicon.svg — the tab icon, public and not counted as
   a visit. Served from `app/web/favicon.svg` with no `<link rel="icon">` in the
-  templates: the documents are assembled in thirteen places, and the browser's
+  templates: the documents are assembled in ten places, and the browser's
   own convention does the same job with none of them. Before this route
   existed the request was answered with a redirect to the sign-in form, so the
   tab showed a login screen
@@ -348,7 +348,10 @@ Access control:
 * WEB_HOST binds to loopback, port 8080 never exposed
 * /login and /signup are rate limited: an in-process sliding window keyed on
   X-Forwarded-For (login also per username, cleared by a successful login),
-  429 once the allowance is spent
+  429 once the allowance is spent. Login carries a second window counted per
+  address across every name, checked before the per-user one, so a fresh
+  username is not a fresh allowance and a refused attempt does not create the
+  key it was refused on
 * every response carries the security headers — CSP restricted to the app
   origin plus https://telegram.org, X-Frame-Options DENY, nosniff,
   Referrer-Policy no-referrer; Strict-Transport-Security only when
@@ -471,7 +474,11 @@ sql/migrations/
 ├── 002_add_indexes.sql
 ├── 003_user_identity.sql
 ├── 004_users_sessions.sql
-└── 005_telegram_links.sql
+├── 005_telegram_links.sql
+├── 006_expenses.sql
+├── 007_job_applications.sql
+├── 008_admin_flag.sql
+└── 009_visits.sql
 
 Pattern:
 
@@ -491,7 +498,8 @@ PostgreSQL
 * Migrations run automatically during application startup.
 * Applied migrations are tracked in schema_migrations table.
 * Migrations are wrapped in transactions with rollback on failure.
-* Timestamps use UTC consistently (NOW() AT TIME ZONE 'UTC').
+* Timestamps use UTC consistently, written by the database's own clock
+  (CURRENT_TIMESTAMP) on a host that keeps UTC, so the column carries no offset.
 
 app/db/database.py
 
@@ -533,7 +541,7 @@ were worth the sprint:
   script holds the page path and the action URL, which change per plugin, so its
   content is not constant. The templates ask for the nonce by placeholder and one
   middleware writes the same value into the body and the header, because the
-  thirteen places a document is assembled should not each be handed it.
+  ten places a document is assembled should not each be handed it.
 
   `style-src` keeps `unsafe-inline` on purpose — an inline style executes
   nothing, and the stylesheets here are inlined because nothing is served as a
@@ -550,8 +558,9 @@ were worth the sprint:
 
 Sessions were reviewed and left alone, which is a decision rather than an
 omission. There is one row per *sign-in*, not per device, and nothing revokes
-the older ones: nine live sessions across two accounts, from nine sign-ins in a
-month. What the finding asks for is therefore mostly already true or not worth
+the older ones: at the review on 2026-10-17 there were nine live sessions
+across two accounts, from nine sign-ins in a month. What the finding asks for
+is therefore mostly already true or not worth
 having — the token is minted anew on every sign-in, `revoke-admin` closes the
 door at once because the flag is read from the database per request, an idle
 timeout does not help against a thief who uses what they took, and the rows
@@ -572,6 +581,14 @@ only. Caddy moved from the distribution package to the official repository,
 about Windows `file_server`, file matchers and `rewrite`, none of which this
 Caddyfile uses, but a reverse proxy in front of the whole site should not be
 five minor releases behind.
+
+`VISIT_PROBE_TOKEN` is a secret that can keep a request out of the visit log,
+and it is worth naming as what it is: anyone holding it can hide, and a header
+is no secret against someone determined to send one. It is set on this
+deployment, and it is not a way to refuse a visitor — the log was never an
+audit trail. What it is for is keeping the owner's own measuring out of a
+count that answers one question, and an empty value trusts nothing, so a
+deployment that never sets it records everything as before.
 
 ## Current limitations
 
@@ -641,13 +658,22 @@ five minor releases behind.
   and wants the same limits;
 * anchor identity to a stable key so an account can be renamed without moving
   its data, which is what the deferred rename command needs;
+* a connection pool. `Database.connect` opens a connection per query, which is
+  a cost per row the moment anything calls a repository in a loop — it cost the
+  visit log four seconds once, and the fix there was to ask once rather than to
+  pool. The next loop pays the same price, and the pool is the answer that
+  does not depend on every caller being careful;
+* a preview image for the résumé link (`og:image`). Every share preview on the
+  site is a bare title today, and a picture is the first binary asset the
+  project would carry — which is why it was left alone rather than hurried;
 * install the visit-log cleanup timer. `prune-visits` is written, tested and
   documented, and the unit is not on the host — the same gap the guest timer
-  once had. It is not worth installing at the current rate: the table took
-  eighteen rows on its first day and the retention window is ninety, so
-  nothing is anywhere near needing it. Install it when the table reaches a few
-  thousand rows, when a search over old visits is wanted, or when the rows
-  show up in how long a dump takes — whichever arrives first.
+  once had. The table took eighteen rows on its first day and the retention
+  window is ninety, so nothing is near needing it yet; the page reads it a
+  page at a time, so a long table is inconvenient rather than unreadable.
+  Install it when the table reaches a few thousand rows, when a search over
+  old visits is wanted, or when the rows show up in how long a dump takes —
+  whichever arrives first.
 
 On the documents themselves: `PROJECT_STATE.md` is edited at the end of a
 sprint, which means it describes the code as of that moment and nothing about

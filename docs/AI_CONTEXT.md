@@ -122,6 +122,11 @@ Repositories:
 - reminders_repo.py
 - clipboard_repo.py
 - links_repo.py
+- users_repo.py
+- sessions_repo.py
+- expenses_repo.py
+- applications_repo.py
+- visits_repo.py
 
 Schema is versioned in sql/migrations/.
 
@@ -251,7 +256,11 @@ Transport security:
   `SESSION_COOKIE_SECURE` is on
 - `/login` and `/signup` are rate limited by an in-process sliding window
   (`app/web/ratelimit.py`), keyed on `X-Forwarded-For` (login also per
-  username; a successful login clears its own key), answered 429 when spent
+  username; a successful login clears its own key), answered 429 when spent.
+  Login carries a **second window counted per address across every name**,
+  checked *before* the per-user one, so a fresh username is not a fresh
+  allowance; a refused attempt does not create the key it was refused on,
+  which bounds the store
 - state-changing form posts carry a CSRF token (`app/web/csrf.py`): the two
   anonymous forms use a double submit — a random value in the HttpOnly
   `platform_csrf` cookie echoed into a hidden field — and the session-backed
@@ -600,9 +609,10 @@ and was not built as one.
 counting rows for a token answers "how often" without a second mechanism that
 can disagree with the first.
 
-**`prune-visits` from a timer**, the same shape as `prune-guests`. It is the
-only thing that removes from the table, which is written on every public
-request.
+**`prune-visits` from a timer, the same shape as `prune-guests`** — the
+command is written, tested and documented, and the unit is **not** on the
+host. It is the only thing that removes from the table, which is written on
+every public request, so the table grows until somebody installs it.
 
 **Not here on purpose:** creating accounts and resetting passwords. A person
 signs up, or resets their own password, through the ordinary forms. The CLI
