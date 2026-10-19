@@ -93,6 +93,7 @@ async def main() -> None:
     finally:
         await web.stop()
         await manager.shutdown()
+        database.close()
 
 
 if __name__ == "__main__":

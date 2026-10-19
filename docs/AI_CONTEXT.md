@@ -113,9 +113,13 @@ repositories using context managers. The migration from SQLite is complete
 (DECISIONS 2026-07-16) and the app has been psycopg-only since — moving to
 PostgreSQL is done work, never propose it again.
 
-`Database.connect` opens a connection per query; there is no pool. Count
-queries, never let a loop call a repository — the cost is per row, and the
-visit log spent four seconds on a page doing nothing else wrong.
+`Database` is a connection pool (`psycopg_pool`): `connect()` borrows a
+connection and returns it on the way out of the `with` block, committing or
+rolling back as the block dictates. The pool opens lazily and is capped by
+`DB_POOL_MAX_SIZE` (20), so a request rate spike cannot open connections
+without limit; `DB_POOL_TIMEOUT_SECONDS` (5) makes a request fail fast when
+the pool is full. Still count queries and never let a loop call a repository —
+the pool removes the per-connection cost, not the per-row one.
 
 Repositories:
 - notes_repo.py

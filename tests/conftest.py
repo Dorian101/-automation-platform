@@ -85,7 +85,21 @@ def _cheap_scrypt(shipped_scrypt_cost):
 
 
 @pytest.fixture(scope="session")
-def _schema():
+def shared_db():
+    """One ``Database`` for the whole run, so one connection pool.
+
+    Before the pool, a ``Database`` was free to create and the fixtures made a
+    fresh one per test. A pool carries background threads, so creating hundreds
+    of them for a run is a cost that only shows up in a full suite. One
+    instance reused everywhere is what production does too.
+    """
+    db = Database()
+    yield db
+    db.close()
+
+
+@pytest.fixture(scope="session")
+def _schema(shared_db):
     """Build the schema once for the whole run.
 
     Migrations were being applied per test — nine files, each a statement or
@@ -93,28 +107,26 @@ def _schema():
     for emptying the tables, so it was very nearly all of the per-test setup
     and none of it was testing anything the tests had not already asked for.
     """
-    db = Database()
-    _clean_db(db)
-    MigrationRunner(db).run()
+    _clean_db(shared_db)
+    MigrationRunner(shared_db).run()
 
     yield
 
-    _clean_db(db)
+    _clean_db(shared_db)
 
 
 @pytest.fixture
-def database_with_schema(_schema):
+def database_with_schema(_schema, shared_db):
     """A schema, and an empty one.
 
     TRUNCATE rather than DROP: the tables are the same tables the migrations
     made, and emptying them is what a test needs. RESTART IDENTITY resets the
     sequences, which a drop would have done too.
     """
-    db = Database()
-    _ensure_schema(db)
-    _empty_db(db)
-    yield db
-    _empty_db(db)
+    _ensure_schema(shared_db)
+    _empty_db(shared_db)
+    yield shared_db
+    _empty_db(shared_db)
 
 
 def _ensure_schema(db: Database) -> None:
@@ -143,7 +155,7 @@ def _ensure_schema(db: Database) -> None:
 
 
 @pytest.fixture
-def database(_schema):
+def database(_schema, shared_db):
     """Nothing at all: not even a schema.
 
     The tests that take this one go on to run the migrations themselves, and a
@@ -151,10 +163,9 @@ def database(_schema):
     this fixture has to hand over a genuinely empty database, which is why it
     is not the cheap one above.
     """
-    db = Database()
-    _clean_db(db)
-    yield db
-    _clean_db(db)
+    _clean_db(shared_db)
+    yield shared_db
+    _clean_db(shared_db)
 
 
 def _empty_db(db: Database):

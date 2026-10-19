@@ -1317,3 +1317,39 @@ left behind by the old behaviour, and a delivery that raises is still retried
 indefinitely — that is an outage.
 
 784 tests pass.
+
+## 2026-10-19
+
+### Decision
+Put a connection pool in front of PostgreSQL instead of opening a connection
+per query
+
+### Reason
+`Database.connect` opened a fresh connection for every query. That is fine
+while queries are counted, and it is what made the visit-log page cost four
+seconds once: two hundred events, four hundred connections, none of them slow
+on their own. The fix back then was to ask once rather than once per row, which
+masked the underlying cost but left it for the next loop that forgot to.
+
+The pool removes the cost rather than relying on each caller being careful. It
+also caps connection count, which is the database's defence against a request
+spike: no more than a fixed number of connections are ever open at once,
+whatever the request rate.
+
+### How it is done
+- `Database` wraps `psycopg_pool.ConnectionPool`, opened lazily on the first
+  `connect()` and returned to the server by `close()`, which `main.py` calls on
+  shutdown.
+- `connect()` still returns a context manager with the same `with database.connect()
+  as conn` shape every repository already used, so no repository changed. The
+  pool commits on a clean exit and rolls back on an exception.
+- The sizes are configuration, not constants: `DB_POOL_MIN_SIZE` (0),
+  `DB_POOL_MAX_SIZE` (20) and `DB_POOL_TIMEOUT_SECONDS` (5), so a request that
+  cannot borrow a connection fails fast instead of queueing on a full pool.
+
+### Result
+The test suite reuses one pool for the whole run rather than creating hundreds
+of short-lived ones, which is what the full run exposed: a pool carries
+background threads, so a fresh `Database` per test was a cost with no benefit.
+784 tests pass. The "no connection pool" limitation is gone from the project
+state.

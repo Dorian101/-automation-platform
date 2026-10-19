@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.42.0
+v0.43.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -645,11 +645,11 @@ deployment that never sets it records everything as before.
   present at that moment. A plugin registered afterwards has a menu entry but
   no address. Only reachable by a test today; it would matter for anything
   that loads a plugin at runtime.
-* There is no connection pool. `Database.connect` opens a new PostgreSQL
-  connection per query, which is fine while queries are counted and expensive
-  the moment something calls a repository in a loop — a request per row was
-  four seconds on the visit log, and the fix was to ask once rather than to
-  pool. The next loop will cost the same again.
+* Database access goes through a shared connection pool (`psycopg_pool`,
+  opened lazily and capped at `DB_POOL_MAX_SIZE`), so a request reuses a
+  connection instead of opening one — the fix to the visit-log page's
+  four-second, four-hundred-connection read was to pool, on top of asking
+  once rather than once per row.
 
 ⸻
 
@@ -661,11 +661,6 @@ deployment that never sets it records everything as before.
   and wants the same limits;
 * anchor identity to a stable key so an account can be renamed without moving
   its data, which is what the deferred rename command needs;
-* a connection pool. `Database.connect` opens a connection per query, which is
-  a cost per row the moment anything calls a repository in a loop — it cost the
-  visit log four seconds once, and the fix there was to ask once rather than to
-  pool. The next loop pays the same price, and the pool is the answer that
-  does not depend on every caller being careful;
 * a preview image for the résumé link (`og:image`). Every share preview on the
   site is a bare title today, and a picture is the first binary asset the
   project would carry — which is why it was left alone rather than hurried;

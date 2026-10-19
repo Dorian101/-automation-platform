@@ -19,6 +19,16 @@ class Config:
     DB_USER = os.getenv("DB_USER", "automation")
     DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 
+    # Connection pool. The pool is the backstop against the database being
+    # hammered: at most DB_POOL_MAX_SIZE connections are ever open at once,
+    # whatever the request rate, and a request that cannot borrow one within
+    # DB_POOL_TIMEOUT_SECONDS fails fast instead of queueing for ever. Sized
+    # for a small deployment today and raised by env when the process grows
+    # workers or the site opens up.
+    DB_POOL_MIN_SIZE = int(os.getenv("DB_POOL_MIN_SIZE", "0"))
+    DB_POOL_MAX_SIZE = int(os.getenv("DB_POOL_MAX_SIZE", "20"))
+    DB_POOL_TIMEOUT_SECONDS = float(os.getenv("DB_POOL_TIMEOUT_SECONDS", "5"))
+
     WEB_HOST = os.getenv("WEB_HOST", "127.0.0.1")
     WEB_PORT = int(os.getenv("WEB_PORT", "8080"))
 
