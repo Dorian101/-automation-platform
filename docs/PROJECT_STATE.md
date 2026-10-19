@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.41.0
+v0.42.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -224,6 +224,8 @@ Implemented:
 * background worker
 * self-managed lifecycle
 * delivered to the linked Telegram chat, not dropped in the browser
+* a web reminder for an unlinked account is refused at create time — the
+  person is told to link Telegram first, since WebChannel only logs and drops
 * an undeliverable reminder is given up on after three passes rather than
   retried for ever; a raising delivery is retried indefinitely
 
@@ -609,7 +611,9 @@ deployment that never sets it records everything as before.
 * Sign-up is gated by one shared invite code with no approval step behind it —
   whoever holds the code can join.
 * Web notifications are still dropped rather than delivered, but only for an
-  account that has not linked Telegram. A linked one reaches its chat.
+  account that has not linked Telegram. A linked one reaches its chat, and a
+  reminder for an unlinked one is refused at create time rather than dropped
+  silently.
 * Telegram linking needs a domain registered with BotFather, so it cannot be
   tried on localhost — the button stays hidden until that is done.
 * /clear removes every note at once with no confirmation, which is right for a

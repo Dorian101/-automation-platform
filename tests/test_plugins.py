@@ -102,19 +102,72 @@ class TestClipboardPlugin:
 
 
 class TestRemindersPlugin:
-    async def test_creates_reminder(self, database_with_schema, web_identity, notifier):
+    async def test_creates_reminder(self, database_with_schema, notifier):
         plugin = RemindersPlugin(notifier, database_with_schema)
 
         result = await plugin.execute(
             "/remind",
             "5 call mum",
-            web_identity,
+            telegram(42),
         )
 
         assert result.text == "Reminder set in 5 min"
 
         due = database_with_schema and plugin.repo.get_due()
         assert len(due) == 0
+
+    async def test_an_unlinked_web_account_is_refused(
+        self, database_with_schema, create_user,
+    ):
+        """Nobody is set up to receive it, so the command fails up front."""
+        from app.db.links_repo import TelegramLinksRepository
+        from app.db.users_repo import UsersRepository
+        from app.notifications import LinkedChatResolver, Notifier, WebChannel
+
+        users = UsersRepository(database_with_schema)
+        links = TelegramLinksRepository(database_with_schema)
+        notifier = Notifier(
+            [WebChannel()],
+            resolver=LinkedChatResolver(users, links),
+        )
+        plugin = RemindersPlugin(notifier, database_with_schema)
+
+        with pytest.raises(CommandError, match="not linked"):
+            await plugin.execute(
+                "/remind",
+                "5 call mum",
+                Identity(kind=WEB, id=TEST_USERNAME),
+            )
+
+    async def test_a_linked_web_account_can_remind(
+        self, database_with_schema, create_user,
+    ):
+        """The link routes the reminder to Telegram, so it is accepted."""
+        from app.db.links_repo import TelegramLinksRepository
+        from app.db.users_repo import UsersRepository
+        from app.notifications import (
+            LinkedChatResolver,
+            Notifier,
+            TelegramChannel,
+            WebChannel,
+        )
+
+        users = UsersRepository(database_with_schema)
+        links = TelegramLinksRepository(database_with_schema)
+        links.link(users.get_by_username(TEST_USERNAME).id, 4242)
+        notifier = Notifier(
+            [TelegramChannel(bot=None), WebChannel()],
+            resolver=LinkedChatResolver(users, links),
+        )
+        plugin = RemindersPlugin(notifier, database_with_schema)
+
+        result = await plugin.execute(
+            "/remind",
+            "5 call mum",
+            Identity(kind=WEB, id=TEST_USERNAME),
+        )
+
+        assert result.text == "Reminder set in 5 min"
 
     async def test_past_reminder_is_due(
         self, database_with_schema, web_identity, notifier,

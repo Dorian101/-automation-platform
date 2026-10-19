@@ -80,6 +80,7 @@ class RecordingChannel:
 
     async def deliver(self, target, text):
         self.received.append((target, text))
+        return True
 
 
 class TestNotifierReportsDelivery:
@@ -97,16 +98,15 @@ class TestNotifierReportsDelivery:
 
         assert await notifier.deliver(telegram(42), "hi") is False
 
-    async def test_the_web_placeholder_counts_as_delivered(self):
-        """It is a channel that accepted the message.
+    async def test_the_web_placeholder_reports_false(self):
+        """It handled the message but delivered nothing.
 
-        Reporting False here would make an unlinked deployment give up on
-        reminders that were previously only logged, which is a behaviour change
-        nobody asked for.
+        An unlinked web account has nowhere to receive it, so the caller learns
+        the message did not leave the app rather than being told it did.
         """
         notifier = Notifier([WebChannel()])
 
-        assert await notifier.deliver(Identity(kind=WEB, id="a"), "hi") is True
+        assert await notifier.deliver(Identity(kind=WEB, id="a"), "hi") is False
 
     async def test_a_failing_resolver_reports_false(self):
         def broken(target):

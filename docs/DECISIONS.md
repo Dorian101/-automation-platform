@@ -1278,3 +1278,42 @@ the case where it would be — and because the measurement that settled it is
 the one worth keeping: aiohttp's access log writes the time the request
 started in brackets and the time the line was written in the prefix, and the
 gap between them is the duration, on every request, for free.
+
+## 2026-10-19
+
+### Decision
+Refuse a web reminder for an account that has nowhere to receive it, instead of
+storing it and dropping it silently
+
+### Reason
+A reminder created on the web for an account with no Telegram link was written
+and then lost at first delivery. The delivery layer reported it as delivered —
+`WebChannel` logs and drops, and `Notifier` handed that back as success — so
+the worker marked it sent and the person was never told. The "give up after
+three passes" path that the docs promised existed in the worker but was never
+reachable, because the web placeholder always reported true.
+
+The fix stops the loss at the point it starts. A web account with no link has
+nowhere for a reminder to go, so the command refuses at create time and says
+why: reminders are delivered to Telegram, and this account is not linked. There
+is no grace period to hold the reminder open for, because the person is told up
+front and nothing about the reminder changes by waiting.
+
+### How it is done
+- `NotificationChannel.deliver` returns whether the message actually left the
+  app: `TelegramChannel` returns true after a real send, `WebChannel` returns
+  false.
+- `Notifier.deliver` forwards the channel's answer rather than always true, and
+  a new `Notifier.destination` exposes the resolver without sending, so a
+  caller can ask where a message would go before writing it.
+- The reminders plugin asks `Notifier.destination` before storing the row and
+  refuses a web identity whose destination is not Telegram.
+
+### Result
+Linked accounts and Telegram users are unchanged: they still deliver to the
+chat. A web account with no link is told to link first instead of losing the
+reminder. The worker's "three passes, then give up" path stays for reminders
+left behind by the old behaviour, and a delivery that raises is still retried
+indefinitely — that is an outage.
+
+784 tests pass.

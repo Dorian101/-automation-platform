@@ -7,11 +7,16 @@ logger = logging.getLogger("platform")
 
 
 class NotificationChannel(Protocol):
-    """Delivers a message to a user over one specific transport."""
+    """Delivers a message to a user over one specific transport.
+
+    ``deliver`` returns whether the message actually left the app. A channel
+    that logs and drops — :class:`WebChannel` today — returns False, so a
+    caller can tell "handled" from "delivered".
+    """
 
     kind: str
 
-    async def deliver(self, target: Identity, text: str) -> None: ...
+    async def deliver(self, target: Identity, text: str) -> bool: ...
 
 
 class TelegramChannel:
@@ -20,8 +25,10 @@ class TelegramChannel:
     def __init__(self, bot):
         self._bot = bot
 
-    async def deliver(self, target: Identity, text: str) -> None:
+    async def deliver(self, target: Identity, text: str) -> bool:
         await self._bot.send_message(chat_id=int(target.id), text=text)
+
+        return True
 
 
 class WebChannel:
@@ -31,8 +38,10 @@ class WebChannel:
     signature matches :class:`NotificationChannel`, so giving the web interface
     a real inbox is a matter of replacing this class.
 
-    The message text is deliberately left out of the log: it is the user's own
-    content — a reminder, a note — and it has no business in the journal.
+    Returns False rather than raising: nothing was delivered, but the caller
+    has a message it may still handle on its own. The text is deliberately
+    left out of the log: it is the user's own content — a reminder, a note —
+    and it has no business in the journal.
     """
 
     kind = WEB
@@ -40,12 +49,14 @@ class WebChannel:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    async def deliver(self, target: Identity, text: str) -> None:
+    async def deliver(self, target: Identity, text: str) -> bool:
         self.logger.info(
             "Dropping web notification for %s (%d chars, text withheld)",
             target,
             len(text),
         )
+
+        return False
 
 
 class Notifier:
@@ -94,9 +105,11 @@ class Notifier:
             )
             return False
 
-        await channel.deliver(destination, text)
+        return bool(await channel.deliver(destination, text))
 
-        return True
+    def destination(self, target: Identity) -> Identity | None:
+        """Where a message to ``target`` would be delivered, resolved but not sent."""
+        return self._destination(target)
 
     def _destination(self, target: Identity) -> Identity | None:
         if self._resolver is None:

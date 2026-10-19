@@ -23,6 +23,7 @@ class RecordingChannel:
 
     async def deliver(self, target, text):
         self.received.append((target, text))
+        return True
 
 
 @pytest.fixture
@@ -138,16 +139,17 @@ class TestEndToEnd:
 
         assert sent.received == [(telegram(CHAT_ID), "call mum")]
 
-    async def test_an_unlinked_web_reminder_still_reaches_the_web_channel(
+    async def test_an_unlinked_web_reminder_goes_nowhere(
         self,
         resolver,
     ):
+        """WebChannel handles it but delivers nothing, so delivery reports false."""
         notifier = Notifier([WebChannel()], resolver=resolver)
 
         assert await notifier.deliver(
             Identity(kind=WEB, id=TEST_USERNAME),
             "call mum",
-        ) is True
+        ) is False
 
     async def test_the_bot_never_sees_the_web_username(self, resolver, links, web_user):
         """Delivery carries a chat id, so nothing downstream can mistake the
