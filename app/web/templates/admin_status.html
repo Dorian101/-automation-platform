@@ -1,0 +1,125 @@
+<h1>Состояние</h1>
+
+<section class="status" data-refresh="/admin/status/data">
+  <div class="status-grid">
+    <article class="stat-card">
+      <h3>Диск</h3>
+      <dl class="stat-list">
+        <div><dt>Корень</dt><dd data-stat="disk.root.free">&hellip;</dd></div>
+        <div><dt>Занято</dt><dd data-stat="disk.root.used">&hellip;</dd></div>
+        <div><dt>Бэкапы</dt><dd data-stat="disk.backups.free">&hellip;</dd></div>
+      </dl>
+    </article>
+
+    <article class="stat-card">
+      <h3>Память</h3>
+      <dl class="stat-list">
+        <div><dt>Всего</dt><dd data-stat="memory.total">&hellip;</dd></div>
+        <div><dt>Доступно</dt><dd data-stat="memory.available">&hellip;</dd></div>
+        <div><dt>Используется</dt><dd data-stat="memory.used">&hellip;</dd></div>
+      </dl>
+    </article>
+
+    <article class="stat-card">
+      <h3>Нагрузка</h3>
+      <dl class="stat-list">
+        <div><dt>Load 1м</dt><dd data-stat="load">&hellip;</dd></div>
+        <div><dt>Ядер</dt><dd data-stat="cores">&hellip;</dd></div>
+        <div><dt>Последний визит</dt><dd data-stat="last_visit">&hellip;</dd></div>
+      </dl>
+    </article>
+  </div>
+
+  <h2>База данных</h2>
+  <div class="status-grid status-grid--counts">
+    <article class="stat-card stat-card--counts">
+      <h3>Данные по таблицам</h3>
+      <ul class="count-list" data-stat="tables">
+        <li>Загрузка&hellip;</li>
+      </ul>
+    </article>
+
+    <article class="stat-card stat-card--counts">
+      <h3>Бэкапы</h3>
+      <dl class="stat-list">
+        <div><dt>Всего</dt><dd data-stat="backups.count">&hellip;</dd></div>
+        <div><dt>Последний</dt><dd data-stat="backups.newest">&hellip;</dd></div>
+        <div><dt>Когда</dt><dd data-stat="backups.newest_at">&hellip;</dd></div>
+        <div><dt>Размер</dt><dd data-stat="backups.total_bytes">&hellip;</dd></div>
+      </dl>
+    </article>
+  </div>
+</section>
+
+<script nonce="__CSP_NONCE__">
+// The status page draws itself once from the server and then refreshes the
+// numbers from a JSON endpoint, so watching the disk does not mean reloading
+// the page. Every value lands through textContent — the figures are not
+// markup.
+(function () {
+  const root = document.querySelector('.status');
+  const url = root.dataset.refresh;
+  if (!url) return;
+
+  function bytesToHuman(n) {
+    if (n == null || Number.isNaN(n)) return '—';
+    const units = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'];
+    let i = 0;
+    let v = n;
+    while (v >= 1024 && i < units.length - 1) { v /= 1024; i += 1; }
+    return (i === 0 ? v : v.toFixed(1)) + ' ' + units[i];
+  }
+
+  function paint(data) {
+    const set = (key, value) => {
+      const el = root.querySelector('[data-stat="' + key + '"]');
+      if (el) el.textContent = value;
+    };
+
+    const disk = data.system.disk;
+    const mem = data.system.memory;
+    const used = mem && mem.available != null && mem.total != null
+      ? mem.total - mem.available : null;
+
+    set('disk.root.free', bytesToHuman(disk.root.free));
+    set('disk.root.used', bytesToHuman(disk.root.used));
+    set('disk.backups.free', bytesToHuman(disk.backups.free));
+    set('memory.total', bytesToHuman(mem.total));
+    set('memory.available', bytesToHuman(mem.available));
+    set('memory.used', used != null && used >= 0 ? bytesToHuman(used) : '—');
+    set('load', data.system.load == null ? '—' : data.system.load.toFixed(2));
+    set('cores', data.system.cores == null ? '—' : data.system.cores);
+    set('last_visit', data.last_visit ? data.last_visit.replace('T', ' ') : '—');
+
+    set('backups.count', data.backups.count);
+    set('backups.newest', data.backups.newest || '—');
+    set('backups.newest_at', data.backups.newest_at || '—');
+    set('backups.total_bytes', bytesToHuman(data.backups.total_bytes));
+
+    const counts = root.querySelector('[data-stat="tables"]');
+    if (counts) {
+      counts.innerHTML = '';
+      for (const [label, value] of Object.entries(data.tables)) {
+        const li = document.createElement('li');
+        const name = document.createElement('span');
+        name.textContent = label;
+        const figure = document.createElement('b');
+        figure.textContent = value;
+        li.appendChild(name);
+        li.appendChild(figure);
+        counts.appendChild(li);
+      }
+    }
+  }
+
+  const fetchNow = () => {
+    fetch(url, { headers: { 'Accept': 'application/json' } })
+      .then((r) => r.json())
+      .then(paint)
+      .catch(() => {});
+  };
+
+  fetchNow();
+  setInterval(fetchNow, 30000);
+})();
+</script>

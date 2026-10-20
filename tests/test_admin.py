@@ -131,7 +131,7 @@ class TestTheGate:
         response = await admin_client.get(ADMIN_PREFIX, allow_redirects=False)
 
         assert response.status == 303
-        assert response.headers["Location"] == USERS_PATH
+        assert response.headers["Location"] == "/admin/status"
 
     async def test_a_signed_out_visitor_is_sent_to_sign_in(self, app_client):
         """The same answer every other protected address gives, so the owner
@@ -1155,3 +1155,53 @@ class TestHidingTheAdministrator:
         await admin_client.get("/admin/visits?hide=1")
 
         assert len(opened) == few
+
+
+class TestTheStatusPage:
+    """The overview that answers "is the platform healthy" without a click.
+
+    The numbers themselves are one JSON endpoint; the page is the frame around
+    them. Both sit behind the same gate as everything else under /admin.
+    """
+
+    async def test_an_administrator_reaches_it(self, admin_client):
+        response = await admin_client.get("/admin/status")
+
+        assert response.status == 200
+        assert "<h1>Состояние</h1>" in await response.text()
+
+    async def test_the_data_endpoint_is_json(self, admin_client):
+        response = await admin_client.get("/admin/status/data")
+
+        assert response.status == 200
+        assert response.content_type == "application/json"
+
+        payload = await response.json()
+        # Every section the page draws from, present even when empty.
+        assert set(payload) == {"tables", "backups", "system", "last_visit"}
+        assert set(payload["system"]) == {"disk", "memory", "load", "cores"}
+        assert set(payload["backups"]) == {
+            "count", "newest", "newest_at", "total_bytes",
+        }
+
+    async def test_the_table_counts_name_the_data(
+        self, admin_client, database_with_schema
+    ):
+        """The figures are per table, and they read as a person does, not as
+        the migrations name files."""
+        response = await admin_client.get("/admin/status/data")
+        tables = (await response.json())["tables"]
+
+        assert "Заметки" in tables
+        assert "Аккаунты" in tables
+        assert tables["Аккаунты"] >= 1  # the test account itself
+
+    async def test_a_non_administrator_is_turned_away(self, other_user_client):
+        response = await other_user_client.get("/admin/status", allow_redirects=False)
+
+        assert response.status == 404
+
+    async def test_a_stranger_is_sent_to_sign_in(self, app_client):
+        response = await app_client.get("/admin/status", allow_redirects=False)
+
+        assert response.status == 303

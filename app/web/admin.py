@@ -32,6 +32,7 @@ from zoneinfo import ZoneInfo
 from aiohttp import web
 
 from app.core.config import Config
+from app.db.database import Database
 from app.db.sessions_repo import SessionsRepository
 from app.db.users_repo import User, UsersRepository
 from app.db.visits_repo import DEFAULT_LIMIT, Visit, VisitsRepository
@@ -39,11 +40,13 @@ from app.web.auth import SESSION_COOKIE, resolve_user
 from app.web.csrf import CSRF_FIELD, CsrfSigner
 from app.web.pages import menu_styles
 from app.web.responses import redirect, token_rejected
+from app.web.system import cores, disk, load, memory
 
 logger = logging.getLogger(__name__)
 
 ADMIN_PREFIX = "/admin"
 USERS_PATH = ADMIN_PREFIX + "/users"
+STATUS_PATH = ADMIN_PREFIX + "/status"
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
@@ -111,12 +114,14 @@ class AdminArea:
         users: UsersRepository,
         sessions: SessionsRepository,
         visits: VisitsRepository,
+        database: Database,
         nav_for: Callable[[web.Request], str],
         csrf: CsrfSigner,
     ) -> None:
         self._users = users
         self._sessions = sessions
         self._visits = visits
+        self._database = database
         # The same signer as the rest of the web layer. A second one with its
         # own secret would refuse every token the other half produced, and the
         # failure would look like a forgery rather than a wiring mistake.
@@ -146,18 +151,21 @@ class AdminArea:
         sub.router.add_get("", self.index)
         sub.router.add_get("/users", self.users_page)
         sub.router.add_get("/visits", self.visits_page)
+        sub.router.add_get("/status", self.status_page)
+        sub.router.add_get("/status/data", self.status_data)
         sub.router.add_post("/users/{user_id:\\d+}/disable", self.disable)
         sub.router.add_post("/users/{user_id:\\d+}/enable", self.enable)
 
         app.add_subapp(ADMIN_PREFIX, sub)
 
     async def index(self, request: web.Request) -> web.Response:
-        """`/admin` leads to the section rather than describing the section.
+        """`/admin` leads to the status page, the overview.
 
-        A landing page for an area with one thing in it is a page whose only
-        content is a description of itself, and its reader does not need it.
+        The area opened on the user list when that was the only thing in it.
+        Now there are three sections and the overview is the front door: it is
+        the page that answers "is the platform healthy" without a click.
         """
-        return redirect(USERS_PATH)
+        return redirect(STATUS_PATH)
 
     async def users_page(self, request: web.Request) -> web.Response:
         """The accounts, optionally narrowed to those matching `q`.
@@ -227,6 +235,27 @@ class AdminArea:
 
         return self._page("visits", body, request)
 
+    async def status_page(self, request: web.Request) -> web.Response:
+        """The overview: resources, the database, and the backups.
+
+        Rendered once here; the numbers themselves ride a separate JSON
+        endpoint below, which a small script refreshes so the page does not
+        have to be reloaded to see the disk tick. The placeholder text is all
+        an administrator sees for the moment before the first fetch lands.
+        """
+        body = _fragment("admin_status.html", {})
+        return self._page("status", body, request)
+
+    async def status_data(self, request: web.Request) -> web.Response:
+        """The status page's numbers, as JSON.
+
+        One endpoint for the whole page rather than one per figure: the page is
+        three groups of numbers, and a request per group would be three round
+        trips for what a single file can carry. The database counts are asked
+        in one pass and the system figures are already cheap.
+        """
+        return web.json_response(_status_snapshot(self._database, self._visits))
+
     async def disable(self, request: web.Request) -> web.Response:
         return await self._set_active(request, False)
 
@@ -289,7 +318,7 @@ class AdminArea:
         source = source.replace("__BODY__", body)
         source = source.replace("__TITLE__", _section_title(section))
 
-        for name in ("users", "visits"):
+        for name in ("status", "users", "visits"):
             mark = " aria-current='page'" if name == section else ""
             source = source.replace(f"__ACTIVE_{name.upper()}__", mark)
 
@@ -297,7 +326,102 @@ class AdminArea:
 
 
 def _section_title(section: str) -> str:
-    return {"users": "Пользователи", "visits": "Визиты"}[section]
+    return {"status": "Состояние", "users": "Пользователи", "visits": "Визиты"}[section]
+
+
+#: The data tables whose row counts the status page shows. Names as a person
+#: reads them, not as the migrations write them: the point of the figure is
+#: "how much is in here", and `users` reads better than the sql file's table.
+_STATUS_TABLES = [
+    ("notes", "Заметки"),
+    ("reminders", "Напоминания"),
+    ("clipboard", "Буфер"),
+    ("expenses", "Расходы"),
+    ("job_applications", "Заявки"),
+    ("users", "Аккаунты"),
+    ("visits", "Визиты"),
+]
+
+
+def _status_snapshot(database: Database, visits: VisitsRepository) -> dict:
+    """Everything the status page shows, in one dict.
+
+    The database counts are one `SELECT count(*)` each rather than joined,
+    which keeps the figures independent: one table being slow or gone does not
+    take the rest down with it, and a missing table shows as zero rather than
+    as a broken page.
+    """
+    return {
+        "tables": _table_counts(database),
+        "backups": _backups(),
+        "system": {
+            "disk": disk(),
+            "memory": memory(),
+            "load": load(),
+            "cores": cores(),
+        },
+        "last_visit": _last_visit(visits),
+    }
+
+
+def _table_counts(database: Database) -> dict:
+    counts = {}
+
+    with database.connect() as conn:
+        with conn.cursor() as cur:
+            for table, label in _STATUS_TABLES:
+                cur.execute(f'SELECT count(*) FROM "{table}"')
+                counts[label] = cur.fetchone()[0]
+
+    return counts
+
+
+def _last_visit(visits: VisitsRepository) -> str | None:
+    """When somebody last arrived, in DISPLAY_TIMEZONE, or None.
+
+    The newest row is enough; the full log is the `/admin/visits` page's job.
+    """
+    rows = visits.recent(limit=1)
+
+    if not rows:
+        return None
+
+    zone = ZoneInfo(Config.DISPLAY_TIMEZONE)
+    return rows[0].at.replace(tzinfo=UTC).astimezone(zone).isoformat(timespec="seconds")
+
+
+def _backups() -> dict:
+    """The newest backup and how much of the reply directory is taken.
+
+    Nothing here writes or prunes — that is the timer's job. It only reports,
+    so an administrator can see at a glance that dumps are still happening and
+    that they are not about to fill the disk.
+    """
+    from app.db.backup import BackupManager
+
+    manager = BackupManager()
+    directory = manager.backups_dir
+
+    files = sorted(directory.glob("*.sql"), key=lambda p: p.stat().st_mtime) \
+        if directory.is_dir() else []
+
+    newest = files[-1] if files else None
+
+    newest_at = None
+    if newest is not None:
+        zone = ZoneInfo(Config.DISPLAY_TIMEZONE)
+        newest_at = (
+            datetime.fromtimestamp(newest.stat().st_mtime, tz=UTC)
+            .astimezone(zone)
+            .strftime("%d.%m.%Y %H:%M")
+        )
+
+    return {
+        "count": len(files),
+        "newest": newest.name if newest else None,
+        "newest_at": newest_at,
+        "total_bytes": sum(p.stat().st_size for p in files),
+    }
 
 
 def _user_rows(found: list[User], token: str, actor: User | None) -> str:

@@ -1576,3 +1576,40 @@ Three rough edges from the console work:
 ### Result
 A click out of the command list now answers "done" without a trip up the page,
 and the times it reports are on the reader's own clock. 803 tests pass.
+
+## 2026-10-20
+
+### Decision
+Give the administrative area a status page that answers "is it healthy" at a
+glance
+
+### Reason
+`/admin` opened on the user list because that was the only thing in it, and the
+only way to know the platform was alive was the health endpoint plus a look at
+the host by hand. The deploy already restarts the service and tails the journal,
+but the person running it had no single place that says disk, memory, load and
+the newest backup without a trip to the shell. A dashboard is the page the area
+was missing: it reads across every plugin's tables, which is the administrative
+area's whole job.
+
+The system figures are read from `/proc` and `os.statvfs` rather than `psutil`.
+The service already runs under a systemd sandbox that keeps `/proc` readable,
+`statvfs` is a read-only call the strict mount does not block, and a dependency
+for three numbers is not needed.
+
+### How it is done
+- `app/web/system.py` reads disk, memory and load from the standard library only,
+  returning `None` rather than zero when a figure cannot be read — a dashboard
+  printing `0 B` on a host that keeps its memory elsewhere is lying about an idle
+  box, and the page renders `None` as `—`.
+- `/admin/status` renders a frame once; `/admin/status/data` returns one JSON
+  snapshot the page refreshes every thirty seconds, so watching the disk does not
+  mean reloading. The database counts are one `SELECT count(*)` per table rather
+  than a join, so one slow table does not take the rest down with it.
+- `/admin` now redirects to `/admin/status`, the overview, rather than to the
+  user list.
+
+### Result
+The administrative area opens on a page that says whether the platform is
+healthy without a click, and every figure is honest about what it could not
+read. 808 tests pass.

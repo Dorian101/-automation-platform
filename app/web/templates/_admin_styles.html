@@ -116,4 +116,54 @@
   .pagerlink:hover { text-decoration: underline; }
   .legend { color: var(--muted); font-size: 0.9rem; margin: -0.5rem 0 1rem; }
   .legend code { font-size: 0.85rem; }
+
+  /* The status dashboard. A grid of cards, each a labelled figure rather than
+     a headline — the reader comes here to check a number, not to be sold one. */
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 0.9rem;
+    margin: 0 0 1.75rem;
+  }
+  .stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+  }
+  .stat-card h3 {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 0 0 0.75rem;
+  }
+  .stat-list { margin: 0; }
+  .stat-list div {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.32rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-list div:last-child { border-bottom: none; }
+  .stat-list dt { color: var(--muted); font-size: 0.9rem; }
+  .stat-list dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .count-list { list-style: none; margin: 0; padding: 0; }
+  .count-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.32rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+  }
+  .count-list li:last-child { border-bottom: none; }
+  .count-list li b { font-variant-numeric: tabular-nums; font-weight: 600; }
 </style>

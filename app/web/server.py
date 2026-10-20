@@ -1131,7 +1131,8 @@ class WebServer:
         # its own gate with it: everything under /admin is behind one check
         # that lives with the routes rather than beside each of them.
         AdminArea(
-            self._users, self._sessions, self._visits, self._nav, self._csrf
+            self._users, self._sessions, self._visits, self._database, self._nav,
+            self._csrf,
         ).install(app)
 
         return app

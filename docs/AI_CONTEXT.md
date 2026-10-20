@@ -518,10 +518,20 @@ a link is not what keeps the page closed.
 
 ### What lives under it
 
-`/admin` leads to `/admin/users`: the accounts, a search over the name, and a
-button per row to turn one on or off. A landing page for an area with one
-section is a page whose only content is a description of itself, and its
-reader does not need it.
+`/admin` leads to `/admin/status`, the overview: disk, memory and load from the
+host, per-table row counts, and the newest backup. A landing page for an area
+with one section is a page whose only content is a description of itself, and
+its reader does not need it — now that there are three sections the overview is
+the front door, the page that answers "is the platform healthy" without a
+click.
+
+The status page draws its frame once and its numbers from a JSON endpoint
+(`/admin/status/data`) that a small script refreshes every thirty seconds, so
+watching the disk does not mean reloading the page. The system figures come
+from `app/web/system.py`, which reads `/proc` and `os.statvfs` rather than
+`psutil` — a dependency for three numbers is not needed, and the sandbox
+already keeps `/proc` readable. A figure that cannot be read is `None`, which
+the page renders as `—`, never a fabricated zero.
 
 The search is a GET and the actions are POSTs with a token. A search changes
 nothing, and an address that can be bookmarked is worth more here than a POST
