@@ -1410,3 +1410,41 @@ as the description already on the page.
 ### Result
 The command list is clickable on every transport that renders it, and nothing
 below the surface moved. 796 tests pass.
+
+## 2026-10-20
+
+### Decision
+Ship a share preview image, and give the site one mark — a hub, not a chat
+bubble
+
+### Reason
+A résumé link is passed on in chat, and every share preview arrived as a bare
+title because there was no `og:image`. Meanwhile the favicon was three stacked
+bars, which reads as a messenger logo — message bubbles or a burger menu —
+and the platform is neither. A preview image is the first binary asset the
+repository would carry, which is the reason it had been deferred; it stops
+being a reason once the image is reproducible from text.
+
+Both problems are one problem: the site had no mark of its own. The platform's
+shape is a hub that plugins plug into — `PluginManager` in the middle, the
+six plugins around it, reachable from two transports — so the mark is that: a
+core with modules radiating off it, joined by lines. Structure, not a
+conversation.
+
+### How it is done
+- `app/web/favicon.svg` is redrawn as the new mark: a blue core, four corner
+  modules, four spokes. It replaces the three bars.
+- The preview is drawn as `app/web/og-image.svg` and rasterised to
+  `app/web/og-image.png` at 1200×630. The PNG is what the `og:image` tag
+  points at, because the parsers that render previews do not render SVG; the
+  SVG stays beside it so the look is changed and re-rendered, never edited as
+  a binary.
+- `_share_tags` in `app/web/server.py` now emits `og:image`,
+  `og:image:width` and `og:image:height` when `PUBLIC_BASE_URL` is set, and
+  the Twitter card widened from `summary` to `summary_large_image`. A new
+  `/og-image.png` route serves the file without a session, the same way the
+  favicon does.
+
+### Result
+A shared link now carries a picture, and the tab icon and the preview show one
+mark instead of two. 799 tests pass.

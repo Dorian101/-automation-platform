@@ -430,7 +430,7 @@ class TestWhenTheLinkIsShared:
         assert 'property="og:site_name"' in body
         assert 'property="og:title"' in body
         assert 'property="og:description"' in body
-        assert 'name="twitter:card"' in body
+        assert 'name="twitter:card" content="summary_large_image"' in body
 
     @pytest.mark.parametrize("path", PUBLIC_PAGES)
     async def test_the_tags_say_what_the_page_says(self, crawler, path):
@@ -458,6 +458,25 @@ class TestWhenTheLinkIsShared:
 
         assert f'property="og:url" content="{TEST_BASE_URL}{path}"' in body
 
+    @pytest.mark.parametrize("path", PUBLIC_PAGES)
+    async def test_the_image_is_absolute_and_sized(self, crawler, path):
+        """The messenger needs an absolute address and the true dimensions,
+        without fetching the file first."""
+        body = await self._page(crawler, path)
+
+        assert f'property="og:image" content="{TEST_BASE_URL}/og-image.png"' in body
+        assert 'property="og:image:width" content="1200"' in body
+        assert 'property="og:image:height" content="630"' in body
+
+    async def test_the_image_answers_without_a_session(self, crawler):
+        """A messenger fetching the preview has no session, the way a browser
+        asking for the favicon has none."""
+        response = await crawler.get("/og-image.png", allow_redirects=False)
+
+        assert response.status == 200
+        assert response.content_type == "image/png"
+        assert await response.read()
+
     async def test_no_url_when_the_public_name_is_unknown(
         self, web_server, monkeypatch
     ):
@@ -471,6 +490,7 @@ class TestWhenTheLinkIsShared:
 
         assert 'property="og:title"' in body
         assert 'property="og:url"' not in body
+        assert 'property="og:image"' not in body
 
     async def test_the_card_calls_the_site_something(self, crawler):
         """Without a site name the messenger prints the bare address, which is

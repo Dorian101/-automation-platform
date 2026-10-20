@@ -327,6 +327,14 @@ crawl path end to end for exactly that reason.
 The domain itself still has to be registered with Google Search Console and the
 sitemap submitted there; nothing in the code can do that part.
 
+The share preview (`og:image`) is `/og-image.png`, the only binary asset in the
+repository and the one thing a messenger commonly falls back to when there is no
+image at all. It is drawn in `app/web/og-image.svg` and rasterised to
+`og-image.png` (1200×630), because the parsers that render `og:image` do not
+render SVG. Change the look in the SVG and re-render the PNG — never edit the
+PNG by hand. Both the favicon and this image share one mark: a hub with modules
+radiating off it, the platform's shape, not a chat bubble.
+
 ## Navigation
 
 One navigation, rendered into every page by `pages.nav()`, built from what the

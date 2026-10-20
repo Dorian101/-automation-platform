@@ -58,6 +58,13 @@ TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 # not a page, and nothing renders it as markup.
 FAVICON_SVG = Path(__file__).resolve().parent / "favicon.svg"
 
+# The share preview image. It has to be a PNG: the messengers that render
+# `og:image` do not render SVG, so the mark is drawn in `og-image.svg` and
+# rasterised to `og-image.png`, which is what the tag points at. The SVG stays
+# beside it so the look can be changed and re-rendered rather than redrawn from
+# a binary.
+OG_IMAGE_PNG = Path(__file__).resolve().parent / "og-image.png"
+
 DAY_SECONDS = 86400
 
 # Binds a Login Widget payload to the browser that started it. The signature
@@ -106,6 +113,7 @@ PUBLIC_PATHS = {
     "/sitemap.xml",
     "/favicon.ico",
     "/favicon.svg",
+    "/og-image.png",
 }
 
 # What a request carries to say it is the owner's own working rather than a
@@ -668,6 +676,19 @@ class WebServer:
             headers={"Cache-Control": "public, max-age=86400"},
         )
 
+    async def _og_image(self, request: web.Request) -> web.Response:
+        """The share preview image, at the path `og:image` points to.
+
+        Served as PNG because the messengers that fetch `og:image` rasterise
+        rather than parse SVG. It is the same mark as the favicon, drawn large
+        with the site name beside it; see `og-image.svg` for the source.
+        """
+        return web.Response(
+            body=OG_IMAGE_PNG.read_bytes(),
+            content_type="image/png",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+
     async def _health(self, request: web.Request) -> web.Response:
         try:
             with self._database.connect() as conn:
@@ -1078,6 +1099,7 @@ class WebServer:
                 web.get("/health", self._health),
                 web.get("/favicon.ico", self._favicon),
                 web.get("/favicon.svg", self._favicon),
+                web.get("/og-image.png", self._og_image),
             ],
         )
 
@@ -1477,10 +1499,11 @@ def _share_tags(source: str, path: str) -> str:
     beside them. A second copy of either is a second thing to keep right, and
     the one that goes wrong is the one nobody sees — it is not on the page.
 
-    No `og:image`: there is no image to point at, and a tag naming a file
-    that does not exist is worse than no tag. The base URL is only there
-    because an absolute address is required, and a deployment without
-    `PUBLIC_BASE_URL` set gets no url at all rather than a wrong one.
+    The image is the one part not read from the page: `/og-image.png` is the
+    same mark as the favicon, drawn with the site name, and it needs a base
+    URL the same way `og:url` does — a relative address means nothing to
+    whoever fetches it. A deployment without `PUBLIC_BASE_URL` set gets no
+    image and no url at all rather than a wrong one.
     """
     title = _TITLE.search(source)
     description = _DESCRIPTION.search(source)
@@ -1493,11 +1516,14 @@ def _share_tags(source: str, path: str) -> str:
         f'property="og:site_name" content="{SITE_NAME}"',
         f'property="og:title" content="{title.group(1)}"',
         f'property="og:description" content="{description.group(1)}"',
-        'name="twitter:card" content="summary"',
+        'name="twitter:card" content="summary_large_image"',
     ]
 
     if PUBLIC_BASE_URL:
         tags.append(f'property="og:url" content="{PUBLIC_BASE_URL}{path}"')
+        tags.append(f'property="og:image" content="{PUBLIC_BASE_URL}/og-image.png"')
+        tags.append('property="og:image:width" content="1200"')
+        tags.append('property="og:image:height" content="630"')
 
     return "".join(f"<meta {tag}>\n" for tag in tags)
 

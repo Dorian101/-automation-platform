@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.45.0
+v0.46.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -667,9 +667,6 @@ deployment that never sets it records everything as before.
   and wants the same limits;
 * anchor identity to a stable key so an account can be renamed without moving
   its data, which is what the deferred rename command needs;
-* a preview image for the résumé link (`og:image`). Every share preview on the
-  site is a bare title today, and a picture is the first binary asset the
-  project would carry — which is why it was left alone rather than hurried;
 
 On the documents themselves: `PROJECT_STATE.md` is edited at the end of a
 sprint, which means it describes the code as of that moment and nothing about
