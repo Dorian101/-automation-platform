@@ -545,6 +545,7 @@ class WebServer:
                 "version": plugin.version,
                 "description": plugin.description,
                 "commands": plugin.commands,
+                "command_args": plugin.command_args,
             }
             for plugin in self._manager.get_plugins()
             if not plugin.web_only and plugin.commands

@@ -53,6 +53,19 @@ class TestCommandsEndpoint:
 
         assert notes["commands"]["/add"] == "Добавить заметку"
 
+    async def test_names_which_commands_take_an_argument(self, client):
+        """A command absent from `command_args` takes no argument, which is what
+        lets a chip run it on a click instead of filling the input box."""
+        response = await client.get("/api/commands")
+        payload = await response.json()
+
+        notes = next(p for p in payload["plugins"] if p["name"] == "notes")
+
+        assert notes["command_args"]["/add"] == "text"
+        assert notes["command_args"]["/del"] == "number"
+        assert "/notes" not in notes["command_args"]
+        assert "/clear" not in notes["command_args"]
+
 
 class TestExecuteEndpoint:
     async def test_runs_command(self, client):

@@ -12,6 +12,13 @@ class BasePlugin(ABC):
     description: str = "Base plugin"
     commands: dict[str, str] = {}
 
+    # The argument placeholder for a command that takes one, keyed the same way
+    # as `commands`. A command absent from this dict takes no argument, which is
+    # what lets the web console run it the moment it is clicked rather than
+    # putting it in the input box. The placeholder is what the form shows after
+    # the command when one is needed: `/add <text>`, `/del <number>`.
+    command_args: dict[str, str] = {}
+
     # The web path this plugin owns, or None when it has no page. The platform
     # routes it automatically, the same way it routes a declared command, so a
     # plugin with a page is not an adapter the web layer has to know about.

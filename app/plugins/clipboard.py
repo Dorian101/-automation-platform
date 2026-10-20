@@ -16,6 +16,9 @@ class ClipboardPlugin(BasePlugin):
         "/copy": "Сохранить текст в буфер",
         "/paste": "Показать последний текст",
     }
+    command_args = {
+        "/copy": "text",
+    }
 
     def __init__(self, database: Database | None = None, persons=None):
         self.repo = ClipboardRepository(database)

@@ -31,6 +31,10 @@ class RemindersPlugin(BasePlugin):
         "/reminders": "Показать напоминания",
         "/cancel": "Отменить напоминание по номеру",
     }
+    command_args = {
+        "/remind": "minutes text",
+        "/cancel": "number",
+    }
 
     def __init__(self, notifier: Notifier, database: Database | None = None):
         self.repo = RemindersRepository(database)

@@ -1471,3 +1471,37 @@ way: a 200 on one request and silence on the next.
 
 ### Result
 A shared link can now carry its picture end to end. 800 tests pass.
+
+## 2026-10-20
+
+### Decision
+Run an argument-less command from its chip, and name which commands take one
+
+### Reason
+Every chip did the same thing: put the command in the input box. That leaves a
+reader typing Enter after clicking `/notes`, `/help` or `/status`, when there is
+nothing left to type. The console needs to know the difference between a
+command that is complete on its own and one that needs the reader's input, and
+the difference has to ride the metadata rather than a hardcoded list in the
+page — a page that knows which commands take arguments is a page that forgets
+one the day a plugin adds a command.
+
+A plugin already declares `commands` (command → description). The new
+`command_args` sits beside it and carries the argument placeholder for the
+commands that need one; a command absent from it takes no argument.
+
+### How it is done
+- `BasePlugin` gains `command_args: dict[str, str]`, defaulting to `{}`. The
+  plugins declare only the commands that take an argument: notes, reminders and
+  clipboard fill it; system needs none.
+- `/api/commands` includes `command_args`, so the console reads the rule rather
+  than knowing it.
+- The console's chip handler runs a command with no argument on the click, and
+  puts one with an argument into the input box as before. The shared
+  `execute()` from the form is reused, and focus is no longer forced back to
+  the box after a chip-run command.
+
+### Result
+`/notes`, `/reminders`, `/paste`, `/plugins`, `/help` and `/status` run in one
+click; the argument-taking commands still land in the box to be completed.
+801 tests pass.

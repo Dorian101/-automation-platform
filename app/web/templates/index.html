@@ -239,11 +239,7 @@ function parseInput(raw) {
   return { command: trimmed.slice(0, space), args: trimmed.slice(space + 1) };
 }
 
-form.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const { command, args } = parseInput(input.value);
-  if (!command) return;
-
+async function execute(command, args) {
   send.disabled = true;
   output.classList.remove('error');
   output.textContent = 'Выполняю…';
@@ -270,8 +266,16 @@ form.addEventListener('submit', async (event) => {
     output.textContent = 'Нет связи с сервером';
   } finally {
     send.disabled = false;
-    input.focus();
   }
+}
+
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const { command, args } = parseInput(input.value);
+  if (!command) return;
+
+  await execute(command, args);
+  input.focus();
 });
 
 fetch('/api/commands')
@@ -296,16 +300,22 @@ fetch('/api/commands')
 
       const list = document.createElement('ul');
       for (const [command, description] of Object.entries(plugin.commands)) {
+        const takesArg = Object.prototype.hasOwnProperty.call(plugin.command_args, command);
+
         const item = document.createElement('li');
         const chip = document.createElement('button');
         chip.type = 'button';
         chip.className = 'chip';
         chip.textContent = command;
-        // A trailing space is what makes "add" turn into "/add " so the reader
-        // can go straight to typing the text, while a bare "/notes" runs as-is.
+        // A command with an argument puts itself in the input box so the reader
+        // can type the rest; one without runs the moment it is clicked.
         chip.addEventListener('click', () => {
-          input.value = command + ' ';
-          input.focus();
+          if (takesArg) {
+            input.value = command + ' ';
+            input.focus();
+          } else {
+            void execute(command, '');
+          }
         });
         item.appendChild(chip);
         item.appendChild(document.createTextNode(' — ' + description));

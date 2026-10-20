@@ -16,6 +16,10 @@ class NotesPlugin(BasePlugin):
         "/del": "Удалить заметку по номеру",
         "/clear": "Удалить все заметки",
     }
+    command_args = {
+        "/add": "text",
+        "/del": "number",
+    }
 
     def __init__(self, database: Database | None = None, persons=None):
         self.repo = NotesRepository(database)
