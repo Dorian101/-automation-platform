@@ -12,10 +12,13 @@ caller can serialize it straight to JSON.
 """
 
 import os
+from collections.abc import Iterable
 
 # Matches the "MemAvailable" line in /proc/meminfo, written in kibibytes.
-_MEM_TOTAL = "MemTotal:"
-_MEM_AVAILABLE = "MemAvailable:"
+# No colon: `line.partition(":")` already strips it from the key, and these
+# are compared against that colon-less key.
+_MEM_TOTAL = "MemTotal"
+_MEM_AVAILABLE = "MemAvailable"
 
 
 def disk() -> dict:
@@ -100,20 +103,31 @@ def _meminfo() -> dict[str, int] | None:
     None when the file is unreadable, so a caller can tell "nothing to show"
     from "no memory". Every value is otherwise bytes.
     """
+    try:
+        with open("/proc/meminfo", encoding="ascii") as source:
+            return _parse_meminfo(source)
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def _parse_meminfo(lines: Iterable[str]) -> dict[str, int]:
+    """Bytes for the two figures the dashboard needs, from meminfo lines.
+
+    Pure so the parsing is testable without touching the filesystem: the
+    numbers come from `/proc` on the host, which a test suite cannot read.
+    A line is `key` up to the first colon and a value in kibibytes after it;
+    the bytes follow by multiplying by 1024.
+    """
     found: dict[str, int] = {
         _MEM_TOTAL: 0,
         _MEM_AVAILABLE: 0,
     }
 
-    try:
-        with open("/proc/meminfo", encoding="ascii") as source:
-            for line in source:
-                key, _, value = line.partition(":")
-                if key in found:
-                    # "MemAvailable:   1331012 kB" -> bytes
-                    kbytes = value.strip().split()[0]
-                    found[key] = int(kbytes) * 1024
-    except (OSError, ValueError, IndexError):
-        return None
+    for line in lines:
+        key, _, value = line.partition(":")
+        if key in found:
+            # "MemAvailable:   1331012 kB" -> bytes
+            kbytes = value.strip().split()[0]
+            found[key] = int(kbytes) * 1024
 
     return found

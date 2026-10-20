@@ -1205,3 +1205,36 @@ class TestTheStatusPage:
         response = await app_client.get("/admin/status", allow_redirects=False)
 
         assert response.status == 303
+
+
+class TestMemoryParsing:
+    """The meminfo parser the status page leans on.
+
+    It lives apart from the filesystem on purpose: `/proc/meminfo` does not
+    exist on the machine that runs the suite, so the parser is tested against
+    lines in memory rather than a file only Linux can show.
+    """
+
+    def test_it_reads_total_and_available_in_bytes(self):
+        from app.web.system import _parse_meminfo
+
+        lines = [
+            "MemTotal:       16357928 kB\n",
+            "MemFree:         1000000 kB\n",
+            "MemAvailable:    5000000 kB\n",
+        ]
+
+        parsed = _parse_meminfo(lines)
+
+        # KiB to bytes: 16357928 * 1024 and 5000000 * 1024.
+        assert parsed["MemTotal"] == 16357928 * 1024
+        assert parsed["MemAvailable"] == 5000000 * 1024
+
+    def test_an_unrecognised_line_is_ignored(self):
+        from app.web.system import _parse_meminfo
+
+        parsed = _parse_meminfo(["SomeOther: 12 kB\n"])
+
+        # The two keys the dashboard draws are still there, still zero, rather
+        # than a parser that tripped over a line it does not know.
+        assert parsed == {"MemTotal": 0, "MemAvailable": 0}

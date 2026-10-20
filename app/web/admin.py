@@ -347,9 +347,8 @@ def _status_snapshot(database: Database, visits: VisitsRepository) -> dict:
     """Everything the status page shows, in one dict.
 
     The database counts are one `SELECT count(*)` each rather than joined,
-    which keeps the figures independent: one table being slow or gone does not
-    take the rest down with it, and a missing table shows as zero rather than
-    as a broken page.
+    which keeps the figures independent: one table being slow does not take the
+    rest down with it.
     """
     return {
         "tables": _table_counts(database),
