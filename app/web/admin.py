@@ -379,6 +379,8 @@ def _last_visit(visits: VisitsRepository) -> str | None:
     """When somebody last arrived, in DISPLAY_TIMEZONE, or None.
 
     The newest row is enough; the full log is the `/admin/visits` page's job.
+    Formatted like the backup timestamp below — `%d.%m.%Y %H:%M` — so it reads
+    on the wall clock without an offset suffix that only lengthens the line.
     """
     rows = visits.recent(limit=1)
 
@@ -386,7 +388,11 @@ def _last_visit(visits: VisitsRepository) -> str | None:
         return None
 
     zone = ZoneInfo(Config.DISPLAY_TIMEZONE)
-    return rows[0].at.replace(tzinfo=UTC).astimezone(zone).isoformat(timespec="seconds")
+    return (
+        rows[0].at.replace(tzinfo=UTC)
+        .astimezone(zone)
+        .strftime("%d.%m.%Y %H:%M")
+    )
 
 
 def _backups() -> dict:

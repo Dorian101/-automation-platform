@@ -22,25 +22,12 @@ _MEM_AVAILABLE = "MemAvailable"
 
 
 def disk() -> dict:
-    """Free and used space on the two volumes the service touches.
+    """Free and used space on the root filesystem, in bytes.
 
-    The application lives on the root filesystem; the backups live on a
-    dedicated path. Both answers come from `os.statvfs`, which is what `df`
-    reads, and the numbers are bytes.
+    The one volume the service lives on. `os.statvfs` is what `df` reads. The
+    backups' own size is reported by the backups card, not by this figure.
     """
-    return {
-        "root": _volume("/"),
-        "backups": _volume(_backups_volume()),
-    }
-
-
-def _backups_volume() -> str:
-    # The backups directory is a config away from the working tree; the exact
-    # path is not this module's business, so it reads the same setting the
-    # backup manager does rather than hardcoding a second path.
-    from app.db.backup import default_backups_dir
-
-    return str(default_backups_dir())
+    return {"root": _volume("/")}
 
 
 def _volume(path: str) -> dict:

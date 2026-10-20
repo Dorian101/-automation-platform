@@ -1613,3 +1613,40 @@ for three numbers is not needed.
 The administrative area opens on a page that says whether the platform is
 healthy without a click, and every figure is honest about what it could not
 read. 808 tests pass.
+
+## 2026-10-21
+
+### Decision
+Make the status page's labels read plainly, and drop the disk row that
+duplicated the root volume
+
+### Reason
+Three things about the first cut read wrong:
+
+- The disk card showed the backups' free space next to the root's, but both
+  live on `/dev/sda1` — the same volume — so the two numbers were the same and
+  the extra row only suggested there was a second disk. The backups' own size
+  is already the backups card's job.
+- `Load 1м` is jargon, and `Доступно`/`Используется` are less direct than
+  `Свободно`/`Занято`. A status page is read for its numbers, and its labels
+  should not need translating twice.
+- `Последний визит` was formatted with `isoformat`, which carried a `+03:00`
+  offset that lengthened the line until it overflowed the card. The visits and
+  backups already rendered wall-clock times without an offset; this one had
+  simply not been brought into line.
+
+### How it is done
+- The disk card is two rows — `Свободно` and `Занято` — and `system.disk`
+  now reports the root volume only; the `backups` volume key and its helper
+  are gone, since nothing reads them.
+- Labels across the cards are plain words: `Средняя за минуту`, `Всего
+  файлов`, `Создан`, `Занимают`.
+- `_last_visit` formats `%d.%m.%Y %H:%M` in `DISPLAY_TIMEZONE`, matching the
+  backups' timestamp, and the template stops doing its own `replace('T', ' ')`.
+- The timestamp and the backup file name are allowed to wrap (`overflow-wrap:
+  anywhere`, `min-width: 0`) so a long value breaks instead of spilling past
+  the card, while the byte counts stay on one line.
+
+### Result
+The status page reads in plain terms, the disk card no longer shows a second
+volume that does not exist, and nothing overflows the card. 810 tests pass.

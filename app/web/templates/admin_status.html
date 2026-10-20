@@ -5,9 +5,8 @@
     <article class="stat-card">
       <h3>Диск</h3>
       <dl class="stat-list">
-        <div><dt>Корень</dt><dd data-stat="disk.root.free">&hellip;</dd></div>
+        <div><dt>Свободно</dt><dd data-stat="disk.root.free">&hellip;</dd></div>
         <div><dt>Занято</dt><dd data-stat="disk.root.used">&hellip;</dd></div>
-        <div><dt>Бэкапы</dt><dd data-stat="disk.backups.free">&hellip;</dd></div>
       </dl>
     </article>
 
@@ -15,15 +14,15 @@
       <h3>Память</h3>
       <dl class="stat-list">
         <div><dt>Всего</dt><dd data-stat="memory.total">&hellip;</dd></div>
-        <div><dt>Доступно</dt><dd data-stat="memory.available">&hellip;</dd></div>
-        <div><dt>Используется</dt><dd data-stat="memory.used">&hellip;</dd></div>
+        <div><dt>Свободно</dt><dd data-stat="memory.available">&hellip;</dd></div>
+        <div><dt>Занято</dt><dd data-stat="memory.used">&hellip;</dd></div>
       </dl>
     </article>
 
     <article class="stat-card">
       <h3>Нагрузка</h3>
       <dl class="stat-list">
-        <div><dt>Load 1м</dt><dd data-stat="load">&hellip;</dd></div>
+        <div><dt>Средняя за минуту</dt><dd data-stat="load">&hellip;</dd></div>
         <div><dt>Ядер</dt><dd data-stat="cores">&hellip;</dd></div>
         <div><dt>Последний визит</dt><dd data-stat="last_visit">&hellip;</dd></div>
       </dl>
@@ -42,10 +41,10 @@
     <article class="stat-card stat-card--counts">
       <h3>Бэкапы</h3>
       <dl class="stat-list">
-        <div><dt>Всего</dt><dd data-stat="backups.count">&hellip;</dd></div>
+        <div><dt>Всего файлов</dt><dd data-stat="backups.count">&hellip;</dd></div>
         <div><dt>Последний</dt><dd data-stat="backups.newest">&hellip;</dd></div>
-        <div><dt>Когда</dt><dd data-stat="backups.newest_at">&hellip;</dd></div>
-        <div><dt>Размер</dt><dd data-stat="backups.total_bytes">&hellip;</dd></div>
+        <div><dt>Создан</dt><dd data-stat="backups.newest_at">&hellip;</dd></div>
+        <div><dt>Занимают</dt><dd data-stat="backups.total_bytes">&hellip;</dd></div>
       </dl>
     </article>
   </div>
@@ -83,13 +82,12 @@
 
     set('disk.root.free', bytesToHuman(disk.root.free));
     set('disk.root.used', bytesToHuman(disk.root.used));
-    set('disk.backups.free', bytesToHuman(disk.backups.free));
     set('memory.total', bytesToHuman(mem.total));
     set('memory.available', bytesToHuman(mem.available));
     set('memory.used', used != null && used >= 0 ? bytesToHuman(used) : '—');
     set('load', data.system.load == null ? '—' : data.system.load.toFixed(2));
     set('cores', data.system.cores == null ? '—' : data.system.cores);
-    set('last_visit', data.last_visit ? data.last_visit.replace('T', ' ') : '—');
+    set('last_visit', data.last_visit || '—');
 
     set('backups.count', data.backups.count);
     set('backups.newest', data.backups.newest || '—');

@@ -155,6 +155,16 @@
     text-align: right;
     white-space: nowrap;
   }
+  /* A timestamp and a backup file name are longer than a byte count. They
+     wrap instead of overflowing the card, while the numbers stay on one line.
+     A flex item will not shrink past its longest word unless min-width lets
+     it, so the long name is given room to break. */
+  [data-stat="last_visit"],
+  [data-stat="backups.newest"] {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
   .count-list { list-style: none; margin: 0; padding: 0; }
   .count-list li {
     display: flex;
