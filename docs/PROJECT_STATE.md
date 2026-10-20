@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.44.0
+v0.45.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -317,6 +317,11 @@ Implemented:
   existed the request was answered with a redirect to the sign-in form, so the
   tab showed a login screen
 * GET /api/commands — plugin and command metadata
+* the command list is rendered as clickable chips, not plain code: a click puts
+  the command into the input box (with a trailing space) so a command with
+  arguments is one click plus the text, and a command without arguments runs
+  as-is. Server-side nothing changed — the chips reuse the same `/api/commands`
+  metadata the console already fetched
 * POST /api/command — command execution
 * POST /api/page/action — a plugin page reporting what was done, answered
   with the page redrawn

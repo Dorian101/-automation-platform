@@ -1378,3 +1378,35 @@ how many reminders other people have and hands out a number to guess.
 ### Result
 A reminder is now cancellable the moment it is set, and what is coming is
 visible without waiting for a delivery. 796 tests pass.
+
+## 2026-10-20
+
+### Decision
+Turn the console's command list into clickable chips instead of plain text
+
+### Reason
+The console listed every command as `<code>` text with its description, so a
+reader still had to type a command out by hand. The point of a web console is
+to make the same commands the bot takes easier to reach, and a list you cannot
+act on only shows what there is to remember.
+
+The decision pulled against a bigger option and picked the small one. A command
+signature — name, parameters, types — would let the page build real forms and
+validate before calling, but that is a change to the plugin contract and to
+`/api/commands`, and nothing in this step needed it. A chip that puts the
+command into the input box gets the keyboard out of the way for the same cost
+as the description already on the page.
+
+### How it is done
+- Each command in the list renders as a `<button class="chip">` rather than
+  `<code>`. A click sets the input to `command + " "` and focuses it, so a
+  command with arguments is one click plus the text, and a command without
+  arguments runs as-is — the trailing space is harmless because the command is
+  parsed after trimming.
+- The chips are built from the same `/api/commands` payload the console already
+  fetched, so no server change and no new contract. The button uses
+  `textContent`, so a command name is text and never markup.
+
+### Result
+The command list is clickable on every transport that renders it, and nothing
+below the surface moved. 796 tests pass.

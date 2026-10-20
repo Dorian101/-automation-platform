@@ -246,6 +246,11 @@ retried indefinitely — that is an outage.
 - GET / — HTML console
 - GET /api/commands — plugin and command metadata
 - POST /api/command — execute a command
+- The console's command list is rendered as clickable chips. A click puts the
+  command into the input box with a trailing space, so a command with arguments
+  is one click plus the text and a command without arguments runs as-is. The
+  chips reuse the `/api/commands` metadata — no plugin declares a signature for
+  this, and no server change was needed.
 - POST /api/page/action — a plugin page reporting what was done; the target
   page is named in the body because the endpoint is shared, and the answer is
   the page description again

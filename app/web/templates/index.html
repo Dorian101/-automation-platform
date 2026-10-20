@@ -100,7 +100,18 @@
   .plugin-desc { color: var(--muted); font-size: 0.85rem; }
   ul { margin: 0.35rem 0 0; padding-left: 1.1rem; }
   li { margin-bottom: 0.2rem; }
-  code { background: var(--bg); padding: 0.05rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
+  .chip {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    padding: 0.05rem 0.4rem;
+    font: inherit;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85em;
+    cursor: pointer;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
   .hint { color: var(--muted); font-size: 0.8rem; margin-top: 0.75rem; }
   .topbar { margin-bottom: 1.5rem; }
   .topbar .sub { margin-bottom: 0; }
@@ -286,9 +297,17 @@ fetch('/api/commands')
       const list = document.createElement('ul');
       for (const [command, description] of Object.entries(plugin.commands)) {
         const item = document.createElement('li');
-        const code = document.createElement('code');
-        code.textContent = command;
-        item.appendChild(code);
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip';
+        chip.textContent = command;
+        // A trailing space is what makes "add" turn into "/add " so the reader
+        // can go straight to typing the text, while a bare "/notes" runs as-is.
+        chip.addEventListener('click', () => {
+          input.value = command + ' ';
+          input.focus();
+        });
+        item.appendChild(chip);
         item.appendChild(document.createTextNode(' — ' + description));
         list.appendChild(item);
       }
