@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.50.0
+v0.51.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -222,6 +222,9 @@ Implemented:
 * create reminders
 * /reminders lists the unsent ones, soonest first; /cancel removes one by
   its position in that list, addressed like a note — never by row id
+* the due time is rendered in `DISPLAY_TIMEZONE`, not the host's clock: the
+  box keeps UTC and the reader sees their own wall time, with the zone named
+  (for this deployment, MSK)
 * PostgreSQL storage
 * background worker
 * self-managed lifecycle

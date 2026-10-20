@@ -306,6 +306,27 @@ class TestRemindersPlugin:
 
         assert [text for _, text, _ in plugin.repo.entries(telegram(99))] == ["theirs"]
 
+    async def test_reminders_render_in_the_configured_time_zone(
+        self, database_with_schema, notifier, monkeypatch,
+    ):
+        """The host keeps UTC; the reader's clock is DISPLAY_TIMEZONE."""
+        from app.core.config import Config
+
+        plugin = RemindersPlugin(notifier, database_with_schema)
+        plugin.repo.add(
+            telegram(42),
+            "moscow",
+            datetime(2026, 10, 16, 21, 8).isoformat(),
+        )
+
+        monkeypatch.setattr(Config, "DISPLAY_TIMEZONE", "Europe/Moscow")
+        moscow = await plugin.execute("/reminders", "", telegram(42))
+        assert "2026-10-17 00:08 MSK" in moscow.text
+
+        monkeypatch.setattr(Config, "DISPLAY_TIMEZONE", "UTC")
+        utc = await plugin.execute("/reminders", "", telegram(42))
+        assert "2026-10-16 21:08 UTC" in utc.text
+
 
 class TestSystemPlugin:
     async def test_help_lists_commands(self, manager, web_identity):

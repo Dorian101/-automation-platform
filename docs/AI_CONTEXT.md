@@ -242,6 +242,12 @@ link first. A reminder that is already due with nowhere to go is given up on
 after three passes rather than retried for ever, and a delivery that raises is
 retried indefinitely — that is an outage.
 
+Reminder times are rendered in `DISPLAY_TIMEZONE` (`_format_remind_at`, via
+`ZoneInfo`), the same setting `/admin/visits` uses, not in the host's own zone —
+the box keeps UTC and the reader sees their own wall clock. The setting defaults
+to UTC, so a deployment that never sets it stays on UTC; this one names Moscow
+to read as MSK.
+
 ## Web interface
 
 - GET /login, POST /login — sign-in form

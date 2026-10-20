@@ -1542,3 +1542,37 @@ only the shape the page receives changed.
 ### Result
 A command with arguments is answered by filling in labelled fields, and a
 command without them by one click. 802 tests pass.
+
+## 2026-10-20
+
+### Decision
+Render reminder times in `DISPLAY_TIMEZONE`, and make running a command from
+the list give back an answer in place
+
+### Reason
+Three rough edges from the console work:
+
+- A chip or form runs a command, but the result is drawn in the panel above
+  the command list, so a reader who just clicked has to scroll back up to find
+  out what happened — and often does not, which reads as "nothing happened".
+- Opening a form for one command left the forms of others open, so the list
+  accumulated half-filled inputs that meant nothing.
+- `/reminders` showed the due time in the host's own zone — UTC on this box —
+  while the reader's wall is Moscow. The administration pages already carried
+  `DISPLAY_TIMEZONE` for exactly this; reminders had simply stopped short of
+  using it and converted to the process zone instead.
+
+### How it is done
+- `_format_remind_at` converts the stored naive UTC timestamp into
+  `ZoneInfo(Config.DISPLAY_TIMEZONE)` rather than `astimezone()` with no
+  argument, matching how `/admin/visits` already renders times.
+- The console's `execute()` takes a `reveal` flag: a command run from a chip
+  or form scrolls the result panel into view and briefly highlights it, while
+  a manually submitted command does not — the reader is already looking at the
+  box. A manual submit is the one that clears the input.
+- Opening an argument form removes every other open form first, so at most one
+  is ever showing.
+
+### Result
+A click out of the command list now answers "done" without a trip up the page,
+and the times it reports are on the reader's own clock. 803 tests pass.

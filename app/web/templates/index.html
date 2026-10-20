@@ -90,6 +90,8 @@
     font-size: 0.9rem;
   }
   #output.error { color: var(--error); }
+  #result-panel { transition: border-color 0.4s ease; }
+  #result-panel.flash { border-color: var(--accent); }
   #rendered:empty { display: none; }
   #rendered { margin-top: 0.9rem; }
   #rendered table {
@@ -172,7 +174,7 @@ __MENU_STYLES__
     <p class="hint">Заметки хранятся раздельно по каналам и читаются вместе при связанной паре.</p>
   </div>
 
-  <div class="panel">
+  <div class="panel" id="result-panel">
     <h2>Результат</h2>
     <div id="output">Готово.</div>
     <div id="rendered"></div>
@@ -259,7 +261,7 @@ function parseInput(raw) {
   return { command: trimmed.slice(0, space), args: trimmed.slice(space + 1) };
 }
 
-async function execute(command, args) {
+async function execute(command, args, reveal) {
   send.disabled = true;
   output.classList.remove('error');
   output.textContent = 'Выполняю…';
@@ -279,14 +281,28 @@ async function execute(command, args) {
     } else {
       output.textContent = data.result;
       render(data.data);
-      input.value = '';
+      if (!reveal) {
+        input.value = '';
+      }
     }
   } catch (err) {
     output.classList.add('error');
     output.textContent = 'Нет связи с сервером';
   } finally {
     send.disabled = false;
+    if (reveal) revealResult();
   }
+}
+
+// Where the answer to a chip or form command is drawn, and how to bring the
+// eye to it: the result panel already sits above the command list, so running
+// a command from the list leaves the reader looking at the wrong end of the
+// page. A soft scroll and a brief highlight say "done, and here it is".
+function revealResult() {
+  const panel = document.getElementById('result-panel');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  panel.classList.add('flash');
+  setTimeout(() => panel.classList.remove('flash'), 700);
 }
 
 form.addEventListener('submit', async (event) => {
@@ -294,7 +310,7 @@ form.addEventListener('submit', async (event) => {
   const { command, args } = parseInput(input.value);
   if (!command) return;
 
-  await execute(command, args);
+  await execute(command, args, false);
   input.focus();
 });
 
@@ -323,8 +339,7 @@ function makeArgsForm(command, fields) {
   run.textContent = 'Выполнить';
   run.addEventListener('click', () => {
     const values = Array.from(wrap.querySelectorAll('input')).map((el) => el.value.trim());
-    void execute(command, values.join(' '));
-    input.focus();
+    void execute(command, values.join(' '), true);
   });
 
   wrap.appendChild(run);
@@ -364,10 +379,12 @@ fetch('/api/commands')
         // without runs the moment it is clicked.
         chip.addEventListener('click', () => {
           if (fields && fields.length) {
-            item.querySelector('.args')?.remove();
+            // One open form at a time: opening a form closes whatever else is
+            // open, so the list does not accumulate stray inputs.
+            document.querySelectorAll('#commands .args').forEach((el) => el.remove());
             item.appendChild(makeArgsForm(command, fields));
           } else {
-            void execute(command, '');
+            void execute(command, '', true);
           }
         });
         item.appendChild(chip);

@@ -1,7 +1,9 @@
 import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
+from app.core.config import Config
 from app.core.identity import TELEGRAM, WEB, Identity
 from app.core.results import CommandError, CommandResult, reply
 from app.db.database import Database
@@ -217,11 +219,14 @@ def _format_remind_at(remind_at: datetime) -> str:
     """The reminder's moment, in the reader's local time.
 
     ``remind_at`` comes back from the database as a naive UTC timestamp. It is
-    rendered local because a person comparing "soon" against the clock on the
-    wall should not have to convert; the offset is named so the reader is not
-    left to guess which clock a bare number is on.
+    rendered in the time zone `DISPLAY_TIMEZONE` names, not the machine's: the
+    host keeps UTC regardless, and a reader comparing "soon" against the clock
+    on the wall wants the wall in their own zone — for this deployment, Moscow.
+    The offset is named so a bare number is never left to guess which clock it
+    is on.
     """
-    local = remind_at.replace(tzinfo=UTC).astimezone()
-    zone = local.tzname() or local.strftime("%z")
+    zone = ZoneInfo(Config.DISPLAY_TIMEZONE)
+    local = remind_at.replace(tzinfo=UTC).astimezone(zone)
+    zone_name = local.tzname() or local.strftime("%z")
 
-    return f"{local.strftime('%Y-%m-%d %H:%M')} {zone}"
+    return f"{local.strftime('%Y-%m-%d %H:%M')} {zone_name}"
