@@ -77,6 +77,14 @@ class TestCrawlerPaths:
 
         assert "Allow: /sitemap.xml" in body
 
+    async def test_robots_lets_the_preview_image_through(self, crawler):
+        """The picture a messenger fetches is its own request, and `Disallow: /`
+        would refuse it even though the page that names it is allowed — the
+        title renders and the image does not. Same reason as the sitemap."""
+        body = await (await crawler.get("/robots.txt")).text()
+
+        assert "Allow: /og-image.png" in body
+
     async def test_sitemap_is_reachable_and_well_formed(self, crawler):
         response = await crawler.get("/sitemap.xml")
 

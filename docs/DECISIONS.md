@@ -1448,3 +1448,26 @@ conversation.
 ### Result
 A shared link now carries a picture, and the tab icon and the preview show one
 mark instead of two. 799 tests pass.
+
+## 2026-10-20
+
+### Decision
+Let the share preview image through robots.txt
+
+### Reason
+The preview showed the title and description but no picture. The page the
+messenger reads — `/about` — is allowed, so the text rendered from the first
+request. The picture is a second request, for `/og-image.png`, and `Disallow: /`
+refused it: a bot that respects robots.txt reads the page and then refuses the
+image the page names. The fix is the same one the sitemap already needed, and
+for the same reason — a file that is not page content still has to be
+fetchable, or an entry point that depends on it fails in the least diagnosable
+way: a 200 on one request and silence on the next.
+
+### How it is done
+- `_robots` in `app/web/server.py` adds `Allow: /og-image.png` beside
+  `Allow: /sitemap.xml`, with a comment naming why the image is not page
+  content to index, only something to fetch.
+
+### Result
+A shared link can now carry its picture end to end. 800 tests pass.

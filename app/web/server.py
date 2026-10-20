@@ -611,6 +611,13 @@ class WebServer:
             # disallows — which made the file unreachable and left the Search
             # Console reporting a fetch failure against a perfectly good 200.
             "Allow: /sitemap.xml",
+            # The share preview image, for the same reason as the sitemap. A
+            # messenger reads the page, and then fetches the image named by
+            # og:image as a bot — the title and description render from the
+            # first read, but the picture is a second request that `Disallow: /`
+            # would refuse. The image is not page content and nothing here wants
+            # it indexed; it only has to be fetchable.
+            "Allow: /og-image.png",
             # Everything else is either behind a session or the console. Saying
             # so is clearer than leaving a crawler to work through a login form
             # and conclude the site is empty.
