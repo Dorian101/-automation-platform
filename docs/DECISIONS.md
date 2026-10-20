@@ -1505,3 +1505,40 @@ commands that need one; a command absent from it takes no argument.
 `/notes`, `/reminders`, `/paste`, `/plugins`, `/help` and `/status` run in one
 click; the argument-taking commands still land in the box to be completed.
 801 tests pass.
+
+## 2026-10-20
+
+### Decision
+Give a command with arguments a labelled form instead of a bare text box
+
+### Reason
+Sprint one made the chips know the difference between a complete command and
+one that needs input. This one acts on it for the commands that do: putting
+`/add ` into the box and asking the reader to type the rest still leaves the
+reader typing, and a command like `/remind` needs two things — minutes and
+text — that a single box cannot hint at. Fields with labels do what a chat
+line cannot: name each argument and stop the reader guessing its order.
+
+The metadata already carried the seed, and this is the point where it grows
+up. `command_args` was a placeholder string; it becomes a list of
+`(type, label)` fields, so the page can draw the right input for each and a
+prompt under it. The values are joined by spaces back into the `args` string
+the command already parses, so the server and the plugins stayed untouched —
+only the shape the page receives changed.
+
+### How it is done
+- `BasePlugin.command_args` becomes `dict[str, list[tuple[str, str]]]`: each
+  field is a `(type, label)` pair, `type` being `text` or `number`.
+- Notes declares `/add` as one `text` field and `/del` as one `number`;
+  reminders declares `/remind` as `number` minutes then `text`; clipboard
+  declares `/copy` as `text`. System still needs none.
+- `/api/commands` serialises the fields to `[{type, label}]` per command.
+- The console renders a command with arguments as a small form under its chip:
+  one labelled input per field plus a "Выполнить" button. Clicking runs the
+  command with the space-joined values; clicking an argument-less command
+  still runs it at once. Focus returns to the main input after a run, the same
+  as a manual submit.
+
+### Result
+A command with arguments is answered by filling in labelled fields, and a
+command without them by one click. 802 tests pass.

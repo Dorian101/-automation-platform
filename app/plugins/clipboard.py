@@ -17,7 +17,7 @@ class ClipboardPlugin(BasePlugin):
         "/paste": "Показать последний текст",
     }
     command_args = {
-        "/copy": "text",
+        "/copy": [("text", "Текст")],
     }
 
     def __init__(self, database: Database | None = None, persons=None):

@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.49.0
+v0.50.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -318,11 +318,10 @@ Implemented:
   tab showed a login screen
 * GET /api/commands — plugin and command metadata
 * the command list is rendered as clickable chips, not plain code. A command
-  that takes an argument puts itself in the input box (with a trailing space)
-  so the reader types the rest; a command without one runs on the click
-  itself. The distinction rides on `command_args`, a new per-plugin declaration
-  that names which commands take an argument — `/api/commands` carries it and
-  the console reads it
+  without an argument runs on the click; one with arguments reveals a form of
+  labelled fields under its chip, whose values are joined into the same
+  `args` string the bot takes. The fields come from `command_args`, a per-plugin
+  declaration of `(type, label)` per command carried by `/api/commands`
 * POST /api/command — command execution
 * POST /api/page/action — a plugin page reporting what was done, answered
   with the page redrawn

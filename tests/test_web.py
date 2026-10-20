@@ -19,6 +19,18 @@ def web_server(manager, database_with_schema, web_server_factory):
 
 
 @pytest.fixture
+async def full_client(every_plugin, database_with_schema, create_user, login,
+                      web_server_factory):
+    """A signed-in client over every plugin, for tests that need a command the
+    default manager does not register (reminders)."""
+    server = web_server_factory(every_plugin, database_with_schema)
+    test_server = TestServer(server.build_app())
+    async with TestClient(test_server) as test_client:
+        await login(test_client)
+        yield test_client
+
+
+@pytest.fixture
 async def client(web_server, create_user, login):
     test_server = TestServer(web_server.build_app())
     async with TestClient(test_server) as test_client:
@@ -55,16 +67,29 @@ class TestCommandsEndpoint:
 
     async def test_names_which_commands_take_an_argument(self, client):
         """A command absent from `command_args` takes no argument, which is what
-        lets a chip run it on a click instead of filling the input box."""
+        lets a chip run it on a click instead of showing a form."""
         response = await client.get("/api/commands")
         payload = await response.json()
 
         notes = next(p for p in payload["plugins"] if p["name"] == "notes")
 
-        assert notes["command_args"]["/add"] == "text"
-        assert notes["command_args"]["/del"] == "number"
+        assert notes["command_args"]["/add"] == [{"type": "text", "label": "Текст"}]
+        assert notes["command_args"]["/del"] == [{"type": "number", "label": "Номер"}]
         assert "/notes" not in notes["command_args"]
         assert "/clear" not in notes["command_args"]
+
+    async def test_commands_with_two_arguments_list_both_fields(self, full_client):
+        """`/remind` takes minutes and text; the form needs two fields, in
+        order."""
+        response = await full_client.get("/api/commands")
+        payload = await response.json()
+
+        reminders = next(p for p in payload["plugins"] if p["name"] == "reminders")
+
+        assert reminders["command_args"]["/remind"] == [
+            {"type": "number", "label": "Минуты"},
+            {"type": "text", "label": "Текст"},
+        ]
 
 
 class TestExecuteEndpoint:

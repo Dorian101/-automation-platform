@@ -12,12 +12,14 @@ class BasePlugin(ABC):
     description: str = "Base plugin"
     commands: dict[str, str] = {}
 
-    # The argument placeholder for a command that takes one, keyed the same way
-    # as `commands`. A command absent from this dict takes no argument, which is
-    # what lets the web console run it the moment it is clicked rather than
-    # putting it in the input box. The placeholder is what the form shows after
-    # the command when one is needed: `/add <text>`, `/del <number>`.
-    command_args: dict[str, str] = {}
+    # The fields a command with arguments needs, keyed the same way as
+    # `commands`. Each field is a `(type, label)` pair: the type is either
+    # `text` or `number` and decides the input the form draws, the label is the
+    # prompt shown in it. A command absent from this dict takes no argument,
+    # which is what lets the console run it on a click instead of showing a
+    # form. The fields are joined by spaces into the `args` string the command
+    # already parses.
+    command_args: dict[str, list[tuple[str, str]]] = {}
 
     # The web path this plugin owns, or None when it has no page. The platform
     # routes it automatically, the same way it routes a declared command, so a

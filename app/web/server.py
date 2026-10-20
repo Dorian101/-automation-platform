@@ -545,7 +545,10 @@ class WebServer:
                 "version": plugin.version,
                 "description": plugin.description,
                 "commands": plugin.commands,
-                "command_args": plugin.command_args,
+                "command_args": {
+                    cmd: [{"type": t, "label": label} for t, label in fields]
+                    for cmd, fields in plugin.command_args.items()
+                },
             }
             for plugin in self._manager.get_plugins()
             if not plugin.web_only and plugin.commands

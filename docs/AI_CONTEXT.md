@@ -154,11 +154,11 @@ A plugin may also declare:
   plugin does not inspect `identity.kind`.
 - `demo` — whether the page belongs on the public demonstration. **Default
   off.** See "The demonstration" below.
-- `command_args` — the argument placeholder for a command that takes one,
-  keyed the same as `commands` (e.g. `"/add": "text"`). A command absent from
-  it takes no argument, which is what lets the console's chip run it on a
-  click rather than fill the input box. The value is not consumed yet; it is
-  the seed of the argument signature the forms build on.
+- `command_args` — the fields a command with arguments needs, keyed the same
+  as `commands`. Each field is a `(type, label)` pair, `type` being `text` or
+  `number`; the label is the prompt drawn under the input. A command absent
+  from it takes no argument and runs on a click; a command present reveals a
+  labelled form whose values are joined by spaces into `args`.
 - `page_view(identity)` — return a description of the page.
 - `page_action(identity, action, payload)` — handle what the page did, return
   the same description with the change applied. Every payload value arrives as

@@ -42,7 +42,26 @@
     margin: 0 0 0.75rem;
   }
   form { display: flex; gap: 0.5rem; }
-  input[type=text] {
+  .args { margin-top: 0.5rem; }
+  .args label {
+    display: block;
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin: 0.4rem 0 0.2rem;
+  }
+  .args input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 0.45rem 0.7rem;
+    font: inherit;
+  }
+  .args .run {
+    margin-top: 0.5rem;
+  }
+  input[type=text], input[type=number] {
     flex: 1;
     background: var(--bg);
     border: 1px solid var(--border);
@@ -51,7 +70,8 @@
     padding: 0.55rem 0.7rem;
     font: inherit;
   }
-  input[type=text]:focus { outline: none; border-color: var(--accent); }
+  input[type=text]:focus, input[type=number]:focus { outline: none; border-color: var(--accent); }
+  .args input:focus { outline: none; border-color: var(--accent); }
   button {
     background: var(--accent);
     border: none;
@@ -278,6 +298,39 @@ form.addEventListener('submit', async (event) => {
   input.focus();
 });
 
+// Build the labelled fields a command with arguments fills in. The values are
+// joined by spaces into the same `args` string the command already parses, so
+// the server and the plugins are untouched — only the metadata grew.
+function makeArgsForm(command, fields) {
+  const wrap = document.createElement('div');
+  wrap.className = 'args';
+
+  for (const field of fields) {
+    const label = document.createElement('label');
+    label.textContent = field.label;
+
+    const control = document.createElement('input');
+    control.type = field.type === 'number' ? 'number' : 'text';
+    control.placeholder = field.label;
+
+    label.appendChild(control);
+    wrap.appendChild(label);
+  }
+
+  const run = document.createElement('button');
+  run.type = 'button';
+  run.className = 'run';
+  run.textContent = 'Выполнить';
+  run.addEventListener('click', () => {
+    const values = Array.from(wrap.querySelectorAll('input')).map((el) => el.value.trim());
+    void execute(command, values.join(' '));
+    input.focus();
+  });
+
+  wrap.appendChild(run);
+  return wrap;
+}
+
 fetch('/api/commands')
   .then((response) => response.json())
   .then((data) => {
@@ -300,19 +353,19 @@ fetch('/api/commands')
 
       const list = document.createElement('ul');
       for (const [command, description] of Object.entries(plugin.commands)) {
-        const takesArg = Object.prototype.hasOwnProperty.call(plugin.command_args, command);
+        const fields = plugin.command_args && plugin.command_args[command];
 
         const item = document.createElement('li');
         const chip = document.createElement('button');
         chip.type = 'button';
         chip.className = 'chip';
         chip.textContent = command;
-        // A command with an argument puts itself in the input box so the reader
-        // can type the rest; one without runs the moment it is clicked.
+        // A command with arguments reveals labelled fields to fill in; one
+        // without runs the moment it is clicked.
         chip.addEventListener('click', () => {
-          if (takesArg) {
-            input.value = command + ' ';
-            input.focus();
+          if (fields && fields.length) {
+            item.querySelector('.args')?.remove();
+            item.appendChild(makeArgsForm(command, fields));
           } else {
             void execute(command, '');
           }

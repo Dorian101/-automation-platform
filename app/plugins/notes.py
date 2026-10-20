@@ -17,8 +17,8 @@ class NotesPlugin(BasePlugin):
         "/clear": "Удалить все заметки",
     }
     command_args = {
-        "/add": "text",
-        "/del": "number",
+        "/add": [("text", "Текст")],
+        "/del": [("number", "Номер")],
     }
 
     def __init__(self, database: Database | None = None, persons=None):

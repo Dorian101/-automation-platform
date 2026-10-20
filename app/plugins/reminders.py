@@ -32,8 +32,8 @@ class RemindersPlugin(BasePlugin):
         "/cancel": "Отменить напоминание по номеру",
     }
     command_args = {
-        "/remind": "minutes text",
-        "/cancel": "number",
+        "/remind": [("number", "Минуты"), ("text", "Текст")],
+        "/cancel": [("number", "Номер")],
     }
 
     def __init__(self, notifier: Notifier, database: Database | None = None):
