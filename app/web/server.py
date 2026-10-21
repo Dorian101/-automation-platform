@@ -7,6 +7,7 @@ import secrets
 from collections.abc import Mapping
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from aiohttp import web
 from psycopg.errors import UniqueViolation
@@ -1036,6 +1037,7 @@ class WebServer:
                 VIEW,
                 path=request.path,
                 identity=_visitor(request, self._users, self._sessions),
+                referrer=_referrer_origin(request),
             )
 
         return response
@@ -1272,6 +1274,30 @@ def _is_a_visit(request: web.Request, response: web.StreamResponse) -> bool:
         return True
 
     return is_public_demo_path(request.path)
+
+
+def _referrer_origin(request: web.Request) -> str | None:
+    """The origin that led here, from the Referer header, or None.
+
+    Shortened to scheme + host, so a search engine's path and query never reach
+    the log: the origin answers "which site led here" without collecting what
+    somebody typed into it. An empty or unparseable header is no referrer, the
+    same as a browser that withholds the header or a direct visit.
+    """
+    header = request.headers.get("Referer", "").strip()
+
+    if not header:
+        return None
+
+    try:
+        parts = urlsplit(header)
+    except ValueError:
+        return None
+
+    if parts.scheme not in ("http", "https") or not parts.netloc:
+        return None
+
+    return f"{parts.scheme}://{parts.netloc}"
 
 
 def _leaves_no_trace(request: web.Request) -> bool:

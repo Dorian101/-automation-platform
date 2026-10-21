@@ -583,6 +583,15 @@ useful part of a visit is when it happened, and "who was that" is answered by
 lining the time up with a résumé site, not by having collected something to
 correlate against.
 
+**The referrer is an origin, never a URL.** When a browser arrives across a
+link it sends a `Referer` header, and the log keeps only the origin —
+`https://example.com` — out of it. The path and query are dropped before the
+row is written, so a search engine's referrer says which engine and not what
+was typed into it. A direct visit, a bookmark, or a browser that withholds the
+header leaves the column NULL, which reads as no referrer rather than as an
+empty string that looks like one. The shortening lives in `_referrer_origin`,
+one place, so every writer of a visit row passes through it.
+
 **One writer, a middleware, not a line in each handler.** `_is_a_visit` says
 what counts: a GET of a public page that answered 2xx or 3xx. The console is
 deliberately left out — it is where the owner works, it would bury everything

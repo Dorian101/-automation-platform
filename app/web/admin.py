@@ -616,12 +616,20 @@ def _visit_rows(found: list[Visit]) -> str:
 
     for visit in found:
         who = html.escape(visit.identity) if visit.identity else "&mdash;"
+        # The origin behind the visit, or a dash. A referrer is a URL up to the
+        # host only, never the full path, so what is printed cannot carry a
+        # search query. It is escaped like the path: it came from a header, so
+        # it is data, not markup.
+        from_where = (
+            html.escape(visit.referrer) if visit.referrer else "&mdash;"
+        )
         when = visit.at.replace(tzinfo=UTC).astimezone(zone)
         body.append(
             "<tr>"
             f'<td class="when">{when.strftime("%d.%m.%Y %H:%M:%S")}</td>'
             f'<td>{labels.get(visit.kind, html.escape(visit.kind))}</td>'
             f'<td class="name">{html.escape(visit.path)}</td>'
+            f'<td class="when">{from_where}</td>'
             f"<td>{who}</td>"
             "</tr>"
         )
@@ -629,6 +637,6 @@ def _visit_rows(found: list[Visit]) -> str:
     return (
         "<table><thead><tr>"
         f"<th>Когда, {html.escape(datetime.now(zone).tzname() or '')}</th>"
-        "<th>Событие</th><th>Страница</th><th>Кто</th>"
+        "<th>Событие</th><th>Страница</th><th>Откуда</th><th>Кто</th>"
         "</tr></thead><tbody>" + "".join(body) + "</tbody></table>"
     )

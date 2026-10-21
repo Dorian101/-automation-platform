@@ -37,6 +37,7 @@ class Visit:
     kind: str
     path: str
     identity: str | None
+    referrer: str | None = None
 
 
 def _where(path: str, exclude: str | None) -> tuple[str, list]:
@@ -74,6 +75,7 @@ class VisitsRepository:
         kind: str,
         path: str = "",
         identity: str | None = None,
+        referrer: str | None = None,
     ) -> None:
         """Write one event.
 
@@ -81,14 +83,17 @@ class VisitsRepository:
         knows an event happened without every handler having to say so. A
         failure here is swallowed: a log that refuses to write must not take
         the page it is describing down with it.
+
+        `referrer` is the origin that led here, already shortened from the
+        header by the caller; None means there was no referrer.
         """
         try:
             with self.database.connect() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
-                        "INSERT INTO visits (kind, path, identity) "
-                        "VALUES (%s, %s, %s)",
-                        (kind, path, identity),
+                        "INSERT INTO visits (kind, path, identity, referrer) "
+                        "VALUES (%s, %s, %s, %s)",
+                        (kind, path, identity, referrer),
                     )
                 conn.commit()
         except Exception:
@@ -118,7 +123,7 @@ class VisitsRepository:
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT at, kind, path, identity FROM visits "
+                    "SELECT at, kind, path, identity, referrer FROM visits "
                     f"{where} "
                     "ORDER BY at DESC, id DESC "
                     "LIMIT %s OFFSET %s",
@@ -126,7 +131,8 @@ class VisitsRepository:
                 )
                 rows = cur.fetchall()
 
-        return [Visit(at=row[0], kind=row[1], path=row[2], identity=row[3])
+        return [Visit(at=row[0], kind=row[1], path=row[2], identity=row[3],
+                      referrer=row[4])
                 for row in rows]
 
     def paths(self) -> list[str]:

@@ -1650,3 +1650,36 @@ Three things about the first cut read wrong:
 ### Result
 The status page reads in plain terms, the disk card no longer shows a second
 volume that does not exist, and nothing overflows the card. 810 tests pass.
+
+## 2026-10-21
+
+### Decision
+Record a visit's referring origin, never its full URL
+
+### Reason
+The log answered when a visit happened but not where it came from: a stranger
+arriving from a link on another site or from a search engine left the same
+row as somebody who typed the address in. The question "which site led here"
+is the one an owner wants answered, and it is what the `Referer` header is
+for.
+
+The full header is more than the answer. A search engine sends its result
+path and the query typed into it, and a log of visits is not a log of
+searches. Keeping only the origin — `https://example.com` — answers the
+question without collecting it, which is the same reason the table stores no
+address. Modern browsers already shorten a cross-site referrer to its origin,
+so the shortening is also the honest description of what usually arrives.
+
+### How it is done
+- Migration `010_visits_referrer.sql` adds a nullable `referrer` column.
+- `VisitsRepository.record` writes it and `recent` reads it, as a field on
+  `Visit` defaulting to None.
+- `_referrer_origin` in `server.py` reads the `Referer` header and keeps only
+  scheme + host, rejecting anything unparseable or not http(s); the visit
+  middleware passes its result through to `record`.
+- `/admin/visits` gains an «Откуда» column, escaped like the path because the
+  value came from a header and is data, not markup.
+
+### Result
+The log now says which site led a visitor here, up to its domain, and a direct
+visit still reads as no referrer. 813 tests pass.

@@ -22,9 +22,10 @@ def _rows(body: str) -> list[str]:
 
     The last cell of each row is who the visit is filed under, which is the
     one thing in a row that says which row it is when every row came from the
-    same page.
+    same page. It is the last cell, so the match grabs the `<td>` right before
+    the row ends.
     """
-    return re.findall(r'<td class="name">.*?</td><td>(.*?)</td></tr>', body)
+    return re.findall(r'<td class="name">.*?<td>(.*?)</td></tr>', body)
 
 
 @pytest.fixture
@@ -631,6 +632,51 @@ class TestTheVisitLog:
         paths = [v.path for v in VisitsRepository(database_with_schema).recent()]
 
         assert ADMIN_PREFIX not in paths
+
+    async def test_a_referrer_is_recorded_as_its_origin(
+        self, app_client, database_with_schema
+    ):
+        """A link from another site is worth knowing, but only up to the domain."""
+        from app.db.visits_repo import VisitsRepository
+
+        await app_client.get(
+            "/about", headers={"Referer": "https://example.com/search?q=x"}
+        )
+
+        found = VisitsRepository(database_with_schema).recent()
+
+        assert found[0].referrer == "https://example.com"
+
+    async def test_a_direct_visit_has_no_referrer(
+        self, app_client, database_with_schema
+    ):
+        """No header means no referrer, and the row says so with NULL."""
+        from app.db.visits_repo import VisitsRepository
+
+        await app_client.get("/about")
+
+        found = VisitsRepository(database_with_schema).recent()
+
+        assert found[0].referrer is None
+
+    async def test_the_origin_is_what_the_page_prints(
+        self, app_client, admin_client, database_with_schema
+    ):
+        """The log shows the domain that led here, not the query that was typed."""
+        from app.db.visits_repo import VisitsRepository
+
+        await app_client.get(
+            "/about", headers={"Referer": "https://t.me/somechannel"}
+        )
+
+        assert (
+            VisitsRepository(database_with_schema).recent()[0].referrer
+            == "https://t.me"
+        )
+
+        body = await (await admin_client.get("/admin/visits")).text()
+
+        assert "https://t.me" in body
 
 
 class TestPruningFromTheHost:

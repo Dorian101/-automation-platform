@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.52.1
+v0.53.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -56,6 +56,9 @@ The platform is operational.
   of the visit log
 - the visit log is read a page at a time — `page=2`, fifty rows to a page — and
   the filter and the box travel from page to page
+- each visit records the referring site's origin (not the full URL) when the
+  browser sent one, so the log answers "which site led here" without collecting
+  a search query; a direct visit or a withheld header leaves it blank
 - a status page at `/admin/status`: disk, memory and load from the host,
   per-table row counts, and the newest backup, all drawn once and refreshed by
   a JSON endpoint (`/admin/status/data`) rather than by reloading the page
