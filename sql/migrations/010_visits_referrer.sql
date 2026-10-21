@@ -1,6 +1,6 @@
 -- Where a visit came from, when the browser said so.
 --
--- `referrer` holds the origin of the page that led here — `https://www.google.com`,
+-- `referrer` holds the origin of the page that led here — `https://example.com`,
 -- never the full URL. The browser sends the header only on a real link, and
 -- modern browsers already shorten it to the origin when crossing sites, so a
 -- path or a search query is dropped before it reaches here; this column stores
