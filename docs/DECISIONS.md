@@ -1683,3 +1683,43 @@ so the shortening is also the honest description of what usually arrives.
 ### Result
 The log now says which site led a visitor here, up to its domain, and a direct
 visit still reads as no referrer. 813 tests pass.
+
+## 2026-10-23
+
+### Decision
+Give tasks their own page, drawn as a kanban board rather than a list
+
+### Reason
+A to-do pile is where things go to be remembered, so it grows. The tools that
+store one only as a long vertical list make a pile that is painful to read past
+a few dozen entries, and that is exactly the point a pile is worth having.
+
+The answer is a board, not a table: three columns — todo, doing, done — and a
+card that moves between them. The status is the one thing a board's columns
+can express without inventing a filter UI, and it is the one attribute that
+says what a person does with a pile: they pick from it, work on it, finish it.
+
+The state machine is small but kept explicit, the same bargain as the
+applications funnel: todo → doing → done, with the reverse of each move so a
+mistake is not a one-way door, and a jump over a status is refused rather than
+silently accepted. A card opens on click and every attribute edits in place,
+so an empty priority or deadline reads as empty and is one click from being
+filled.
+
+### How it is done
+- Migration `011_tasks.sql` adds `tasks` with text, status, priority, due_at,
+  created_at (database-set) and a `notified_at` so a deadline is reminded once.
+- `TasksRepository` is identity-scoped for writes and widened for reads, the
+  same rule notes and the other personal plugins follow.
+- `TodoPlugin` is web-only with a page, renders the board from the plugin's
+  own description, and runs an hourly worker that reminds about deadlines
+  through the notification layer — once per deadline, to the linked Telegram
+  chat; an unpaired account is simply not reminded.
+- The board and its inline editing are a new painter in `_plugin_page.html`;
+  the plugin supplies only the description, so the platform knows nothing
+  about tasks.
+
+### Result
+A page at `/todo` where a growing pile stays a board, moves through three
+columns, sorts by priority, deadline or creation, and nudges about deadlines.
+832 tests pass.

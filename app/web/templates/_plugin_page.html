@@ -166,6 +166,74 @@ __STYLES__
     color: var(--muted);
     font-size: 0.85rem;
   }
+  /* The kanban board: three columns side by side, one per status. A pile of
+     tasks reads as a board, not as a long list, and moving a card between the
+     columns is the whole of changing its status. */
+  .kanban { display: flex; gap: 1rem; align-items: flex-start; overflow-x: auto; }
+  .kbcol {
+    flex: 1 1 0;
+    min-width: 15rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+  }
+  .kbcol h2 {
+    margin: 0 0 0.6rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+  .kbcard {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 0.7rem;
+    margin-bottom: 0.55rem;
+    cursor: pointer;
+  }
+  .kbcard:hover { border-color: var(--accent); }
+  .kbcard.overdue { border-color: var(--error); }
+  .kbcard .text { font-size: 0.92rem; margin-bottom: 0.3rem; }
+  .kbcard .meta {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .kbcard .pri { font-weight: 600; }
+  .kbcard .pri.p1 { color: #ff8a8a; }
+  .kbcard .pri.p2 { color: #e8c67a; }
+  .kbcard .pri.p3 { color: #7bd88f; }
+  .kbcard .due { font-variant-numeric: tabular-nums; }
+  .kbcard.overdue .due { color: var(--error); }
+  .kbcard .acts {
+    display: flex;
+    gap: 0.3rem;
+    margin-top: 0.5rem;
+    justify-content: flex-end;
+  }
+  .kbcard .acts button {
+    background: var(--panel);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+  .kbcard .acts button:hover { border-color: var(--accent); color: var(--text); }
+  .kbcard .acts button.del:hover { border-color: var(--error); color: var(--error); }
+  .kbcard.expanded { cursor: default; }
+  .kbcard .detail { display: none; margin-top: 0.5rem; }
+  .kbcard.expanded .detail { display: block; }
+  .kbcard .detail .fieldrow {
+    display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 0.5rem;
+  }
+  .kbcard .detail .fieldrow .field { flex: 1 1 8rem; min-width: 7rem; }
+  .kbempty { color: var(--muted); font-size: 0.82rem; padding: 0.4rem 0.2rem; }
 </style>
 __MENU_STYLES__
 </head>
@@ -226,6 +294,7 @@ __MENU_STYLES__
     ['chart', drawChart],
     ['table', drawTable],
     ['list', drawList],
+    ['kanban', drawKanban],
     ['forms', drawForms],
   ];
 
@@ -460,6 +529,168 @@ __MENU_STYLES__
 
   function drawList(list) {
     drawTable(list, list.title);
+  }
+
+  // The kanban board. Three columns from the description, each with cards that
+  // move between them and open to reveal every attribute for inline editing.
+  function drawKanban(board) {
+    // The sort control, drawn above the columns. It changes only the order
+    // inside every column, not the board's structure.
+    const sortRow = el('div', 'monthpick');
+    const sortLabel = el('label', null, 'Сортировка');
+    sortLabel.style.color = 'var(--muted)';
+    sortLabel.style.fontSize = '0.85rem';
+    const sortSelect = document.createElement('select');
+    sortSelect.style.marginLeft = '0.5rem';
+    for (const [value, label] of [['priority', 'По приоритету'], ['due', 'По сроку'], ['created', 'По дате создания']]) {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = label;
+      sortSelect.appendChild(opt);
+    }
+    sortSelect.value = view.order || 'priority';
+    sortSelect.addEventListener('change', () => {
+      send('view', { order: sortSelect.value }, null);
+    });
+    sortRow.appendChild(sortLabel);
+    sortRow.appendChild(sortSelect);
+    root.appendChild(sortRow);
+
+    const wrap = el('div', 'kanban');
+
+    for (const col of board.columns) {
+      const column = el('section', 'kbcol');
+      column.appendChild(el('h2', null, col.label));
+
+      const cards = col.cards || [];
+      if (!cards.length) {
+        column.appendChild(el('p', 'kbempty', 'Пусто'));
+      }
+
+      for (const card of cards) {
+        column.appendChild(cardNode(card));
+      }
+
+      wrap.appendChild(column);
+    }
+
+    root.appendChild(wrap);
+  }
+
+  // One card, collapsed and opened on click. The card carries the task's
+  // identity in a data attribute so the buttons address the right row.
+  function cardNode(card) {
+    const node = el('div', 'kbcard' + (card.overdue ? ' overdue' : ''));
+    node.dataset.id = card.id;
+    node.dataset.status = card.status;
+
+    node.appendChild(el('div', 'text', card.text));
+
+    // The compact meta line: priority mark and deadline, only when present.
+    const meta = el('div', 'meta');
+    if (card.priority_label) {
+      meta.appendChild(el('span', 'pri p' + card.priority, card.priority_label));
+    } else {
+      meta.appendChild(el('span', 'pri', 'Без приоритета'));
+    }
+    if (card.due_at) {
+      meta.appendChild(el('span', 'due', card.due_at));
+    } else {
+      meta.appendChild(el('span', 'due', 'Без срока'));
+    }
+    node.appendChild(meta);
+
+    // The move and delete buttons, visible on the card itself.
+    const acts = el('div', 'acts');
+    for (const move of card.moves) {
+      const b = el('button', '', '→ ' + move.label);
+      b.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        send('move', { id: card.id, status: move.status }, b);
+      });
+      acts.appendChild(b);
+    }
+    const del = el('button', 'del', '✕');
+    del.title = 'Удалить';
+    del.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      send('delete', { id: card.id }, del);
+    });
+    acts.appendChild(del);
+    node.appendChild(acts);
+
+    // The expanded detail, opened by clicking anywhere on the card. Every
+    // attribute is editable in place here.
+    const detail = el('div', 'detail');
+    detail.appendChild(detailRow('Приоритет', priorityField(card)));
+    detail.appendChild(detailRow('Срок', dueField(card)));
+    detail.appendChild(
+      detailRow('Создано', null, card.created_at),
+    );
+    node.appendChild(detail);
+
+    node.addEventListener('click', () => {
+      node.classList.toggle('expanded');
+    });
+
+    return node;
+  }
+
+  // A labelled inline field. `field` is null when the value is read-only, in
+  // which case `readonlyText` is shown instead.
+  function detailRow(labelText, field, readonlyText) {
+    const row = el('div', 'fieldrow');
+    const wrap = el('div', 'field');
+    wrap.appendChild(el('label', null, labelText));
+
+    if (field) {
+      wrap.appendChild(field);
+    } else {
+      const span = el('span', null, readonlyText);
+      span.style.fontSize = '0.85rem';
+      wrap.appendChild(span);
+    }
+
+    row.appendChild(wrap);
+    return row;
+  }
+
+  // The priority pick inside an expanded card. A select with a blank first
+  // option for "none", so clearing a priority is a deliberate choice.
+  function priorityField(card) {
+    const select = document.createElement('select');
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = '—';
+    select.appendChild(none);
+    for (const [value, label] of [['1', 'Высокий'], ['2', 'Средний'], ['3', 'Низкий']]) {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = label;
+      select.appendChild(opt);
+    }
+    select.value = card.priority == null ? '' : String(card.priority);
+    select.addEventListener('change', () => {
+      send('priority', { id: card.id, priority: select.value }, select);
+    });
+    return select;
+  }
+
+  // The deadline pick inside an expanded card. Empty clears the deadline.
+  function dueField(card) {
+    const input = document.createElement('input');
+    input.type = 'date';
+    input.value = card.due_at ? card.due_at.slice(0, 10) : '';
+    const apply = el('button', '', 'ОК');
+    apply.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      send('due', { id: card.id, due_at: input.value }, apply);
+    });
+    const row = el('div', 'fieldrow');
+    input.style.flex = '1';
+    row.appendChild(input);
+    row.appendChild(apply);
+    return row;
   }
 
   function drawForms() {

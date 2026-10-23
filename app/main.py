@@ -23,6 +23,7 @@ from app.plugins.manager import PluginManager
 from app.plugins.notes import NotesPlugin
 from app.plugins.reminders import RemindersPlugin
 from app.plugins.system import SystemPlugin
+from app.plugins.todo import TodoPlugin
 from app.web import WebServer
 
 # sysexits EX_CONFIG: the process is misconfigured and retrying will not help.
@@ -66,6 +67,7 @@ async def main() -> None:
     manager = PluginManager(logger)
     manager.register(NotesPlugin(database, persons=persons))
     manager.register(RemindersPlugin(notifier, database))
+    manager.register(TodoPlugin(notifier, database, persons=persons))
     manager.register(ClipboardPlugin(database, persons=persons))
     manager.register(ExpensesPlugin(database, persons=persons))
     manager.register(ApplicationsPlugin(database, persons=persons))

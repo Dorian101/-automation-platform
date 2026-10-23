@@ -193,6 +193,7 @@ project exists to leave behind, reached from the other direction.
 - Clipboard: /copy, /paste
 - Expenses: page at /expenses, web-only
 - Applications: page at /applications, web-only, statuses are a state machine
+- Tasks: page at /todo, web-only, a kanban board with deadline notifications
 - System: /plugins, /help, /status
 
 ## Statuses as a state machine

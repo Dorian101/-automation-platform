@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.53.1
+v0.54.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -298,6 +298,31 @@ Implemented:
 * silence is counted only while an answer is outstanding, from five days;
   age stays on every row
 * a date in the future is refused
+* web-only; reads widen across a linked pair, writes do not
+
+⸻
+
+Tasks
+
+Purpose:
+
+* a personal to-do pile that stays readable as it grows
+
+Implemented:
+
+* a kanban board at /todo: three columns — todo, doing, done — drawn from the
+  task's status; a card moves between columns rather than through a dropdown
+* a task holds a text, a status, an optional priority (1–3, one highest) and
+  an optional deadline; created_at is set by the database and never edited
+* a card opens on click to reveal every attribute, each editable in place;
+  empty priority and deadline show as empty and ready to fill
+* the state machine is explicit: todo → doing → done with the reverse of each
+  move allowed, and a jump over a status is refused
+* sorting by priority, deadline or creation, applied across every column
+* an overdue deadline is marked on the card
+* deadlines notify through the platform's notification layer an hour apart,
+  once per deadline, to the linked Telegram chat; an unpaired account is not
+  reminded
 * web-only; reads widen across a linked pair, writes do not
 
 ⸻
