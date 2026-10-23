@@ -71,19 +71,19 @@ def nav(
     """
     items = []
 
-    if guest:
-        items.append((DEMO_PREFIX, "Демонстрация"))
-    else:
-        items.append(("/", "Платформа"))
+    # "Платформа" points at the signed-in console. A guest sees it too — the
+    # link leads somewhere worth going, and signing in there is better than a
+    # menu that hides the front door because it is locked. Everyone gets the
+    # demonstration link as well, so the public home is never off the menu.
+    items.append(("/", "Платформа"))
+
+    items.append((DEMO_PREFIX, "Демонстрация"))
 
     for page in pages:
         target = page["page"]
         items.append(
             (f"{DEMO_PREFIX}{target}" if guest else target, page["title"] or target)
         )
-
-    if not guest:
-        items.append((DEMO_PREFIX, "Демонстрация"))
 
     if admin:
         items.append((ADMIN_PREFIX, "Админ-панель"))

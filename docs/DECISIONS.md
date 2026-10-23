@@ -1723,3 +1723,29 @@ filled.
 A page at `/todo` where a growing pile stays a board, moves through three
 columns, sorts by priority, deadline or creation, and nudges about deadlines.
 832 tests pass.
+
+## 2026-10-23
+
+### Decision
+Show the console link in the menu to a guest too
+
+### Reason
+The menu hid the console from a guest on the grounds that its pages answer a
+stranger with a login form, and a link into a wall is worse than no link. But
+that also hid the way in: a visitor reading `/about` or `/project` had
+"Демонстрация" and no "Платформа", so the door to the real thing was off the
+menu entirely.
+
+The wall is not the link's fault — it is what the console already does, and
+everyone who reaches it either has a session or is shown the sign-in form.
+Showing "Платформа" to a guest sends them to that form, which is where they
+were invited anyway. Hiding it only made the front door hard to find.
+
+### How it is done
+- `nav()` now always leads with "Платформа" -> `/`, for a guest and an account
+  alike, and "Демонстрация" follows for everyone. The plugin pages still point
+  a guest at their public copies.
+
+### Result
+The console is reachable from the menu on every page, and a guest who follows
+it lands on the sign-in form rather than a missing link. 837 tests pass.

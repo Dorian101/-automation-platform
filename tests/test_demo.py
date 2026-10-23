@@ -372,11 +372,11 @@ class TestProjectPage:
 
 
 class TestGuestMenu:
-    """A guest is offered only what they can reach.
+    """A guest is offered the demonstration and a way in.
 
-    The one that matters: `/expenses` answers a visitor with a login form, so
-    a menu pointing there would walk the reader into a wall — on the very
-    pages meant to be open.
+    The plugin pages point at their public copies — `/expenses` answers a
+    visitor with a login form, so the menu routes to `/demo/expenses` instead.
+    The console link is offered too, because hiding it hid the way to sign in.
     """
 
     async def test_it_points_the_plugin_pages_at_the_demonstration(
@@ -387,10 +387,14 @@ class TestGuestMenu:
         assert 'href="/demo/expenses"' in body
         assert 'href="/demo/applications"' in body
 
-    async def test_it_does_not_link_to_the_login_wall(self, visitor):
+    async def test_it_links_the_platform_so_a_guest_can_sign_in(self, visitor):
         body = await (await visitor.get("/demo")).text()
 
-        assert 'href="/"' not in body
+        # The console link is present for a guest now: it leads to the sign-in
+        # form rather than hiding the front door. It is the one non-demo page
+        # offered, and it is labelled, not a bare address.
+        assert 'href="/"' in body
+        assert "Платформа" in body
 
     async def test_it_still_offers_the_pages_that_need_no_account(
         self, visitor
