@@ -261,6 +261,69 @@ __STYLES__
     font-size: 0.9rem;
   }
   .sortbar select:focus { outline: none; border-color: var(--accent); }
+  /* The "+" button that opens the creation dialog. It sits beside the sort
+     control rather than as a full-height form, so a grown pile never pushes
+     the act of adding a task below the fold. */
+  .addbtn {
+    background: var(--accent);
+    color: #fff;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 0.4rem 0.7rem;
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .addbtn:hover { filter: brightness(1.08); }
+  /* The creation dialog: an overlay with the form on a card, closed by the
+     backdrop, the × button or Escape. */
+  .dialog-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 12, 16, 0.6);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 4rem 1rem 1rem;
+    z-index: 50;
+  }
+  .dialog {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1.25rem 1rem;
+    width: 100%;
+    max-width: 30rem;
+  }
+  .dialog .dhead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+  .dialog .dhead h2 {
+    margin: 0;
+    font-size: 1rem;
+    text-transform: none;
+    letter-spacing: normal;
+    color: var(--text);
+    border-top: none;
+    padding-top: 0;
+  }
+  .dialog .dclose {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0 0.2rem;
+    line-height: 1;
+  }
+  .dialog .dclose:hover { color: var(--text); }
+  .dialog .formrow { align-items: flex-end; }
+  .dialog .formrow .field { flex: 1 1 100%; }
 </style>
 __MENU_STYLES__
 </head>
@@ -351,14 +414,7 @@ __MENU_STYLES__
     }
 
     for (const [key, painter] of SECTIONS) {
-      // The board page keeps its creation form above the columns, so a pile
-      // that has grown does not push "new task" below the fold. The plugin
-      // asks for that ordering with a flag; every other page keeps the default.
-      if (view.form_before_board && key === 'forms') continue;
       if (view[key] != null) painter(view[key]);
-    }
-    if (view.form_before_board && view.forms != null) {
-      drawForms();
     }
   }
 
@@ -584,6 +640,12 @@ __MENU_STYLES__
       send('view', { order: sortSelect.value }, null);
     });
     sortRow.appendChild(sortSelect);
+    // The "+" opens the creation dialog: a single button, not a form row, so
+    // the board loses no height to it.
+    const addBtn = el('button', 'addbtn', '+');
+    addBtn.title = 'Новая задача';
+    addBtn.addEventListener('click', () => openDialog());
+    sortRow.appendChild(addBtn);
     root.appendChild(sortRow);
 
     const wrap = el('div', 'kanban');
@@ -738,77 +800,126 @@ __MENU_STYLES__
 
   function drawForms() {
     for (const form of view.forms || []) {
+      if (form.dialog) {
+        // A dialog form is not part of the page flow: it is shown on request
+        // through the "+" button, so it never takes a row off the board.
+        continue;
+      }
       const h = el('h2', null, form.title);
       root.appendChild(h);
 
-      const row = el('div', 'formrow');
-      const inputs = {};
-
-      for (const field of form.fields) {
-        const wrap = el('div', 'field');
-        const label = el('label', null, field.label);
-        const input = document.createElement(field.type === 'select' ? 'select' : 'input');
-        if (field.type !== 'select') input.type = field.type || 'text';
-        if (field.type !== 'select' && field.placeholder) input.placeholder = field.placeholder;
-        if (field.value != null) input.value = field.value;
-
-        if (field.type === 'select') {
-          const options = field.options || [];
-          if (!options.length) {
-            // An empty dropdown is a dead end that looks live. Saying why is
-            // the difference between "nothing works" and "add a category
-            // first", so the field is disabled rather than silently inert.
-            const empty = document.createElement('option');
-            empty.textContent = field.empty || 'Нет вариантов';
-            input.appendChild(empty);
-            input.disabled = true;
-          }
-          for (const opt of options) {
-            const option = document.createElement('option');
-            option.value = opt.value;
-            option.textContent = opt.label;
-            input.appendChild(option);
-          }
-        }
-
-        const id = form.id + '-' + field.name;
-        label.setAttribute('for', id);
-        input.id = id;
-        wrap.appendChild(label);
-        wrap.appendChild(input);
-        row.appendChild(wrap);
-        inputs[field.name] = input;
-
-        // A sticky field keeps a value the plugin did not send. The month
-        // sets the date; a person who changes it has decided something the
-        // month cannot know, and the redraw that follows every action must
-        // not undo that.
-        if (field.sticky) {
-          if (stickyValues[id] != null) {
-            input.value = stickyValues[id];
-          }
-          input.addEventListener('change', () => {
-            stickyValues[id] = input.value;
-          });
-        }
-      }
-
-      const submit = el('button', 'btn', form.submit);
-      // Disabled while a required choice is missing, and for the same reason:
-      // a button that accepts a submission it cannot satisfy is worse than
-      // one that says it is not ready.
-      if (form.fields.some((f) => f.required && f.type === 'select' && !(f.options || []).length)) {
-        submit.disabled = true;
-      }
-      row.appendChild(submit);
+      const row = buildFormRow(form, root);
       root.appendChild(row);
-
-      submit.addEventListener('click', () => {
-        const payload = {};
-        for (const [name, input] of Object.entries(inputs)) payload[name] = input.value;
-        send(form.id, payload, submit);
-      });
     }
+  }
+
+  // The creation dialog, opened by "+". It renders the first dialog form (the
+  // board page has exactly one) over the board, so adding a task never means
+  // scrolling to a form that has moved below a grown pile.
+  function openDialog() {
+    const form = (view.forms || []).find((f) => f.dialog);
+    if (!form) return;
+
+    const overlay = el('div', 'dialog-overlay');
+    const box = el('div', 'dialog');
+
+    const head = el('div', 'dhead');
+    head.appendChild(el('h2', null, form.title));
+    const close = el('button', 'dclose', '×');
+    close.title = 'Закрыть';
+    close.addEventListener('click', () => overlay.remove());
+    head.appendChild(close);
+    box.appendChild(head);
+
+    box.appendChild(buildFormRow(form, box));
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (ev) => {
+      if (ev.target === overlay) overlay.remove();
+    });
+    const onKey = (ev) => {
+      if (ev.key === 'Escape') {
+        overlay.remove();
+        document.removeEventListener('keydown', onKey);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+
+    // Focus the first text field so typing starts straight away.
+    const first = box.querySelector('input');
+    if (first) first.focus();
+  }
+
+  // Remove any open dialog. Called after a submit so the board redraw does not
+  // leave a stale overlay behind.
+  function closeDialog() {
+    const overlay = document.querySelector('.dialog-overlay');
+    if (overlay) overlay.remove();
+  }
+
+  // Build one form's field row and return it, wiring the submit button to the
+  // shared action endpoint. Used both by the in-flow forms and the dialog.
+  function buildFormRow(form, container) {
+    const row = el('div', 'formrow');
+    const inputs = {};
+
+    for (const field of form.fields) {
+      const wrap = el('div', 'field');
+      const label = el('label', null, field.label);
+      const input = document.createElement(field.type === 'select' ? 'select' : 'input');
+      if (field.type !== 'select') input.type = field.type || 'text';
+      if (field.type !== 'select' && field.placeholder) input.placeholder = field.placeholder;
+      if (field.value != null) input.value = field.value;
+
+      if (field.type === 'select') {
+        const options = field.options || [];
+        if (!options.length) {
+          const empty = document.createElement('option');
+          empty.textContent = field.empty || 'Нет вариантов';
+          input.appendChild(empty);
+          input.disabled = true;
+        }
+        for (const opt of options) {
+          const option = document.createElement('option');
+          option.value = opt.value;
+          option.textContent = opt.label;
+          input.appendChild(option);
+        }
+      }
+
+      const id = form.id + '-' + field.name;
+      label.setAttribute('for', id);
+      input.id = id;
+      wrap.appendChild(label);
+      wrap.appendChild(input);
+      row.appendChild(wrap);
+      inputs[field.name] = input;
+
+      if (field.sticky) {
+        if (stickyValues[id] != null) {
+          input.value = stickyValues[id];
+        }
+        input.addEventListener('change', () => {
+          stickyValues[id] = input.value;
+        });
+      }
+    }
+
+    const submit = el('button', 'btn', form.submit);
+    if (form.fields.some((f) => f.required && f.type === 'select' && !(f.options || []).length)) {
+      submit.disabled = true;
+    }
+    row.appendChild(submit);
+
+    submit.addEventListener('click', () => {
+      const payload = {};
+      for (const [name, input] of Object.entries(inputs)) payload[name] = input.value;
+      closeDialog();
+      send(form.id, payload, submit);
+    });
+
+    return row;
   }
 
   // -- talking to the plugin ---------------------------------------------

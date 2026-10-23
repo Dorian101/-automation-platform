@@ -309,7 +309,6 @@ class TodoPlugin(BasePlugin):
             "order": order,
             "kanban": {"columns": columns},
             "forms": self._forms(),
-            "form_before_board": True,
         }
 
     def _card(self, task: dict, status: str, now: datetime, order: str) -> dict:
@@ -349,6 +348,7 @@ class TodoPlugin(BasePlugin):
                 "id": "add",
                 "title": "Новая задача",
                 "submit": "Добавить",
+                "dialog": True,
                 "fields": [
                     {
                         "name": "text",
