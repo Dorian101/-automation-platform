@@ -31,6 +31,35 @@ class TestView:
             STATUS_LABELS["done"],
         ]
 
+    async def test_the_sort_order_is_honoured(self, plugin, web_identity):
+        plugin.repo.add(web_identity, "Без приоритета")
+        plugin.repo.add(web_identity, "Высокий", priority=1)
+
+        by_priority = await plugin.page_action(
+            web_identity, "view", {"order": "priority"}
+        )
+        todo = by_priority["kanban"]["columns"][0]["cards"]
+
+        assert [c["text"] for c in todo] == ["Высокий", "Без приоритета"]
+
+    async def test_a_card_carries_one_forward_move(self, plugin, web_identity):
+        plugin.repo.add(web_identity, "Задача")
+
+        view = await plugin.page_view(web_identity)
+        card = view["kanban"]["columns"][0]["cards"][0]
+
+        assert card["moves"] == [{"status": "doing", "label": "В работе"}]
+
+    async def test_a_done_card_has_no_forward_move(self, plugin, web_identity):
+        plugin.repo.add(web_identity, "Задача")
+        task_id = plugin.repo.entries(web_identity)[0]["id"]
+        plugin.repo.set_status(web_identity, task_id, "done")
+
+        view = await plugin.page_view(web_identity)
+        done = view["kanban"]["columns"][2]["cards"][0]
+
+        assert done["moves"] == []
+
     async def test_tasks_land_in_the_right_column(self, plugin, web_identity):
         plugin.repo.add(web_identity, "Сделать")
         task_id = plugin.repo.entries(web_identity)[0]["id"]

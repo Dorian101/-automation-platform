@@ -351,7 +351,14 @@ __MENU_STYLES__
     }
 
     for (const [key, painter] of SECTIONS) {
+      // The board page keeps its creation form above the columns, so a pile
+      // that has grown does not push "new task" below the fold. The plugin
+      // asks for that ordering with a flag; every other page keeps the default.
+      if (view.form_before_board && key === 'forms') continue;
       if (view[key] != null) painter(view[key]);
+    }
+    if (view.form_before_board && view.forms != null) {
+      drawForms();
     }
   }
 
@@ -628,15 +635,16 @@ __MENU_STYLES__
     }
 
     // The move and delete controls, visible on the card itself. The move is
-    // a bare arrow: the direction is enough, the target status is named by
-    // the column head.
+    // a single bare arrow advancing left-to-right; the target status is the
+    // next column, so a backwards step is not offered here.
     const acts = el('div', 'acts');
-    for (const move of card.moves) {
+    if (card.moves && card.moves.length) {
+      const target = card.moves[0];
       const b = el('button', '', '→');
-      b.title = move.label;
+      b.title = target.label;
       b.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        send('move', { id: card.id, status: move.status }, b);
+        send('move', { id: card.id, status: target.status }, b);
       });
       acts.appendChild(b);
     }
@@ -650,13 +658,16 @@ __MENU_STYLES__
     node.appendChild(acts);
 
     // The expanded detail, opened by clicking anywhere on the card. Every
-    // attribute is editable in place here.
+    // attribute is editable in place here. Clicks inside it do not toggle the
+    // card, or interacting with a field — a date picker especially — would
+    // collapse the card mid-edit.
     const detail = el('div', 'detail');
     detail.appendChild(detailRow('Приоритет', priorityField(card)));
     detail.appendChild(detailRow('Срок', dueField(card)));
     detail.appendChild(
       detailRow('Создано', null, card.created_at),
     );
+    detail.addEventListener('click', (ev) => ev.stopPropagation());
     node.appendChild(detail);
 
     node.addEventListener('click', () => {

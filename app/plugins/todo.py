@@ -35,13 +35,17 @@ REMIND_LEAD = timedelta(days=1)
 
 # The statuses a task may move to from each status. A linear flow with the
 # option to step back: todo -> doing -> done, plus the reverse of each move so
-# a mistake is not a one-way door. The page offers exactly these arrows and the
-# server refuses anything else, the same bargain as the applications funnel.
+# a mistake is not a one-way door. The page's arrow offers only the forward
+# step; the server still checks every transition against this table.
 TRANSITIONS = {
     "todo": ("doing",),
     "doing": ("todo", "done"),
     "done": ("doing",),
 }
+
+# The single forward step from each status, the one the card's arrow offers.
+# A terminal status has none.
+NEXT_STATUS = {"todo": "doing", "doing": "done", "done": None}
 
 # How one column is named on the page, and how a status reads inside a card.
 STATUS_LABELS = {
@@ -305,6 +309,7 @@ class TodoPlugin(BasePlugin):
             "order": order,
             "kanban": {"columns": columns},
             "forms": self._forms(),
+            "form_before_board": True,
         }
 
     def _card(self, task: dict, status: str, now: datetime, order: str) -> dict:
@@ -321,11 +326,22 @@ class TodoPlugin(BasePlugin):
             "due_iso": due.isoformat() if due else None,
             "created_at": task["created_at"].strftime("%d.%m.%Y"),
             "overdue": overdue,
-            "moves": [
-                {"status": target, "label": STATUS_LABELS[target]}
-                for target in TRANSITIONS.get(status, ())
-            ],
+            "moves": self._forward_move(status),
         }
+
+    def _forward_move(self, status: str) -> list[dict]:
+        """The card's arrow: the one step forward, or nothing at the end.
+
+        The server's TRANSITIONS still allow a step back, but the card offers
+        only the forward move, because a board read left-to-right moves a card
+        that way and a backwards step is an edit, not a glance.
+        """
+        target = NEXT_STATUS.get(status)
+
+        if target is None:
+            return []
+
+        return [{"status": target, "label": STATUS_LABELS[target]}]
 
     def _forms(self) -> list[dict]:
         return [
