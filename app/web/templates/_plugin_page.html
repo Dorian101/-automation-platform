@@ -6,6 +6,10 @@
 <title>__TITLE__ — Automation Platform</title>
 __STYLES__
 <style>
+  /* A plugin page may need more room than a document: a kanban board or a
+     table wants width, where an essay wants a narrow measure. The base
+     document width is lifted here, for every plugin page alike. */
+  main { max-width: 76rem; }
   .pagehead {
     display: flex;
     align-items: baseline;
@@ -72,16 +76,21 @@ __STYLES__
     font-size: 0.82rem;
     font-variant-numeric: tabular-nums;
   }
-  /* align-items: flex-end, not the flex default of stretch. Stretched, a
-     button takes the height of the tallest field in its row, so the same
-     button came out taller in the one-field form than in the four-field one. */
+  /* align-items: flex-start, not stretch and not flex-end. Stretched, a
+     button takes the height of the tallest field in its row; flex-end left a
+     select riding a few pixels lower than the fields beside it, because its
+     own height differs and its baseline is not the text baseline. Aligning to
+     the top keeps every label on one line and the fields under it level. */
   .formrow {
     display: flex;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: 0.6rem;
     flex-wrap: wrap;
     margin-bottom: 1rem;
   }
+  /* The submit button has no label above it, so it aligns to the input line
+     while the labelled fields align by their top edge. */
+  .formrow .btn { align-self: flex-end; }
   .field { display: flex; flex-direction: column; gap: 0.25rem; }
   .field label { font-size: 0.78rem; color: var(--muted); }
   .field input, .field select {
@@ -169,18 +178,18 @@ __STYLES__
   /* The kanban board: three columns side by side, one per status. A pile of
      tasks reads as a board, not as a long list, and moving a card between the
      columns is the whole of changing its status. */
-  .kanban { display: flex; gap: 1rem; align-items: flex-start; overflow-x: auto; }
+  .kanban { display: flex; gap: 1.25rem; align-items: flex-start; }
   .kbcol {
     flex: 1 1 0;
-    min-width: 15rem;
+    min-width: 16rem;
     background: var(--panel);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.75rem;
+    border-radius: 10px;
+    padding: 1rem 1rem 0.5rem;
   }
   .kbcol h2 {
-    margin: 0 0 0.6rem;
-    font-size: 0.8rem;
+    margin: 0 0 0.9rem;
+    font-size: 0.78rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--muted);
@@ -188,30 +197,28 @@ __STYLES__
   .kbcard {
     background: var(--bg);
     border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 0.6rem 0.7rem;
-    margin-bottom: 0.55rem;
+    border-radius: 8px;
+    padding: 0.55rem 0.6rem;
+    margin-bottom: 0.7rem;
     cursor: pointer;
   }
   .kbcard:hover { border-color: var(--accent); }
   .kbcard.overdue { border-color: var(--error); }
-  .kbcard .text { font-size: 0.92rem; margin-bottom: 0.3rem; }
-  .kbcard .meta {
-    display: flex;
-    gap: 0.5rem;
-    font-size: 0.78rem;
-    color: var(--muted);
-    flex-wrap: wrap;
+  .kbcard .toprow { display: flex; align-items: flex-start; gap: 0.4rem; margin-bottom: 0.25rem; }
+  .kbcard .text { font-size: 0.9rem; line-height: 1.35; flex: 1; }
+  .kbcard .dots { display: flex; gap: 0.18rem; flex: none; padding-top: 0.15rem; }
+  .kbcard .dot {
+    width: 0.55rem; height: 0.55rem; border-radius: 50%;
+    border: 1px solid transparent;
   }
-  .kbcard .pri { font-weight: 600; }
-  .kbcard .pri.p1 { color: #ff8a8a; }
-  .kbcard .pri.p2 { color: #e8c67a; }
-  .kbcard .pri.p3 { color: #7bd88f; }
-  .kbcard .due { font-variant-numeric: tabular-nums; }
+  .kbcard .dot.p1 { background: #ff6b6b; }
+  .kbcard .dot.p2 { background: #e8c67a; }
+  .kbcard .dot.p3 { background: #58c98a; }
+  .kbcard .due { font-variant-numeric: tabular-nums; font-size: 0.78rem; color: var(--muted); }
   .kbcard.overdue .due { color: var(--error); }
   .kbcard .acts {
     display: flex;
-    gap: 0.3rem;
+    gap: 0.35rem;
     margin-top: 0.5rem;
     justify-content: flex-end;
   }
@@ -220,20 +227,40 @@ __STYLES__
     color: var(--muted);
     border: 1px solid var(--border);
     border-radius: 5px;
-    padding: 0.2rem 0.55rem;
-    font-size: 0.78rem;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.75rem;
     cursor: pointer;
   }
   .kbcard .acts button:hover { border-color: var(--accent); color: var(--text); }
   .kbcard .acts button.del:hover { border-color: var(--error); color: var(--error); }
   .kbcard.expanded { cursor: default; }
-  .kbcard .detail { display: none; margin-top: 0.5rem; }
+  .kbcard .detail { display: none; margin-top: 0.6rem; }
   .kbcard.expanded .detail { display: block; }
   .kbcard .detail .fieldrow {
-    display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 0.5rem;
+    display: flex; gap: 0.6rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 0.6rem;
   }
   .kbcard .detail .fieldrow .field { flex: 1 1 8rem; min-width: 7rem; }
-  .kbempty { color: var(--muted); font-size: 0.82rem; padding: 0.4rem 0.2rem; }
+  .kbempty { color: var(--muted); font-size: 0.82rem; padding: 0.4rem 0.2rem 0.6rem; }
+  /* The sort control on the board page. Its own bar rather than reusing the
+     month picker, which is a month's navigation, not a generic select. */
+  .sortbar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0 0 1rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .sortbar select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    font: inherit;
+    font-size: 0.9rem;
+  }
+  .sortbar select:focus { outline: none; border-color: var(--accent); }
 </style>
 __MENU_STYLES__
 </head>
@@ -536,12 +563,9 @@ __MENU_STYLES__
   function drawKanban(board) {
     // The sort control, drawn above the columns. It changes only the order
     // inside every column, not the board's structure.
-    const sortRow = el('div', 'monthpick');
-    const sortLabel = el('label', null, 'Сортировка');
-    sortLabel.style.color = 'var(--muted)';
-    sortLabel.style.fontSize = '0.85rem';
+    const sortRow = el('div', 'sortbar');
+    sortRow.appendChild(el('label', null, 'Сортировка'));
     const sortSelect = document.createElement('select');
-    sortSelect.style.marginLeft = '0.5rem';
     for (const [value, label] of [['priority', 'По приоритету'], ['due', 'По сроку'], ['created', 'По дате создания']]) {
       const opt = document.createElement('option');
       opt.value = value;
@@ -552,7 +576,6 @@ __MENU_STYLES__
     sortSelect.addEventListener('change', () => {
       send('view', { order: sortSelect.value }, null);
     });
-    sortRow.appendChild(sortLabel);
     sortRow.appendChild(sortSelect);
     root.appendChild(sortRow);
 
@@ -584,26 +607,33 @@ __MENU_STYLES__
     node.dataset.id = card.id;
     node.dataset.status = card.status;
 
-    node.appendChild(el('div', 'text', card.text));
+    // The top line: text on the left, priority dots on the right.
+    const toprow = el('div', 'toprow');
+    toprow.appendChild(el('div', 'text', card.text));
 
-    // The compact meta line: priority mark and deadline, only when present.
-    const meta = el('div', 'meta');
-    if (card.priority_label) {
-      meta.appendChild(el('span', 'pri p' + card.priority, card.priority_label));
-    } else {
-      meta.appendChild(el('span', 'pri', 'Без приоритета'));
+    const dots = el('div', 'dots');
+    if (card.priority != null) {
+      const d = el('span', 'dot p' + card.priority, '');
+      d.title = card.priority_label || '';
+      dots.appendChild(d);
     }
+    toprow.appendChild(dots);
+    node.appendChild(toprow);
+
+    // The deadline, when there is one, as a plain date.
     if (card.due_at) {
-      meta.appendChild(el('span', 'due', card.due_at));
+      node.appendChild(el('div', 'due', card.due_at));
     } else {
-      meta.appendChild(el('span', 'due', 'Без срока'));
+      node.appendChild(el('div', 'due', 'Без срока'));
     }
-    node.appendChild(meta);
 
-    // The move and delete buttons, visible on the card itself.
+    // The move and delete controls, visible on the card itself. The move is
+    // a bare arrow: the direction is enough, the target status is named by
+    // the column head.
     const acts = el('div', 'acts');
     for (const move of card.moves) {
-      const b = el('button', '', '→ ' + move.label);
+      const b = el('button', '', '→');
+      b.title = move.label;
       b.addEventListener('click', (ev) => {
         ev.stopPropagation();
         send('move', { id: card.id, status: move.status }, b);
@@ -676,11 +706,13 @@ __MENU_STYLES__
     return select;
   }
 
-  // The deadline pick inside an expanded card. Empty clears the deadline.
+  // The deadline pick inside an expanded card. The input carries the ISO date
+  // (YYYY-MM-DD) so the browser's date picker understands it; the card shows a
+  // plain dd.mm.yyyy. Empty clears the deadline.
   function dueField(card) {
     const input = document.createElement('input');
     input.type = 'date';
-    input.value = card.due_at ? card.due_at.slice(0, 10) : '';
+    input.value = card.due_iso || '';
     const apply = el('button', '', 'ОК');
     apply.addEventListener('click', (ev) => {
       ev.stopPropagation();

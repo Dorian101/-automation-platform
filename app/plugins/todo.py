@@ -13,9 +13,7 @@ is simply not reminded, and the task stays in the pile.
 import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
-from zoneinfo import ZoneInfo
 
-from app.core.config import Config
 from app.core.identity import Identity
 from app.core.results import CommandError, CommandResult, reply
 from app.db.database import Database
@@ -247,7 +245,7 @@ class TodoPlugin(BasePlugin):
     def _task_id(self, payload: dict) -> int:
         raw = payload.get("id", "")
 
-        if not raw.isdigit():
+        if not str(raw).isdigit():
             raise CommandError("Задача не найдена.")
 
         return int(raw)
@@ -320,6 +318,7 @@ class TodoPlugin(BasePlugin):
             "priority": task["priority"],
             "priority_label": PRIORITY_LABELS.get(task["priority"]),
             "due_at": _format_due(due) if due else None,
+            "due_iso": due.isoformat() if due else None,
             "created_at": task["created_at"].strftime("%d.%m.%Y"),
             "overdue": overdue,
             "moves": [
@@ -370,13 +369,10 @@ class TodoPlugin(BasePlugin):
 
 
 def _format_due(due_at: datetime) -> str:
-    """A deadline in the reader's own wall time, with the zone named.
+    """A deadline as a plain date.
 
-    ``due_at`` is stored naive UTC; the reader compares "soon" against the
-    clock on their wall, so it is rendered in ``DISPLAY_TIMEZONE`` (Moscow for
-    this deployment) rather than the host's zone.
+    A task is due on a day, not at a minute, so there is no time and no zone
+    to display: the value is read as the day it is, and reading it back later
+    must not shift it by an offset that was never meant to be part of it.
     """
-    zone = ZoneInfo(Config.DISPLAY_TIMEZONE)
-    local = due_at.replace(tzinfo=UTC).astimezone(zone)
-
-    return f"{local.strftime('%d.%m.%Y %H:%M')} {local.tzname() or ''}".strip()
+    return due_at.strftime("%d.%m.%Y").strip()

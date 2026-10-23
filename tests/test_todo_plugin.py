@@ -84,6 +84,28 @@ class TestMove:
         with pytest.raises(Exception, match="не может быть пустым"):
             await plugin.page_action(web_identity, "add", {"text": "   "})
 
+    async def test_move_accepts_an_integer_id(self, plugin, web_identity):
+        """The browser sends numbers in JSON, not strings.
+
+        A task id that arrives as an int used to crash the handler with an
+        AttributeError and surface as a 500 on the page."""
+        plugin.repo.add(web_identity, "Задача")
+        task_id = plugin.repo.entries(web_identity)[0]["id"]
+
+        await plugin.page_action(
+            web_identity, "move", {"id": task_id, "status": "doing"}
+        )
+
+        assert plugin.repo.entries(web_identity)[0]["status"] == "doing"
+
+    async def test_delete_accepts_an_integer_id(self, plugin, web_identity):
+        plugin.repo.add(web_identity, "Задача")
+        task_id = plugin.repo.entries(web_identity)[0]["id"]
+
+        await plugin.page_action(web_identity, "delete", {"id": task_id})
+
+        assert plugin.repo.entries(web_identity) == []
+
 
 class TestWorker:
     async def test_process_due_delivers_once(self, plugin):
