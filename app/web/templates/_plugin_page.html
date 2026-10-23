@@ -246,6 +246,7 @@ __STYLES__
   .sortbar {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 0.6rem;
     margin: 0 0 1rem;
     color: var(--muted);
@@ -412,11 +413,6 @@ __MENU_STYLES__
     if (hasMonth) {
       monthLabel.value = view.month.label;
     }
-
-    // The "+" button sits in the page header, apart from the sort control: the
-    // sort sorts what is there, the "+" adds to it, and pairing them read as
-    // one control doing both. Shown only when a dialog form exists.
-    ensureAddButton();
 
     for (const [key, painter] of SECTIONS) {
       if (view[key] != null) painter(view[key]);
@@ -645,6 +641,12 @@ __MENU_STYLES__
       send('view', { order: sortSelect.value }, null);
     });
     sortRow.appendChild(sortSelect);
+    // The "+" opens the creation dialog, on the right of the same row so it
+    // lines up with the sort control rather than drifting down or crowding it.
+    const addBtn = el('button', 'addbtn', '+');
+    addBtn.title = 'Новая задача';
+    addBtn.addEventListener('click', () => openDialog());
+    sortRow.appendChild(addBtn);
     root.appendChild(sortRow);
 
     const wrap = el('div', 'kanban');
@@ -848,20 +850,6 @@ __MENU_STYLES__
     // Focus the first text field so typing starts straight away.
     const first = box.querySelector('input');
     if (first) first.focus();
-  }
-
-  // Put the "+" button in the page header, apart from the sort control.
-  function ensureAddButton() {
-    const hasDialog = (view.forms || []).some((f) => f.dialog);
-    const head = document.querySelector('.pagehead');
-    if (!hasDialog || !head) return;
-
-    if (document.querySelector('.addbtn')) return;
-
-    const btn = el('button', 'addbtn', '+');
-    btn.title = 'Новая задача';
-    btn.addEventListener('click', () => openDialog());
-    head.appendChild(btn);
   }
 
   // Remove any open dialog. Called after a submit so the board redraw does not
