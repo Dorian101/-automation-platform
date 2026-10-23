@@ -193,6 +193,25 @@ __STYLES__
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--muted);
+    /* The document stylesheet gives every h2 a top rule; a column head is a
+       label, not a section break, so that rule is dropped here. */
+    border-top: none;
+    padding-top: 0;
+  }
+  /* The column head lays the label left and the "+" right, so adding a task
+     reads as an action of the "to do" column rather than the whole page. */
+  .kbhead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin: 0 0 0.9rem;
+  }
+  .kbhead h2 { margin: 0; }
+  .kbhead .addbtn {
+    font-size: 0.9rem;
+    padding: 0.2rem 0.5rem;
+    line-height: 1;
   }
   .kbcard {
     background: var(--bg);
@@ -251,7 +270,6 @@ __STYLES__
     color: var(--muted);
     font-size: 0.85rem;
   }
-  .sortbar .addbtn { margin-left: auto; }
   .sortbar select {
     background: var(--bg);
     color: var(--text);
@@ -641,19 +659,24 @@ __MENU_STYLES__
       send('view', { order: sortSelect.value }, null);
     });
     sortRow.appendChild(sortSelect);
-    // The "+" opens the creation dialog, on the right of the same row so it
-    // lines up with the sort control rather than drifting down or crowding it.
-    const addBtn = el('button', 'addbtn', '+');
-    addBtn.title = 'Новая задача';
-    addBtn.addEventListener('click', () => openDialog());
-    sortRow.appendChild(addBtn);
     root.appendChild(sortRow);
 
     const wrap = el('div', 'kanban');
 
     for (const col of board.columns) {
       const column = el('section', 'kbcol');
-      column.appendChild(el('h2', null, col.label));
+
+      // The column head: label on the left, and the "+" to add a task on the
+      // first column only — that is where undone work lands.
+      const head = el('div', 'kbhead');
+      head.appendChild(el('h2', null, col.label));
+      if (col.status === 'todo') {
+        const addBtn = el('button', 'addbtn', '+');
+        addBtn.title = 'Новая задача';
+        addBtn.addEventListener('click', () => openDialog());
+        head.appendChild(addBtn);
+      }
+      column.appendChild(head);
 
       const cards = col.cards || [];
       if (!cards.length) {
