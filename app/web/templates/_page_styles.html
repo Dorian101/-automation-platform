@@ -25,7 +25,7 @@
   main {
     max-width: none;
     margin: 0;
-    padding: 0 4vw 4rem;
+    padding: 1.5rem 4vw 4rem;
   }
   h1 {
     font-size: 2rem;
@@ -240,6 +240,11 @@
   .about > p { max-width: 46rem; margin: 0 0 1.75rem; }
   .about .note { margin-top: 2rem; }
   .experience h3 { font-size: 1.5rem; margin: 0 0 0.5rem; }
+  .experience .location { margin: 0 0 1.75rem; }
+  .experience > p { margin: 0 0 1rem; }
+  /* The "Техническая часть работы" line follows the place and role, and needs
+     its own breathing room so it does not read as part of the heading. */
+  .experience .location + p { margin-top: 2.5rem; }
   .contact h2 { margin: 0 0 1.5rem; }
   .contact ul { list-style: none; padding-left: 0; }
   .contact li { margin-bottom: 0.5rem; }
