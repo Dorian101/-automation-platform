@@ -153,6 +153,23 @@
     color: var(--muted);
     margin: 0 0 1rem;
   }
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem 2.5rem;
+    margin: 2rem 0 0;
+  }
+  .fact b {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2rem;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--accent);
+  }
+  .fact span { color: var(--muted); font-size: 0.8rem; }
+  .links { display: flex; flex-wrap: wrap; gap: 1rem 2rem; margin-top: 1.5rem; }
+  .links a { font: 400 12px 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
   .project-list { border-top: 1px solid var(--border); margin: 0 0 2rem; }
   .project {
     display: grid;

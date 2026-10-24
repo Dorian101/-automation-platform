@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Платформа автоматизации — проект и метод работы</title>
-<meta name="description" content="Веб-интерфейс и Telegram-бот над одной базой: заметки, напоминания, буфер обмена, расходы, отклики на вакансии. Как устроен проект и как он разрабатывается.">
+<meta name="description" content="Личная платформа автоматизации: заметки, напоминания, расходы и отклики на вакансии — в Telegram-боте и веб-интерфейсе над одной базой.">
 __PAGE_STYLES__
 __MENU_STYLES__
 </head>
@@ -12,277 +12,209 @@ __MENU_STYLES__
 <main>
   __NAV__
 
-  <h1>Платформа автоматизации</h1>
-  <p class="lede">Веб-интерфейс и Telegram-бот над одной базой: заметки,
-  напоминания, буфер обмена, расходы и отклики на вакансии. Одна команда
-  работает в обоих каналах, данные раздельные по пользователю.</p>
+  <section class="hero">
+    <p class="eyebrow">Проект · Automation Platform</p>
+    <h1>Личные дела —<br>в одном <em>месте</em>.</h1>
+    <div class="orbit orbit-one">PLUGINS</div>
+    <div class="orbit orbit-two">CORE</div>
+  </section>
 
-  <div class="note">
-    <p>Проект — проявление интереса к развивающейся области: в вакансиях
-    всё чаще спрашивают, умеешь ли работать с чат-ботами и агентами.
-    Ответ здесь не словами, а показанной целиком работой: от схемы базы
-    и миграций до тестов, деплоя на VPS и бэкапов.</p>
-  </div>
+  <section class="about">
+    <p class="section-tag">01 / Что это</p>
+    <p class="location">Личная платформа автоматизации</p>
+    <p>Собственная система для повседневных дел: заметки, напоминания,
+    расходы и отклики на вакансии. Всё это — и в Telegram-боте, и в
+    веб-интерфейсе, над одной базой. Одна команда работает в обоих каналах,
+    а данные у каждого пользователя свои.</p>
+    <p>Проект — способ показать, а не рассказать. Платформа собрана целиком:
+    схема базы и миграции, тесты, деплой на VPS, бэкапы. Заодно — проявление
+    интереса к чат-ботам и агентам, про которые спрашивают в вакансиях.</p>
+    <div class="facts">
+      <div class="fact"><b>__PLUGINS__</b><span>плагинов</span></div>
+      <div class="fact"><b>__COMMANDS__</b><span>команд</span></div>
+      <div class="fact"><b>__MIGRATIONS__</b><span>миграций</span></div>
+    </div>
+  </section>
 
-  <div class="stats">
-    <div><b>__PLUGINS__</b><span>плагинов</span></div>
-    <div><b>__COMMANDS__</b><span>команд</span></div>
-    <div><b>__MIGRATIONS__</b><span>миграций</span></div>
-  </div>
+  <section class="work">
+    <div class="work-heading">
+      <p class="section-tag">02 / Что умеет</p>
+      <h2>Четыре плагина,<br>два канала.</h2>
+    </div>
 
-  <h2>Что умеет</h2>
-  <ul>
-    <li>Команды <code>/notes</code>, <code>/remind</code>, <code>/copy</code>
-      исполняются одинаково в боте и в браузере — один разбор команд, один
-      набор плагинов, два транспорта.</li>
-    <li>Данные изолированы по пользователю: два аккаунта не видят заметок друг
-      друга, и это гарантируется на уровне запросов, а не на уровне
-      осторожности.</li>
-    <li>Аутентификация в вебе двуслойная: транспортный секрет за
-      реверс-прокси и сессионная cookie приложения. Порт приложения слушает
-      только loopback.</li>
-    <li>Пароли хранятся как солёные scrypt-хэши; из сессий в базе остаётся
-      только SHA-256 токена.</li>
-    <li>Миграции SQL применяются автоматически при старте — свежая база
-      поднимается с нуля одной командой.</li>
-    <li>Бэкапы PostgreSQL по таймеру systemd с ротацией. Восстановление
-      проверялось заранее на копии, а не в день, когда оно понадобится.</li>
-    <li>Пуш в <code>main</code> разворачивается сам: GitHub Actions
-      подключается к серверу по ключу, которому разрешена ровно одна команда,
-      и выполняет скрипт деплоя из репозитория.</li>
-  </ul>
+    <div class="project-list">
+      <article class="project blue">
+        <div class="project-meta"><span>01</span><span>Заметки · Напоминания</span></div>
+        <h3>Заметки и напоминания</h3>
+        <p>Команды <code>/notes</code>, <code>/remind</code> и <code>/copy</code>
+        работают одинаково в боте и в браузере — один разбор команды, общий
+        набор плагинов, два транспорта.</p>
+        <span class="project-arrow">↗</span>
+      </article>
+      <article class="project lime">
+        <div class="project-meta"><span>02</span><span>Финансы · NUMERIC</span></div>
+        <h3>Расходы</h3>
+        <p>Категории заводит сам пользователь. Суммы хранятся как NUMERIC и
+        проходят через Python как Decimal — деньги не теряют точность.</p>
+        <span class="project-arrow">↗</span>
+      </article>
+      <article class="project coral">
+        <div class="project-meta"><span>03</span><span>Воронка · Статусы</span></div>
+        <h3>Отклики на вакансии</h3>
+        <p>Статусы — конечный автомат: каждая стадия знает, куда можно
+        двигаться дальше. Кнопки рисуются из того же объявления, что проверяет
+        сервер.</p>
+        <span class="project-arrow">↗</span>
+      </article>
+      <article class="project blue">
+        <div class="project-meta"><span>04</span><span>Канбан · Дедлайны</span></div>
+        <h3>Задачи</h3>
+        <p>Доска с колонками «к выполнению / в работе / сделано». Дедлайны
+        приходят напоминанием в Telegram, по одному на задачу.</p>
+        <span class="project-arrow">↗</span>
+      </article>
+    </div>
+  </section>
 
-  <h2>Страницы плагинов и демонстрация</h2>
-  <p>Аналитика на сайте сделана не командами, а страницами, которые рисует
-  сам плагин. Команда — это строка, а график строится из чисел: из фразы
-  «молоко 320» нельзя вывести долю категории. Плагин возвращает описание —
-  поля, таблицу, числа, — а веб-слой рисует его по общему словарю и ничего
-  не знает про расходы или отклики. Третий плагин с другой формой
-  подключается без правок платформы.</p>
-  <ul>
-    <li><b>Расходы.</b> Категории заводит сам пользователь, из интерфейса.
-      Суммы хранятся как <code>NUMERIC</code> и проходят через Python как
-      <code>Decimal</code>: деньги не должны накапливать ошибку в округлении.
-      Дата траты хранится отдельно от даты ввода, иначе месячный итог отвечает
-      не на тот вопрос.</li>
-    <li><b>Отклики.</b> Статусы — конечный автомат: каждая стадия знает, какие
-      могут идти дальше, и кнопки в строке рисуются из того же объявления,
-      которое проверяет сервер. Отклик нельзя вернуть на первую стадию, и
-      поэтому воронка не может раздуться. Сама воронка считает достигнутые
-      стадии, а не текущие, и делит на всё отправленное, включая отказы.</li>
-    <li><b>Демо без регистрации.</b> <a href="/demo">Открывается без аккаунта</a>
-      и пишет в отдельное пространство <code>web:guest:&lt;токен&gt;</code>,
-      которого нет ни в одной таблице с паролями. Уборка — это удаление по
-      префиксу. Страница честно говорит, что данные вымышленные. Попадает
-      страница в публичную демонстрацию только если плагин сам объявил
-      <code>demo = True</code>: по умолчанию выключено, и непреднамеренно
-      открыть адрес без чьего-то решения нельзя.</li>
-  </ul>
+  <section class="work">
+    <div class="work-heading">
+      <p class="section-tag">03 / Как устроено</p>
+      <h2>Два транспорта,<br>одно ядро.</h2>
+    </div>
 
-  <h2>Как устроено</h2>
-  <figure class="diagram">
-  <svg viewBox="0 0 760 600" role="img" aria-labelledby="diagram-title">
-    <title id="diagram-title">Устройство платформы: транспорт, ядро, хранилище</title>
-    <style>
-      /* The page is dark only, so this carries no light theme. The fills are
-         the page's own palette at a low tint: the five semantic roles have to
-         stay distinguishable without inventing a second set of colours. */
-      .diagram .edge { stroke: #3a4150; stroke-width: 1.5; fill: none; }
-      .diagram .zone { fill: none; stroke: #2a2f3a; stroke-width: 1; stroke-dasharray: 6 5; }
-      .diagram .zone-name { font-size: 12px; fill: #8b93a3; }
-      .diagram .label { font-size: 15px; font-weight: 600; fill: #e4e7ec; }
-      .diagram .small { font-size: 12px; fill: #8b93a3; }
-      .diagram .box { stroke-width: 1; }
-      .diagram .external { fill: #33291a; stroke: #6b5a33; }
-      .diagram .input { fill: #14304d; stroke: #2f5f8f; }
-      .diagram .identity { fill: #232733; stroke: #3a4150; }
-      .diagram .process { fill: #1d2b52; stroke: #3f5a9e; }
-      .diagram .storage { fill: #0f3330; stroke: #2b6b62; }
-    </style>
-    <defs>
-      <marker id="d-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" fill="#3a4150" />
-      </marker>
-    </defs>
+    <figure class="diagram">
+    <svg viewBox="0 0 760 600" role="img" aria-labelledby="diagram-title">
+      <title id="diagram-title">Устройство платформы: транспорт, ядро, хранилище</title>
+      <style>
+        .diagram .edge { stroke: #3a3d42; stroke-width: 1.5; fill: none; }
+        .diagram .zone { fill: none; stroke: #303234; stroke-width: 1; stroke-dasharray: 6 5; }
+        .diagram .zone-name { font-size: 12px; fill: #a8a8a4; }
+        .diagram .label { font-size: 15px; font-weight: 600; fill: #f2f0e9; }
+        .diagram .small { font-size: 12px; fill: #a8a8a4; }
+        .diagram .box { stroke-width: 1; }
+        .diagram .external { fill: #1a1d28; stroke: #477eff; }
+        .diagram .input { fill: #121a2a; stroke: #477eff; }
+        .diagram .identity { fill: #161718; stroke: #56595b; }
+        .diagram .process { fill: #16203c; stroke: #477eff; }
+        .diagram .storage { fill: #14251c; stroke: #b9f45d; }
+      </style>
+      <defs>
+        <marker id="d-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#3a3d42" />
+        </marker>
+      </defs>
 
-    <!-- Connectors first, so the arrows sit behind the boxes. -->
-    <path class="edge" d="M 205 100 L 205 138 L 380 138" />
-    <path class="edge" d="M 560 100 L 560 138 L 380 138 L 380 182" marker-end="url(#d-arrow)" />
-    <path class="edge" d="M 380 230 L 380 256" marker-end="url(#d-arrow)" />
-    <path class="edge" d="M 380 316 L 380 342" marker-end="url(#d-arrow)" />
-    <path class="edge" d="M 380 384 L 380 462" marker-end="url(#d-arrow)" />
-    <path class="edge" d="M 638 384 L 638 462" marker-end="url(#d-arrow)" />
+      <path class="edge" d="M 205 100 L 205 138 L 380 138" />
+      <path class="edge" d="M 560 100 L 560 138 L 380 138 L 380 182" marker-end="url(#d-arrow)" />
+      <path class="edge" d="M 380 230 L 380 256" marker-end="url(#d-arrow)" />
+      <path class="edge" d="M 380 316 L 380 342" marker-end="url(#d-arrow)" />
+      <path class="edge" d="M 380 384 L 380 462" marker-end="url(#d-arrow)" />
+      <path class="edge" d="M 638 384 L 638 462" marker-end="url(#d-arrow)" />
 
-    <rect class="zone" x="16" y="16" width="728" height="112" rx="10" />
-    <text class="zone-name" x="32" y="36">Транспорт</text>
+      <rect class="zone" x="16" y="16" width="728" height="112" rx="10" />
+      <text class="zone-name" x="32" y="36">Транспорт</text>
 
-    <rect class="zone" x="16" y="148" width="728" height="254" rx="10" />
-    <text class="zone-name" x="32" y="168">Ядро процесса</text>
+      <rect class="zone" x="16" y="148" width="728" height="254" rx="10" />
+      <text class="zone-name" x="32" y="168">Ядро процесса</text>
 
-    <rect class="zone" x="16" y="428" width="728" height="120" rx="10" />
-    <text class="zone-name" x="32" y="448">Хранение и доставка</text>
+      <rect class="zone" x="16" y="428" width="728" height="120" rx="10" />
+      <text class="zone-name" x="32" y="448">Хранение и доставка</text>
 
-    <rect class="box external" x="60" y="52" width="290" height="48" rx="8" />
-    <text class="label" x="205" y="76" text-anchor="middle" dominant-baseline="middle">Telegram-бот · aiogram polling</text>
+      <rect class="box external" x="60" y="52" width="290" height="48" rx="8" />
+      <text class="label" x="205" y="76" text-anchor="middle" dominant-baseline="middle">Telegram-бот · aiogram polling</text>
 
-    <rect class="box input" x="410" y="52" width="300" height="48" rx="8" />
-    <text class="label" x="560" y="76" text-anchor="middle" dominant-baseline="middle">Веб-консоль · aiohttp</text>
-    <text class="small" x="560" y="116" text-anchor="middle">TLS и транспортный секрет — на стороне Caddy</text>
+      <rect class="box input" x="410" y="52" width="300" height="48" rx="8" />
+      <text class="label" x="560" y="76" text-anchor="middle" dominant-baseline="middle">Веб-консоль · aiohttp</text>
+      <text class="small" x="560" y="116" text-anchor="middle">TLS и транспортный секрет — на стороне Caddy</text>
 
-    <rect class="box identity" x="270" y="184" width="220" height="46" rx="8" />
-    <text class="label" x="380" y="200" text-anchor="middle" dominant-baseline="middle">Identity: kind:id</text>
-    <text class="small" x="380" y="218" text-anchor="middle">PersonResolver связывает каналы</text>
+      <rect class="box identity" x="270" y="184" width="220" height="46" rx="8" />
+      <text class="label" x="380" y="200" text-anchor="middle" dominant-baseline="middle">Identity: kind:id</text>
+      <text class="small" x="380" y="218" text-anchor="middle">PersonResolver связывает каналы</text>
 
-    <rect class="box process" x="160" y="258" width="440" height="58" rx="8" />
-    <text class="label" x="380" y="278" text-anchor="middle" dominant-baseline="middle">Dispatcher</text>
-    <text class="small" x="380" y="298" text-anchor="middle">parse_command → PluginManager.execute → CommandResult</text>
+      <rect class="box process" x="160" y="258" width="440" height="58" rx="8" />
+      <text class="label" x="380" y="278" text-anchor="middle" dominant-baseline="middle">Dispatcher</text>
+      <text class="small" x="380" y="298" text-anchor="middle">parse_command → PluginManager.execute → CommandResult</text>
 
-    <rect class="box process" x="32" y="344" width="696" height="40" rx="8" />
-    <text id="diagram-plugins" class="label" x="380" y="364" text-anchor="middle" dominant-baseline="middle">system · notes · reminders · clipboard · expenses · applications</text>
+      <rect class="box process" x="32" y="344" width="696" height="40" rx="8" />
+      <text id="diagram-plugins" class="label" x="380" y="364" text-anchor="middle" dominant-baseline="middle">system · notes · reminders · clipboard · expenses · applications · todo</text>
 
-    <rect class="box storage" x="240" y="464" width="280" height="48" rx="8" />
-    <text class="label" x="380" y="488" text-anchor="middle" dominant-baseline="middle">PostgreSQL</text>
-    <text class="small" x="380" y="530" text-anchor="middle">репозитории и sql/migrations</text>
+      <rect class="box storage" x="240" y="464" width="280" height="48" rx="8" />
+      <text class="label" x="380" y="488" text-anchor="middle" dominant-baseline="middle">PostgreSQL</text>
+      <text class="small" x="380" y="530" text-anchor="middle">репозитории и sql/migrations</text>
 
-    <rect class="box external" x="548" y="464" width="180" height="48" rx="8" />
-    <text class="label" x="638" y="482" text-anchor="middle" dominant-baseline="middle">Уведомления</text>
-    <text class="small" x="638" y="500" text-anchor="middle">→ чат Telegram</text>
+      <rect class="box external" x="548" y="464" width="180" height="48" rx="8" />
+      <text class="label" x="638" y="482" text-anchor="middle" dominant-baseline="middle">Уведомления</text>
+      <text class="small" x="638" y="500" text-anchor="middle">→ чат Telegram</text>
 
-    <g transform="translate(32, 578)">
-      <rect class="box input" x="0" y="-10" width="14" height="14" rx="3" />
-      <text class="small" x="21" y="1">ввод</text>
-      <rect class="box process" x="72" y="-10" width="14" height="14" rx="3" />
-      <text class="small" x="93" y="1">обработка</text>
-      <rect class="box storage" x="192" y="-10" width="14" height="14" rx="3" />
-      <text class="small" x="213" y="1">хранение</text>
-      <rect class="box external" x="292" y="-10" width="14" height="14" rx="3" />
-      <text class="small" x="313" y="1">внешнее</text>
-      <rect class="box identity" x="382" y="-10" width="14" height="14" rx="3" />
-      <text class="small" x="403" y="1">идентичность</text>
-    </g>
-  </svg>
-  <figcaption>Два транспорта, одно ядро. Плагины не знают, откуда пришла
-  команда, поэтому бот и консоль получают новую функцию из одного кода.</figcaption>
-  </figure>
-  <p>Caddy терминирует TLS и подставляет транспортный секрет — доказательство,
-  что запрос пришёл через прокси, а не мимо него. Секрет ничего не говорит о
-  том, <em>кто</em> пользователь: это делает уже сессионная cookie, выданная
-  за <code>POST /login</code>. Всё остальное приложение решает само — в Caddy
-  не хранится ни одного пароля.</p>
-  <p>Фреймворка поверх нет: aiohttp, aiogram, psycopg и чистые библиотеки.
-  Плагины подключаются через единый интерфейс, поэтому бот и веб получают
-  новые команды от одного и того же кода.</p>
+      <g transform="translate(32, 578)">
+        <rect class="box input" x="0" y="-10" width="14" height="14" rx="3" />
+        <text class="small" x="21" y="1">ввод</text>
+        <rect class="box process" x="72" y="-10" width="14" height="14" rx="3" />
+        <text class="small" x="93" y="1">обработка</text>
+        <rect class="box storage" x="192" y="-10" width="14" height="14" rx="3" />
+        <text class="small" x="213" y="1">хранение</text>
+        <rect class="box external" x="292" y="-10" width="14" height="14" rx="3" />
+        <text class="small" x="313" y="1">внешнее</text>
+        <rect class="box identity" x="382" y="-10" width="14" height="14" rx="3" />
+        <text class="small" x="403" y="1">идентичность</text>
+      </g>
+    </svg>
+    <figcaption>Два транспорта, одно ядро. Плагин не знает, откуда пришла команда,
+    поэтому бот и консоль получают новую функцию из одного кода.</figcaption>
+    </figure>
 
-  <h2>Как делалось</h2>
+    <p style="margin-top: 2rem;">Caddy терминирует TLS и подставляет транспортный
+    секрет — доказательство, что запрос прошёл через прокси. Кто пользователь,
+    решает уже сессионная cookie, выданная за <code>POST /login</code>. Пароли
+    хранятся salted-хэшами scrypt, а от сессий в базе остаётся только SHA-256.
+    Пуш в <code>main</code> разворачивает проект сам: GitHub Actions по ключу
+    с единственной разрешённой командой выполняет скрипт деплоя.</p>
+  </section>
 
-  <h3>Спринт — это одна тема</h3>
-  <p>Не «и ещё вот это попутно». Одно изменение = один коммит с заголовком и
-  телом, объясняющим не <em>что</em> изменилось (видно по диффу), а
-  <em>почему</em> решили именно так. Деплой идёт сразу за коммитом, а не
-  копится неделями в рабочей ветке.</p>
+  <section class="about">
+    <p class="section-tag">04 / Как делалось</p>
+    <p>Проект собирали несколько AI-агентов — свои и внешние скиллы, задачи
+    ставит человек. Каждое изменение — отдельный коммит с объяснением, почему
+    решено так, а не что поменялось (это видно по диффу). Проверки — до пуша,
+    не после: <code>ruff</code> и <code>pytest</code> прогоняются перед каждым
+    коммитом, тесты проверяют и то, что работает, и то, что должно отказывать.</p>
+    <p>Состояние живёт в файлах, а не в переписке: <code>DECISIONS.md</code>,
+    <code>PROJECT_STATE.md</code>, <code>DEPLOYMENT.md</code>,
+    <code>AI_CONTEXT.md</code> и <code>AGENTS.md</code>. Правила в
+    <code>AGENTS.md</code> сложились из собственной практики и
+    <a href="https://github.com/multica-ai/andrej-karpathy-skills">заметок Андрея Карпати
+    о том, как модели ошибаются в коде</a>.</p>
+  </section>
 
-  <h3>Документы — это память</h3>
-  <p>Агент не помнит контекст между сессиями, поэтому состояние живёт в
-  файлах, а не в переписке:</p>
-  <ul>
-    <li><code>DECISIONS.md</code> — решения с датами, альтернативами и
-      причинами. Через месяц видно, почему ушли от <code>basicauth</code>, а
-      не только что ушли;</li>
-    <li><code>PROJECT_STATE.md</code> — что сделано, что осталось, текущие
-      ограничения. Честный список, включая то, что неудобно;</li>
-    <li><code>DEPLOYMENT.md</code> — runbook, отработанный на живом сервере,
-      с ожидаемым выводом после каждого шага;</li>
-    <li><code>AI_CONTEXT.md</code> — правила, чтобы не нарушать их заново в
-      следующей сессии;</li>
-    <li><code>AGENTS.md</code> — как вести разработку: на каком языке
-      общаться, что проверять перед коммитом, когда спросить, а когда
-      сказать «не усложняй».</li>
-  </ul>
-  <p>Правила в <code>AGENTS.md</code> сложились из двух источников. Первый —
-  собственная практика проекта: спринт это одна тема, каждое решение
-  фиксируется с причиной, тесты проверяют и то, что работает, и то, что
-  должно отказывать. Второй — <a href="https://github.com/multica-ai/andrej-karpathy-skills">набор
-  инструкций, собранный из наблюдений Андрея Карпати о том, как модели
-  ошибаются в коде</a>. Четыре принципа оттуда легли в правила почти
-  дословно, и это единственное, что сработало: «сначала думать» (спросить,
-  когда постановка неясна, а не угадать), «простота прежде всего» (если
-  можно написать 50 строк вместо 200 — пиши 50), «хирургические правки» (не
-  трогать соседний код) и «ориентироваться на результат» (критерий успеха
-  задаётся явно и проверяется тестом).</p>
-  <p>Стоит сказать прямо: правила работают не всегда. За время разработки
-  агент несколько раз сделал то, что ему запрещали, — добавил лишнюю
-  гибкость, полез чинить не сломанное, объяснил работу вместо того, чтобы её
-  сделать. Записанные правила помогают, но не заменяют проверку результата
-  человеком: почти все ошибки этого проекта нашли тесты или взгляд на
-  страницу в браузере, а не перечитывание инструкций.</p>
-  <p>Новая сессия начинается с чтения — и не переспрашивает того, что уже
-  решено.</p>
+  <section class="experience">
+    <p class="section-tag">05 / Сложности</p>
+    <h3>Переход от общего пароля к аккаунтам</h3>
+    <p>Веб начинал за basicauth Caddy с одним паролем на всех. Пришлось
+    перенести аутентификацию в приложение, не потеряв периметр, — отсюда два
+    слоя вместо одного.</p>
 
-  <h3>Проверки до пуша, а не после</h3>
-  <p><code>ruff</code> и <code>pytest</code> прогоняются перед каждым
-  коммитом. Отказавший тест — не «потом починю», а повод остановиться.
-  Тесты проверяют не только то, что работает, но и то, что должно
-  отказывать: неверный пароль, чужие данные, пустой конфиг, битый
-  восстановленный дамп.</p>
+    <h3>Бэкап, который нельзя восстановить, — не бэкап</h3>
+    <p>Создать дамп просто; убедиться, что он восстанавливается, — нет.
+    Поэтому восстановление проверялось заранее, а не в день, когда понадобилось.</p>
 
-  <h3>Деплой по шагам с проверкой</h3>
-  <p>Не «обновил и перезапустил», а: pull → рестарт → конкретный запрос с
-  ожидаемым кодом ответа → просмотр логов. Если ожидание не совпало —
-  разбираться сейчас, а не «вроде работает». Работает и проверено — это
-  разные состояния.</p>
-  <p>Шаги те же, но запускает их уже не человек: пуш в <code>main</code>
-  поднимает GitHub Actions, он подключается к серверу ключом, которому
-  разрешена одна команда, и выполняет скрипт деплоя из репозитория.</p>
+    <h3>Деплой, рапортовавший об успехе, ничего не сделав</h3>
+    <p>Скрипт деплоя лежит в обновляемом им же репозитории. Bash читает
+    скрипт по смещению, поэтому замена содержимого на меньшее обрывает
+    выполнение. Теперь скрипт переоткрывает себя через <code>exec</code>.</p>
+  </section>
 
-  <h3>Работа с агентом</h3>
-  <p>По одной команде за сообщение, чтобы не сбиваться при ошибках.
-  Агент проговаривает, что делает и почему, а сомнительное решение
-  выносится вопросом, а не принимается молча. Опасные операции — на сервере,
-  ручками, текстом: случайный <code>rm</code> на проде дороже любого
-  сэкономленного шага.</p>
-
-  <h2>Что было сложнее всего</h2>
-  <h3>Переход от общего пароля к аккаунтам</h3>
-  <p>Веб начинал за <code>basicauth</code> Caddy с одним паролем на всех.
-  Это блокировало саму идею изоляции данных: непонятно, чей это пользователь,
-  если вошли все под одним именем. Пришлось переносить аутентификацию в
-  приложение, но не потерять периметр — отсюда два слоя вместо одного.
-  Решение и альтернативы записаны в <code>DECISIONS.md</code>.</p>
-
-  <h3>Бэкап, который нельзя восстановить, — не бэкап</h3>
-  <p>Создавать дамп легко; убедиться, что он вообще восстанавливается, —
-  нет. Поэтому восстановление проверялось заранее: поднималась отдельная база,
-  дамп заливался туда, таблицы проверялись на владельцев, последовательности
-  и права на вставку. Тот же прогон ломается намеренно — на несуществующем
-  <code>pg_dump</code> и на занятой секундной метке, — потому что падение
-  бэкапа ночью никому не заметно, пока не наступил день X.</p>
-
-  <h3>Деплой, который рапортовал об успехе, ничего не сделав</h3>
-  <p>Скрипт деплоя лежит в том же репозитории, который сам же и обновляет.
-  Bash читает скрипт по смещению из уже открытого файла, поэтому замена
-  содержимого на меньшее обрывает выполнение: трёхстрочный пример с
-  самоподменой печатает первую строку и замолкает. На живом деплое это
-  выглядело как «всё прошло, но лог пустой» — сервис перезапустился, а
-  оставшиеся команды не выполнились. Теперь скрипт после pull переоткрывает
-  себя через <code>exec</code>, а сам pull спрятан внутрь проверки, чтобы
-  второй проход не зациклился.</p>
-
-  <h2>Что осталось</h2>
-  <p class="meta">Полный список открытого — в
-  <code>PROJECT_STATE.md</code> в репозитории, в разделах «Current limitations»
-  и «Potential tasks». Он дописывается в конце каждого спринта, а страница
-  обновляется не всякий раз: список на ней однажды уже разошёлся с
-  действительностью, и заметнее всего в утверждении про деплой, которое
-  перестало быть правдой в день, когда деплой стал автоматическим.</p>
-  <p class="meta">Коротко и без срока: уведомления без привязки к Telegram
-  пока не доставляются, аккаунт нельзя переименовать — данные ключуются по
-  имени, — и внешних интеграций нет.</p>
-
-  <div class="links">
-    <a href="https://github.com/Dorian101/-automation-platform">Исходный код на GitHub</a>
-    <a href="/">Открыть платформу</a>
-    <a href="/about">Обо мне →</a>
-  </div>
+  <section class="contact">
+    <p class="section-tag">06 / Дальше</p>
+    <h2>Что <em>осталось</em>.</h2>
+    <p>Уведомления без привязки к Telegram пока не доставляются, аккаунт
+    нельзя переименовать, внешних интеграций нет. Полный список — в
+    <code>PROJECT_STATE.md</code> и <code>DECISIONS.md</code> в репозитории.</p>
+    <div class="links">
+      <a href="https://github.com/Dorian101/-automation-platform">Исходный код</a>
+      <a href="/">Открыть платформу</a>
+      <a href="/about">Обо мне →</a>
+    </div>
+  </section>
 
   <footer>Актуальное состояние проекта, ограничения и история решений —
   в репозитории: <code>PROJECT_STATE.md</code> и

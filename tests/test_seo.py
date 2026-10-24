@@ -337,6 +337,7 @@ class TestTheProjectPage:
         from app.plugins.notes import NotesPlugin
         from app.plugins.reminders import RemindersPlugin
         from app.plugins.system import SystemPlugin
+        from app.plugins.todo import TodoPlugin
 
         shipped = {
             NotesPlugin.name,
@@ -345,6 +346,7 @@ class TestTheProjectPage:
             ExpensesPlugin.name,
             ApplicationsPlugin.name,
             SystemPlugin.name,
+            TodoPlugin.name,
         }
         start = page.index('id="diagram-plugins"')
         row = page[page.index(">", start) + 1 : page.index("</text>", start)]
