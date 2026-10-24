@@ -135,8 +135,6 @@
   .hero h1 em { color: var(--accent); font-style: normal; }
   .orbit {
     position: absolute;
-    border: 1px solid var(--border);
-    border-radius: 50%;
     color: #6e7072;
     font: 10px 'JetBrains Mono', monospace;
     letter-spacing: 0.2em;
@@ -144,8 +142,55 @@
     place-items: center;
     z-index: 0;
   }
-  .orbit-one { width: 290px; height: 290px; right: -70px; top: 80px; transform: rotate(14deg); }
-  .orbit-two { width: 170px; height: 170px; right: 170px; top: 260px; transform: rotate(-18deg); }
+  /* The ring is a dashed circle that turns forever, slowly, while the label
+     under it stays still. It gives the hero a faint "alive" quality without a
+     motion that draws the eye away from the headline. */
+  .orbit::before {
+    content: '';
+    position: absolute;
+    inset: -10px;
+    border: 1px dashed var(--border);
+    border-radius: 50%;
+    animation: orbit-spin 90s linear infinite;
+  }
+  .orbit-one { width: 290px; height: 290px; right: -70px; top: 80px; }
+  .orbit-two { width: 170px; height: 170px; right: 170px; top: 260px; }
+  /* Inside the contact section the rings are a quiet corner mark, smaller and
+     tucked against the right edge rather than the hero's oversized shapes. */
+  .contact .orbit-one { width: 200px; height: 200px; right: 20px; top: 2rem; }
+  .contact .orbit-two { width: 120px; height: 120px; right: 160px; top: 9rem; }
+  @keyframes orbit-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .orbit::before { animation: none; }
+    .viz-svg * { animation: none; }
+  }
+  /* The data-visualisation in the hero: a grouped bar chart that grows in,
+     then a trend line draws over set 1 and the labels surface. Native SMIL,
+     no script. One run, frozen on the final frame. */
+  .viz {
+    position: absolute;
+    right: 0;
+    top: 6rem;
+    width: min(26rem, 38%);
+    z-index: 0;
+    pointer-events: none;
+  }
+  .viz-svg { width: 100%; height: auto; display: block; }
+  .viz-frame line { stroke: var(--border); stroke-width: 1; }
+  .viz-frame .viz-grid { stroke: #26282a; stroke-dasharray: 3 5; }
+  .viz-axis { fill: var(--muted); font: 9px 'JetBrains Mono', monospace; }
+  .viz-bar.viz-rev { fill: var(--accent); }
+  .viz-bar.viz-lead { fill: var(--lime); }
+  .viz-trend { stroke: var(--coral); stroke-width: 2; }
+  .viz-head { fill: var(--text); font: 600 15px 'Manrope', sans-serif; }
+  .viz-kpi { fill: var(--text); font: 600 22px 'Manrope', sans-serif; }
+  .viz-cap { fill: var(--muted); font: 10px 'JetBrains Mono', monospace; }
+  .viz-dot.viz-rev { fill: var(--accent); }
+  .viz-dot.viz-lead { fill: var(--lime); }
+  .viz-legend { font-size: 10px; }
   .section-tag {
     font: 400 11px 'JetBrains Mono', monospace;
     letter-spacing: 0.14em;
@@ -262,6 +307,7 @@
   /* The "Техническая часть работы" line follows the place and role, and needs
      its own breathing room so it does not read as part of the heading. */
   .experience .location + p { margin-top: 2.5rem; }
+  .contact { position: relative; }
   .contact h2 { margin: 0 0 1.5rem; }
   .contact ul { list-style: none; padding-left: 0; }
   .contact li { margin-bottom: 0.5rem; }
