@@ -1749,3 +1749,39 @@ were invited anyway. Hiding it only made the front door hard to find.
 ### Result
 The console is reachable from the menu on every page, and a guest who follows
 it lands on the sign-in form rather than a missing link. 837 tests pass.
+
+## 2026-10-24
+
+### Decision
+Redesign the public pages as a dark technical portfolio, with self-hosted fonts
+
+### Reason
+The public pages read as a plain document on a dark minimal palette, and the
+owner wanted a look that catches a guest the way a design-studio portfolio
+does — large type, decorative rings, numbered project tiles that fill with
+colour on hover. The chosen direction was a near-black base with a blue, lime
+and coral accent set, mono labels and a grotesque for reading.
+
+The typefaces are self-hosted rather than pulled from Google Fonts. A font
+request to an external host leaks every visitor's arrival to that host, which
+is the same reason the visit log stores no address — the project does not
+collect a reader by default. Self-hosting also keeps the page whole when the
+font host is unreachable. This is the first font asset in the repository, but
+not the first static asset: the preview image already broke the "no files"
+habit, and the fonts follow the same route.
+
+The console and plugin pages keep their existing look. They are a working
+tool, read for density, and "catching the eye" is not their job; the redesign
+is scoped to the public documents.
+
+### How it is done
+- The fonts (JetBrains Mono for labels and numbers, Manrope for text and
+  headings, both with cyrillic) are downloaded as woff2 into `app/web/fonts/`
+  with a generated `fonts.css`, and served by a `/fonts/{name}` route beside
+  the favicon and preview image, guarded against path traversal.
+- `_page_styles.html` carries the new palette and the hero, orbit, project-tile
+  and section styles; `about.html` is recomposed around them.
+
+### Result
+`/about` reads as a dark portfolio with a large headline, orbit rings and five
+numbered project tiles. 837 tests pass.

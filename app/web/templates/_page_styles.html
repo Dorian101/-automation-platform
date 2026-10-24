@@ -1,11 +1,14 @@
 <style>
+  @import url('/fonts/fonts.css');
   :root {
-    --bg: #14161a;
-    --panel: #1c1f26;
-    --border: #2a2f3a;
-    --text: #e4e7ec;
-    --muted: #8b93a3;
-    --accent: #4a9eff;
+    --bg: #101112;
+    --panel: #161718;
+    --border: #303234;
+    --text: #f2f0e9;
+    --muted: #a8a8a4;
+    --accent: #477eff;
+    --lime: #b9f45d;
+    --coral: #ff795f;
     --error: #ff6b6b;
   }
   * { box-sizing: border-box; }
@@ -13,12 +16,16 @@
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font: 16px/1.65 ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font: 16px/1.65 'Manrope', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+  h1, h2, h3, h4 {
+    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    font-weight: 500;
   }
   main {
-    max-width: 46rem;
-    margin: 0 auto;
-    padding: 3rem 1.25rem 4rem;
+    max-width: none;
+    margin: 0;
+    padding: 0 4vw 4rem;
   }
   h1 {
     font-size: 2rem;
@@ -91,8 +98,8 @@
     border: 1px solid var(--border);
     border-left: 3px solid var(--accent);
     border-radius: 6px;
-    padding: 0.9rem 1.1rem;
-    margin: 0 0 1.25rem;
+    padding: 1.1rem 1.25rem;
+    margin: 0 0 2rem;
   }
   .note p:last-child { margin-bottom: 0; }
   .stats {
@@ -104,6 +111,138 @@
   .stats div { min-width: 7rem; }
   .stats b { display: block; font-size: 1.35rem; font-weight: 600; }
   .stats span { color: var(--muted); font-size: 0.85rem; }
+  /* The about page: a dark, technical portfolio. A huge headline over
+     decorative orbit rings, then numbered project tiles that fill with their
+     colour on hover. The mono face carries the small labels — numbers, tags,
+     meta — and Manrope carries the reading text and the big type. */
+  .hero { position: relative; overflow: hidden; padding: 4rem 0 4.5rem; margin-bottom: 2rem; }
+  .eyebrow {
+    font: 400 11px 'JetBrains Mono', monospace;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 0.5rem;
+  }
+  .hero h1 {
+    font-size: clamp(2.6rem, 6.5vw, 5.5rem);
+    line-height: 0.95;
+    letter-spacing: -0.045em;
+    font-weight: 500;
+    margin: 0 0 2.5rem;
+    position: relative;
+    z-index: 1;
+  }
+  .hero h1 em { color: var(--accent); font-style: normal; }
+  .orbit {
+    position: absolute;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: #6e7072;
+    font: 10px 'JetBrains Mono', monospace;
+    letter-spacing: 0.2em;
+    display: grid;
+    place-items: center;
+    z-index: 0;
+  }
+  .orbit-one { width: 290px; height: 290px; right: -70px; top: 80px; transform: rotate(14deg); }
+  .orbit-two { width: 170px; height: 170px; right: 170px; top: 260px; transform: rotate(-18deg); }
+  .section-tag {
+    font: 400 11px 'JetBrains Mono', monospace;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 1rem;
+  }
+  .project-list { border-top: 1px solid var(--border); margin: 0 0 2rem; }
+  .project {
+    display: grid;
+    grid-template-columns: 18% 1fr 34% 60px;
+    gap: 30px;
+    align-items: center;
+    min-height: 220px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+    padding: 0 1rem;
+    transition: color 0.25s, padding 0.25s;
+  }
+  .project::before {
+    content: '';
+    position: absolute;
+    inset: 100% 0 0;
+    z-index: 0;
+    transition: inset 0.35s ease;
+  }
+  .project:hover::before { inset: 0; }
+  .project:hover { color: #111; }
+  .project.blue::before { background: var(--accent); }
+  .project.lime::before { background: var(--lime); }
+  .project.coral::before { background: var(--coral); }
+  .project > * { position: relative; z-index: 1; }
+  .project-meta {
+    font: 10px/1.7 'JetBrains Mono', monospace;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    text-transform: uppercase;
+  }
+  .project:hover .project-meta { color: #272727; }
+  .project h3 { font-size: clamp(2rem, 3.4vw, 3.4rem); letter-spacing: -0.04em; font-weight: 500; margin: 0; }
+  .project p { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 0; }
+  .project:hover p { color: #272727; }
+  .project-arrow { font-size: 28px; justify-self: end; color: var(--muted); }
+  .project:hover .project-arrow { color: #272727; }
+  .location {
+    font: 12px 'JetBrains Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 0;
+  }
+  .services {
+    border-top: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    margin-top: 1.5rem;
+  }
+  .services span {
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+    font: 12px 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .services span:nth-child(even) { padding-left: 20px; border-left: 1px solid var(--border); }
+  .short { max-width: 40rem; }
+  .work-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 3rem;
+  }
+  .work-heading h2, .contact h2, .about h2 {
+    font-size: clamp(2rem, 4.5vw, 4rem);
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+    font-weight: 500;
+    margin: 0;
+    color: var(--text);
+    text-transform: none;
+    border-top: none;
+    padding-top: 0;
+  }
+  .about, .work, .experience, .contact {
+    padding: 4rem 0;
+    border-top: 1px solid var(--border);
+  }
+  .about .location { margin: 0 0 1.75rem; }
+  .about > p { max-width: 46rem; margin: 0 0 1.75rem; }
+  .about .note { margin-top: 2rem; }
+  .experience h3 { font-size: 1.5rem; margin: 0 0 0.5rem; }
+  .contact h2 { margin: 0 0 1.5rem; }
+  .contact ul { list-style: none; padding-left: 0; }
+  .contact li { margin-bottom: 0.5rem; }
   footer {
     margin-top: 3rem;
     padding-top: 1.25rem;
@@ -115,5 +254,6 @@
     h1 { font-size: 1.6rem; }
     main { padding-top: 2rem; }
     .stats { gap: 1.25rem; }
+    .grid { grid-template-columns: 1fr; gap: 2rem; }
   }
 </style>

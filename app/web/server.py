@@ -66,6 +66,11 @@ FAVICON_SVG = Path(__file__).resolve().parent / "favicon.svg"
 # a binary.
 OG_IMAGE_PNG = Path(__file__).resolve().parent / "og-image.png"
 
+# Self-hosted fonts, beside the module like the icon and the preview image: an
+# asset, not markup. The woff2 files and the `@font-face` rules live in
+# `fonts/`, generated once and served without an external request.
+FONTS_DIR = Path(__file__).resolve().parent / "fonts"
+
 DAY_SECONDS = 86400
 
 # Binds a Login Widget payload to the browser that started it. The signature
@@ -499,7 +504,12 @@ class WebServer:
         return user
 
     async def _about(self, request: web.Request) -> web.Response:
-        return _render_page("about.html", self._nav(request), path=request.path)
+        return _render_page(
+            "about.html",
+            self._nav(request),
+            replacements=self._project_counts(),
+            path=request.path,
+        )
 
     async def _project(self, request: web.Request) -> web.Response:
         return _render_page(
@@ -698,6 +708,36 @@ class WebServer:
         return web.Response(
             body=OG_IMAGE_PNG.read_bytes(),
             content_type="image/png",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+
+    async def _fonts(self, request: web.Request) -> web.Response:
+        """A self-hosted font file or its stylesheet.
+
+        The public pages reach for `/fonts/fonts.css` and `/fonts/*.woff2`.
+        Both are served from the `fonts/` directory without an external
+        request, so the typeface does not leak a visit to a font host and
+        stays available on a host without outbound font traffic.
+
+        The name is taken from the URL and matched against the directory, so a
+        path that is not a file in there answers 404 rather than reading an
+        arbitrary file.
+        """
+        name = request.match_info.get("name", "")
+        path = (FONTS_DIR / name).resolve()
+
+        if FONTS_DIR.resolve() not in path.parents or not path.is_file():
+            return web.Response(status=404)
+
+        content_type = (
+            "font/woff2"
+            if name.endswith(".woff2")
+            else "text/css"
+        )
+
+        return web.Response(
+            body=path.read_bytes(),
+            content_type=content_type,
             headers={"Cache-Control": "public, max-age=86400"},
         )
 
@@ -1076,7 +1116,11 @@ class WebServer:
         if denied is not None:
             return denied
 
-        if request.path in PUBLIC_PATHS or is_public_demo_path(request.path):
+        if (
+            request.path in PUBLIC_PATHS
+            or request.path.startswith("/fonts/")
+            or is_public_demo_path(request.path)
+        ):
             return await handler(request)
 
         if self._identity(request) is None:
@@ -1113,6 +1157,7 @@ class WebServer:
                 web.get("/favicon.ico", self._favicon),
                 web.get("/favicon.svg", self._favicon),
                 web.get("/og-image.png", self._og_image),
+                web.get("/fonts/{name}", self._fonts),
             ],
         )
 

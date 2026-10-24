@@ -246,7 +246,7 @@ class TestPublicPages:
 
             assert "__PAGE_STYLES__" not in body, path
             assert "[[" not in body, f"{path} still has a placeholder"
-            assert "--accent: #4a9eff" in body, f"{path} has no styles"
+            assert "--accent: #477eff" in body, f"{path} has no styles"
 
     async def test_a_guest_sees_no_account_on_them(
         self,
