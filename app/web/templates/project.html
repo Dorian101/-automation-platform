@@ -15,8 +15,52 @@ __MENU_STYLES__
   <section class="hero">
     <p class="eyebrow">Проект · Automation Platform</p>
     <h1>Личные дела —<br>в одном <em>месте</em>.</h1>
-    <div class="orbit orbit-one">PLUGINS</div>
-    <div class="orbit orbit-two">CORE</div>
+    <div class="viz viz--small" aria-hidden="true">
+      <svg viewBox="0 0 64 64" class="viz-svg">
+        <!-- container: grey -> dark blue -->
+        <rect width="64" height="64" rx="14" fill="#8b93a3">
+          <animate attributeName="fill" values="#8b93a3;#8b93a3;#222a38;#222a38" keyTimes="0;0.05;0.18;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
+        </rect>
+
+        <!-- centre node -->
+        <rect x="26" y="26" width="12" height="12" rx="3.5" fill="#4a9eff">
+          <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.17;0.3;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
+        </rect>
+
+        <!-- rays + corner nodes -->
+        <!-- top-left -->
+        <line x1="32" y1="32" x2="15" y2="15" stroke="#4a9eff" stroke-width="2.5" opacity="0.6" stroke-dasharray="24" stroke-dashoffset="24">
+          <animate attributeName="stroke-dashoffset" values="24;24;0;0" keyTimes="0;0.38;0.52;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
+        </line>
+        <rect x="11" y="11" width="8" height="8" rx="2" fill="#4c5568" stroke="#5d6b85" stroke-width="1">
+          <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4;0.5;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
+        </rect>
+
+        <!-- top-right -->
+        <line x1="32" y1="32" x2="49" y2="15" stroke="#4a9eff" stroke-width="2.5" opacity="0.6" stroke-dasharray="24" stroke-dashoffset="24">
+          <animate attributeName="stroke-dashoffset" values="24;24;0;0" keyTimes="0;0.55;0.69;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
+        </line>
+        <rect x="45" y="11" width="8" height="8" rx="2" fill="#4c5568" stroke="#5d6b85" stroke-width="1">
+          <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.57;0.67;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
+        </rect>
+
+        <!-- bottom-right -->
+        <line x1="32" y1="32" x2="49" y2="49" stroke="#4a9eff" stroke-width="2.5" opacity="0.6" stroke-dasharray="24" stroke-dashoffset="24">
+          <animate attributeName="stroke-dashoffset" values="24;24;0;0" keyTimes="0;0.72;0.86;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
+        </line>
+        <rect x="45" y="45" width="8" height="8" rx="2" fill="#4c5568" stroke="#5d6b85" stroke-width="1">
+          <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.74;0.84;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
+        </rect>
+
+        <!-- bottom-left -->
+        <line x1="32" y1="32" x2="15" y2="49" stroke="#4a9eff" stroke-width="2.5" opacity="0.6" stroke-dasharray="24" stroke-dashoffset="24">
+          <animate attributeName="stroke-dashoffset" values="24;24;0;0" keyTimes="0;0.89;1;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
+        </line>
+        <rect x="11" y="45" width="8" height="8" rx="2" fill="#4c5568" stroke="#5d6b85" stroke-width="1">
+          <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.91;0.99;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
+        </rect>
+      </svg>
+    </div>
   </section>
 
   <section class="about">
