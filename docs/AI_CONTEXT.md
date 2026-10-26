@@ -186,6 +186,13 @@ commands means `/spend 320 еда`, another month means a different command, and
 a chart cannot be built from a sentence. That is the terminal problem the
 project exists to leave behind, reached from the other direction.
 
+A form's row is a `<div>`, not a `<form>`, so there is no implicit Enter-to-
+submit; the renderer restores it by listening for Enter on the row and firing
+the submit button, skipping `select` fields where Enter means "pick an option".
+A `<input type="date">` opens the browser's calendar on any click — a plain
+click by itself only works on the field's icon in some Windows setups, so the
+renderer calls `showPicker()` to make the whole field behave the same.
+
 ## Current plugins
 
 - Notes: /add, /notes, /del, /clear
@@ -358,8 +365,11 @@ Rendered server-side rather than fetched, so the links are there with
 scripting disabled. `GET /api/pages` existed to feed the fetched version and
 was removed with it.
 
-A `<details>` that opens itself. No script, no state, and a menu that costs
-the same space whether there are four sections or twenty.
+A `<details>` that opens itself. No state, and a menu that costs the same space
+whether there are four sections or twenty. One tiny inline script (guarded by
+the CSP nonce) closes it when the reader clicks anywhere outside it — a native
+`<details>` has no such gesture, so without it a stray click leaves the menu
+open until the toggle is pressed again.
 
 A guest is offered a different menu: the plugin pages point at the
 demonstration's copies, because `/expenses` answers a visitor with a login

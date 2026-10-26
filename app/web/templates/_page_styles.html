@@ -220,7 +220,7 @@
   .project-list { border-top: 1px solid var(--border); margin: 0 0 2rem; }
   .project {
     display: grid;
-    grid-template-columns: 18% 1fr 34% 60px;
+    grid-template-columns: 18% 1fr 34%;
     gap: 30px;
     align-items: center;
     min-height: 220px;
@@ -244,7 +244,7 @@
   .project.coral::before { background: var(--coral); }
   .project > * { position: relative; z-index: 1; }
   .project-meta {
-    font: 10px/1.7 'JetBrains Mono', monospace;
+    font: 11px/1.7 'JetBrains Mono', monospace;
     color: var(--muted);
     display: flex;
     flex-direction: column;
@@ -253,10 +253,8 @@
   }
   .project:hover .project-meta { color: #272727; }
   .project h3 { font-size: clamp(2rem, 3.4vw, 3.4rem); letter-spacing: -0.04em; font-weight: 500; margin: 0; }
-  .project p { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 0; }
+  .project p { color: var(--muted); font-size: 14px; line-height: 1.7; margin: 0; }
   .project:hover p { color: #272727; }
-  .project-arrow { font-size: 28px; justify-self: end; color: var(--muted); }
-  .project:hover .project-arrow { color: #272727; }
   .location {
     font: 12px 'JetBrains Mono', monospace;
     color: var(--muted);
@@ -320,10 +318,41 @@
     color: var(--muted);
     font-size: 0.85rem;
   }
-  @media (max-width: 520px) {
+  @media (max-width: 640px) {
     h1 { font-size: 1.6rem; }
     main { padding-top: 2rem; }
     .stats { gap: 1.25rem; }
     .grid { grid-template-columns: 1fr; gap: 2rem; }
+    /* The hero chart is absolutely positioned beside the headline on wide
+       screens; a phone has no width for that, so it drops into the flow
+       below the headline instead of overlapping it. */
+    .hero { padding: 2.5rem 0 3rem; }
+    .viz {
+      position: static;
+      width: 100%;
+      max-width: 22rem;
+      margin-top: 2rem;
+    }
+    .viz--small { max-width: 10rem; }
+    /* The decorative rings leave the headline alone on a narrow screen. */
+    .orbit { display: none; }
+    .contact { padding-top: 3rem; }
+    /* A card's four columns collapse to one: number and tag on top, then the
+       title, then the text. The 34% right column has nothing to do on a phone. */
+    .project {
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+      align-items: start;
+      min-height: 0;
+      padding: 1.5rem 0;
+    }
+    .project-meta { flex-direction: row; gap: 0.5rem 1rem; flex-wrap: wrap; }
+    .project h3 { font-size: 1.6rem; }
+    .project p { font-size: 0.9rem; }
+    .work-heading { flex-direction: column; gap: 1rem; margin-bottom: 2rem; }
+    .services { grid-template-columns: 1fr; }
+    .services span:nth-child(even) { padding-left: 0; border-left: none; }
+    figure.diagram { overflow-x: auto; }
+    figure.diagram svg { min-width: 42rem; }
   }
 </style>

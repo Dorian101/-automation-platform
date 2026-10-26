@@ -8,8 +8,10 @@ __STYLES__
 <style>
   /* A plugin page may need more room than a document: a kanban board or a
      table wants width, where an essay wants a narrow measure. The base
-     document width is lifted here, for every plugin page alike. */
-  main { max-width: 76rem; }
+     document width is lifted here, for every plugin page alike. The max
+     width alone would pin the block to the left edge and leave the right
+     half of a wide window empty — the auto margins centre it. */
+  main { max-width: 76rem; margin: 0 auto; }
   .pagehead {
     display: flex;
     align-items: baseline;
@@ -936,11 +938,25 @@ __MENU_STYLES__
     }
     row.appendChild(submit);
 
-    submit.addEventListener('click', () => {
+    const doSubmit = () => {
+      if (submit.disabled) return;
       const payload = {};
       for (const [name, input] of Object.entries(inputs)) payload[name] = input.value;
       closeDialog();
       send(form.id, payload, submit);
+    };
+
+    submit.addEventListener('click', doSubmit);
+
+    // Enter in any field submits the form, the way a native form behaves.
+    // The row is a <div>, not a <form>, so there is no implicit submit; this
+    // restores it without the implicit-submit edge cases a <form> would drag in.
+    row.addEventListener('keydown', (ev) => {
+      if (ev.key !== 'Enter') return;
+      const t = ev.target;
+      if (t && t.tagName === 'SELECT') return; // Enter picks a select option here
+      ev.preventDefault();
+      doSubmit();
     });
 
     return row;
@@ -1002,6 +1018,16 @@ __MENU_STYLES__
   document.getElementById('next-month').addEventListener('click', () => {
     stickyValues = {};
     send('month', { month: view.month.next }, null);
+  });
+
+  // A date field opens its calendar on any click, not only on the tiny icon
+  // the browser draws. Chrome on some Windows setups only opens the picker on
+  // that icon, and a field a user clicks the text of should behave the same.
+  document.addEventListener('click', (ev) => {
+    const t = ev.target;
+    if (t && t.tagName === 'INPUT' && t.type === 'date') {
+      try { t.showPicker(); } catch (e) { /* not a picker-bearing field */ }
+    }
   });
 
   draw();

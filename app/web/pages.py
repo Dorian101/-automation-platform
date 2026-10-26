@@ -102,6 +102,11 @@ def nav(
         '<summary>Меню</summary>'
         f'<nav class="menuitems">{"".join(links)}</nav>'
         "</details>"
+        "<script nonce=\"__CSP_NONCE__\">"
+        "(function(){var m=document.querySelector('.menu');if(!m)return;"
+        "document.addEventListener('click',function(e){"
+        "if(!m.contains(e.target))m.removeAttribute('open');});})();"
+        "</script>"
     )
 
 

@@ -1785,3 +1785,53 @@ is scoped to the public documents.
 ### Result
 `/about` reads as a dark portfolio with a large headline, orbit rings and five
 numbered project tiles. 837 tests pass.
+
+## 2026-10-26
+
+### Decision
+Make the public pages usable on a phone, and fix the plugin pages' small
+behaviour gaps, without touching the "sell to HR" copy
+
+### Reason
+A review from a fresh outside reader found the design coherent on desktop but
+broken at 390 px, and the owner confirmed it against the live pages: the hero
+chart overlapped the headline, the cards shrank, and the architecture diagram
+was unreadable. On top of that the owner named three small defects in the
+working plugin pages rather than the public ones.
+
+The scope was deliberately split: adaptivity and bugs now, the HR copy (role
+and stack on the first screen, three or four "task → my part → measurable
+result" cases, a downloadable CV) later, once the owner has gathered the real
+numbers. CV and résumé are skipped on purpose for now — HR already arrives
+from the job board through the owner's résumé, so a download button would
+duplicate it.
+
+### How it is done
+
+- The hero chart (`/about`) runs in four seconds instead of nine; the motion
+  is SMIL with `keyTimes` already in fractions, so the timing scales by the
+  `dur` alone.
+- The project cards drop their `↗` arrow, which looked clickable and led
+  nowhere; the grid's fourth column goes with it.
+- A narrow screen (≤ 640 px) drops the chart into the flow below the headline
+  instead of absoluting it beside it, hides the decorative orbit rings, and
+  collapses the cards to one column.
+- The architecture diagram scrolls horizontally on a phone rather than
+  squeezing the whole `viewBox` into 390 px, which would shrink its labels past
+  reading.
+- The plugin page's `main` gains `margin: 0 auto`; `max-width: 76rem` alone
+  pinned the block to the left on a wide window, which is what the owner saw as
+  "shrunk and not filling the page" on Windows.
+- The menu closes on a click outside it via a CSP-nonce-guarded inline script;
+  a native `<details>` has no such gesture.
+- A form row submits on Enter (it is a `<div>`, so there was no implicit
+  submit), and a date field opens its calendar on a plain click through
+  `showPicker()`, because on Chrome for Windows only the field's icon did.
+
+### Result
+The five changes land in `app/web/pages.py`, `_page_styles.html`,
+`_plugin_page.html`, `about.html` and `project.html`. 837 tests pass; the
+public pages were checked at 390 px and 1440 px through headless screenshots
+read by a vision agent. The HR copy and the measurable case studies stay a
+separate, future sprint. One piece of unrelated dead CSS (`.viz-fav-bg`, left
+over from the earlier favicon mark) is noted but left alone.

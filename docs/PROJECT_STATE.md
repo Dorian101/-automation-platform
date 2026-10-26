@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.56.1
+v0.57.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -62,6 +62,14 @@ The platform is operational.
 - a status page at `/admin/status`: disk, memory and load from the host,
   per-table row counts, and the newest backup, all drawn once and refreshed by
   a JSON endpoint (`/admin/status/data`) rather than by reloading the page
+- the public `/about` and `/project` lay out cleanly on a phone: the hero's
+  chart drops below the headline instead of overlapping it, the architecture
+  diagram scrolls horizontally rather than shrinking to nothing, and the
+  project cards collapse to one column
+- the hero chart runs once in about four seconds instead of nine
+- the menu closes on a click anywhere outside it, not only on the toggle
+- a plugin-page form submits on Enter from any of its fields, and a date field
+  opens the browser's calendar on a plain click, not only on its icon
 
 ## Deployment
 
@@ -691,6 +699,11 @@ deployment that never sets it records everything as before.
   connection instead of opening one — the fix to the visit-log page's
   four-second, four-hundred-connection read was to pool, on top of asking
   once rather than once per row.
+* The `/project` architecture diagram scrolls horizontally on a phone rather
+  than fitting the screen, because its labels would become unreadably small if
+  the whole viewBox were squeezed into 390 px. Scrolling keeps the text legible
+  at the cost of a swipe, and it is a deliberate trade rather than a missed
+  responsive breakpoint.
 
 ⸻
 
