@@ -1908,3 +1908,43 @@ a pile being worked.
 The landing's cards now include "Задачи" alongside "Расходы" and "Отклики", and
 `/demo/todo` opens a board already populated. 840 tests pass. The `description`
 still stays a one-line plain string so the landing card reads as the others do.
+
+## 2026-10-27
+
+### Decision
+Give the Telegram bot its command set as buttons and a native menu
+
+### Reason
+The bot only parsed text, so a person who had never used it had to know both
+the command names and their arguments before the first message. The owner's
+question was less "what buttons" than "the user may not know what arguments
+exist, how many, and what each means" — which is the real problem a keyboard
+has to answer, and can only answer partially.
+
+A permanent `ReplyKeyboardMarkup` button still sends its own text and cannot
+ask for an argument, so a command with arguments cannot be a working button:
+tapping `/add` would send the bare command straight into its "Usage" error. The
+split therefore follows the one axis that decides whether a button works — does
+the command take an argument.
+
+### How it is done
+
+- `PluginManager.bot_commands()` builds the native "/" menu, one entry per chat
+  command (web-only plugins skipped), and `menu_keyboard()` builds the permanent
+  button row from the argument-less commands only, two to a row. Both draw from
+  the same `commands` / `command_args` declarations, so nothing is listed twice
+  by hand.
+- `main.py` registers the native menu with `bot.set_my_commands(...)` once, at
+  startup, before polling.
+- The router answers `/start` with a greet and the button row, and attaches the
+  row to every other answer so the buttons stay under the input.
+
+### Result
+A reader can tap `/notes`, `/reminders`, `/paste`, `/plugins`, `/help` — the
+commands that need no input — and get a result; the commands that need input
+stay in the "/" menu where their description names the form. Two transport
+surfaces now come from one source, the way the web console's chips and the
+plugin pages already do. 840 tests pass. The step-back one: a command needing an
+argument is not a button at all, which is the honest limit of a keyboard; the
+follow-up (a step-by-step dialogue that asks for the argument) is a separate,
+larger piece.

@@ -1,7 +1,7 @@
 from typing import Sequence
 
 from aiogram import Router
-from aiogram.types import Message
+from aiogram.types import BotCommand, KeyboardButton, Message, ReplyKeyboardMarkup
 
 from app.core.commands import parse_command
 from app.core.identity import WEB, Identity, telegram
@@ -72,6 +72,58 @@ class PluginManager:
             if plugin.page
         ]
 
+    def _commands_in_order(self) -> list[tuple[BasePlugin, str, str]]:
+        """Every command, in plugin order, as (plugin, command, description)."""
+        rows = []
+
+        for plugin in self._plugins:
+            for command, description in plugin.commands.items():
+                rows.append((plugin, command, description))
+
+        return rows
+
+    def bot_commands(self) -> list[BotCommand]:
+        """The native Telegram command menu, shown when the user types "/".
+
+        One flat list of every command a chat can actually run, with the
+        argument form folded into the description so a reader who has never
+        seen the bot knows what to type. Web-only plugins are skipped: their
+        commands answer "web console only", so offering them in a chat menu is
+        offering something that cannot work.
+        """
+        commands = []
+
+        for plugin, command, description in self._commands_in_order():
+            if plugin.web_only:
+                continue
+
+            commands.append(
+                BotCommand(command=command, description=description)
+            )
+
+        return commands
+
+    def menu_keyboard(self) -> ReplyKeyboardMarkup:
+        """Permanent buttons for the commands that run with no arguments.
+
+        A command that needs an argument cannot be a button: tapping it would
+        send the bare command and hit its "Usage" error. Those stay in the
+        native menu above, where the description names the form. Two buttons to
+        a row, so the board reads as a grid rather than a tall list.
+        """
+        labels = [
+            command
+            for plugin, command, _ in self._commands_in_order()
+            if not plugin.web_only and command not in plugin.command_args
+        ]
+
+        buttons = [KeyboardButton(text=label) for label in labels]
+        rows = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
+
+        return ReplyKeyboardMarkup(
+            keyboard=rows, resize_keyboard=True, selective=False
+        )
+
     async def execute(
         self,
         command: str,
@@ -99,8 +151,14 @@ class PluginManager:
         Declared commands are dispatched generically so that plugins do not
         repeat adapter code. Plugins needing transport-specific behaviour
         contribute their own router through :meth:`BasePlugin.router`.
+
+        The permanent command menu is attached to every answer so the buttons
+        stay under the input after the first message; ``/start`` gets its own
+        greet-and-offer handler because it is the one command the platform does
+        not know how to parse.
         """
         router = Router(name="platform")
+        keyboard = self.menu_keyboard()
 
         @router.message()
         async def dispatch(message: Message) -> None:
@@ -110,13 +168,22 @@ class PluginManager:
             try:
                 command, args = parse_command(message.text)
                 identity = telegram(message.chat.id)
+
+                if command == "/start":
+                    await message.answer(
+                        "Добро пожаловать на платформу автоматизации.\n"
+                        "Нажмите кнопку ниже или введите команду.",
+                        reply_markup=keyboard,
+                    )
+                    return
+
                 result = await self.execute(command, args, identity)
             except CommandError as error:
-                await message.answer(str(error))
+                await message.answer(str(error), reply_markup=keyboard)
                 return
 
             if result.text:
-                await message.answer(result.text)
+                await message.answer(result.text, reply_markup=keyboard)
 
         for plugin in self._plugins:
             plugin_router = plugin.router()

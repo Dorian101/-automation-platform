@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.59.0
+v0.60.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -72,6 +72,9 @@ The platform is operational.
   opens the browser's calendar on a plain click, not only on its icon
 - open registration behind a single `SIGNUP_OPEN` flag: an invite code is no
   longer required, and whether the page exists is one boolean read once
+- the Telegram bot offers its command set two ways: a permanent button row for
+  the argument-less commands, and a native "/" menu (set at startup) that names
+  every chat command with the form of its arguments
 
 ## Deployment
 

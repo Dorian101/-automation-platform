@@ -140,3 +140,50 @@ class TestTelegramDispatch:
         handler = router.message.handlers[0].callback
 
         assert callable(handler)
+
+
+class TestBotCommands:
+    """The native "/" menu lists what a chat can actually run."""
+
+    def test_lists_every_chat_command(self, manager):
+        commands = manager.bot_commands()
+
+        assert [c.command for c in commands] == [
+            "/add",
+            "/notes",
+            "/del",
+            "/clear",
+            "/copy",
+            "/paste",
+        ]
+
+    def test_skips_web_only_plugins(self, expenses_manager):
+        commands = expenses_manager.bot_commands()
+
+        assert all(c.command != "/spend" for c in commands)
+
+
+class TestMenuKeyboard:
+    """Permanent buttons hold only the commands that run with no arguments."""
+
+    def test_a_command_with_args_is_not_a_button(self, manager):
+        labels = [
+            button.text
+            for row in manager.menu_keyboard().keyboard
+            for button in row
+        ]
+
+        assert "/add" not in labels
+        assert "/del" not in labels
+        assert "/copy" not in labels
+
+    def test_argumentless_commands_are_buttons(self, manager):
+        labels = [
+            button.text
+            for row in manager.menu_keyboard().keyboard
+            for button in row
+        ]
+
+        assert "/notes" in labels
+        assert "/clear" in labels
+        assert "/paste" in labels
