@@ -5,6 +5,7 @@ import pytest
 from app.core.identity import guest, is_guest
 from app.plugins.applications import ApplicationsPlugin
 from app.plugins.expenses import ExpensesPlugin
+from app.plugins.todo import TodoPlugin
 
 
 @pytest.fixture
@@ -37,6 +38,11 @@ def expenses(database_with_schema):
 @pytest.fixture
 def applications(database_with_schema):
     return ApplicationsPlugin(database_with_schema)
+
+
+@pytest.fixture
+def todo(database_with_schema, notifier):
+    return TodoPlugin(notifier, database_with_schema)
 
 
 class TestSpendingSeed:
@@ -133,3 +139,57 @@ class TestApplicationsSeed:
         view = await applications.page_view(visitor)
 
         assert any(row["silent"] for row in view["table"]["rows"])
+
+
+class TestTasksSeed:
+    async def test_fills_an_empty_namespace(self, todo, visitor):
+        await todo.seed_demo(visitor)
+
+        view = await todo.page_view(visitor)
+
+        assert any(c["cards"] for c in view["kanban"]["columns"])
+
+    async def test_spreads_across_the_columns(self, todo, visitor):
+        """A seed in one column is a list with a board drawn around it.
+
+        Every column carries something, so a visitor sees the board working —
+        an empty "done" column would read as if the demo had never been used.
+        """
+        await todo.seed_demo(visitor)
+
+        view = await todo.page_view(visitor)
+        statuses = {
+            col["status"]: bool(col["cards"])
+            for col in view["kanban"]["columns"]
+        }
+
+        assert statuses == {
+            "todo": True,
+            "doing": True,
+            "done": True,
+        }
+
+    async def test_marks_one_task_overdue(self, todo, visitor):
+        """The overdue marker is shown, not described."""
+        await todo.seed_demo(visitor)
+
+        view = await todo.page_view(visitor)
+        cards = [
+            card
+            for col in view["kanban"]["columns"]
+            for card in col["cards"]
+        ]
+
+        assert any(card["overdue"] for card in cards)
+
+    async def test_every_card_carries_a_text(self, todo, visitor):
+        await todo.seed_demo(visitor)
+
+        view = await todo.page_view(visitor)
+        cards = [
+            card
+            for col in view["kanban"]["columns"]
+            for card in col["cards"]
+        ]
+
+        assert all(card["text"] for card in cards)

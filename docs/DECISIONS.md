@@ -1876,3 +1876,35 @@ their copy is untouched (their "no registration needed" note for the demo stays
 true). The invite-code framing was rewritten in `PROJECT_STATE.md`,
 `AI_CONTEXT.md` and `DEPLOYMENT.md`; the 2026-10-06 decision that introduced it
 stays as history.
+
+## 2026-10-27
+
+### Decision
+Publish the todo board on the demonstration with its own invented seed
+
+### Reason
+The demonstration's "What to look at" block lists the plugins a visitor can
+open without an account, and it showed expenses and applications but not tasks,
+even though the kanban board is the most visual page of the three. Nothing was
+blocking it — the plugin simply had not asked to be published (`demo` defaults
+off) and had no seed. A visitor who opened an empty board would read "Пусто"
+three times, which is a poor demonstration of the one page that exists to show
+a pile being worked.
+
+### How it is done
+
+- `TodoPlugin` sets `demo = True` and gains a `seed_demo` that writes seven
+  invented tasks spread across the three columns, with mixed priorities and one
+  deadline yesterday so the overdue marker is what the visitor sees, not what
+  the prose has to describe. Nothing is dated beyond tomorrow.
+- `TasksRepository.add` takes an optional `status` (default `todo`), so the seed
+  can place a task in `doing` or `done` directly rather than adding everything to
+  one column and shuffling by hand afterwards.
+- A `TestsSeed` class in `tests/test_demo_seed.py` asserts the seed fills the
+  namespace, reaches all three columns, marks one card overdue and leaves no
+  empty text.
+
+### Result
+The landing's cards now include "Задачи" alongside "Расходы" and "Отклики", and
+`/demo/todo` opens a board already populated. 840 tests pass. The `description`
+still stays a one-line plain string so the landing card reads as the others do.

@@ -62,10 +62,11 @@ PRIORITY_LABELS = {1: "Высокий", 2: "Средний", 3: "Низкий"}
 class TodoPlugin(BasePlugin):
     name = "todo"
     version = "0.1.0"
-    description = "Задачи"
+    description = "Список дел на канбан-доске с приоритетами и дедлайнами"
     web_only = True
     page = "/todo"
     page_title = "Задачи"
+    demo = True
 
     # Declared so the router answers "web console only" rather than "unknown
     # command" for the commands a chat cannot express.
@@ -159,6 +160,36 @@ class TodoPlugin(BasePlugin):
                 )
 
     # -- the page -----------------------------------------------------------
+
+    async def seed_demo(self, identity: Identity) -> None:
+        """A small board of invented tasks, for the demonstration page.
+
+        Every task here is made up. They span the three columns so a visitor
+        sees the board working rather than one empty pile, they carry a mix of
+        priorities, and one deadline is deliberately yesterday so the overdue
+        marker is what gets shown, not what gets described. Nothing is dated
+        ahead of tomorrow: a task due a week out would be indistinguishable
+        from one that was never due at all.
+        """
+        now = datetime.now(UTC).replace(tzinfo=None)
+        yesterday = now - timedelta(days=1)
+        tomorrow = now + timedelta(days=1)
+        in_two_days = now + timedelta(days=2)
+
+        demo = [
+            ("Подготовить отчёт по расходам", "todo", 1, tomorrow),
+            ("Позвонить по поводу поставки", "todo", None, in_two_days),
+            ("Обновить резюме", "todo", 3, None),
+            ("Разобрать письма за неделю", "doing", 2, yesterday),
+            ("Обновить платформу на VPS", "doing", 1, None),
+            ("Собрать демо-данные для гостей", "done", None, yesterday),
+            ("Найти потерянный документ", "done", 2, yesterday),
+        ]
+
+        for text, status, priority, due_at in demo:
+            self.repo.add(
+                identity, text, priority=priority, due_at=due_at, status=status
+            )
 
     async def page_view(self, identity: Identity) -> dict:
         return self._view(identity, "priority")

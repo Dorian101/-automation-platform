@@ -39,15 +39,16 @@ class TasksRepository:
         text: str,
         priority: int | None = None,
         due_at: datetime | None = None,
+        status: str = "todo",
     ) -> None:
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO tasks (user_id, text, priority, due_at)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO tasks (user_id, text, priority, due_at, status)
+                    VALUES (%s, %s, %s, %s, %s)
                     """,
-                    (str(identity), text, priority, due_at),
+                    (str(identity), text, priority, due_at, status),
                 )
             conn.commit()
 

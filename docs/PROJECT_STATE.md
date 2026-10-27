@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.58.0
+v0.59.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -334,6 +334,9 @@ Implemented:
   once per deadline, to the linked Telegram chat; an unpaired account is not
   reminded
 * web-only; reads widen across a linked pair, writes do not
+* the demonstration seeds an invented board — tasks across all three columns,
+  mixed priorities and one overdue deadline — so a visitor sees the kanban
+  working rather than an empty board
 
 ⸻
 
@@ -378,8 +381,8 @@ Implemented:
 
 Demonstration:
 
-* /demo, /demo/expenses, /demo/applications and POST /demo/api/action are
-  public; the rest still needs a session
+* /demo, /demo/expenses, /demo/applications, /demo/todo and
+  POST /demo/api/action are public; the rest still needs a session
 * a visitor is `web:guest:<token>` from a cookie — never a row in `users`,
   never a password, never a session
 * the landing issues that cookie too, so one reader is one token from `/demo`
