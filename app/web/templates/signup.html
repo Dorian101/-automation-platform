@@ -17,13 +17,9 @@ __STYLES__
   <form method="post" action="/signup">
     <input type="hidden" name="csrf" value="__CSRF__">
     <label>
-      Инвайт-код
-      <input type="text" name="invite" autocomplete="off" autofocus required>
-    </label>
-    <label>
       Имя пользователя
       <input type="text" name="username" value="__USERNAME__"
-             autocomplete="username" required>
+             autocomplete="username" autofocus required>
     </label>
     <label>
       Пароль

@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.57.0
+v0.58.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -70,6 +70,8 @@ The platform is operational.
 - the menu closes on a click anywhere outside it, not only on the toggle
 - a plugin-page form submits on Enter from any of its fields, and a date field
   opens the browser's calendar on a plain click, not only on its icon
+- open registration behind a single `SIGNUP_OPEN` flag: an invite code is no
+  longer required, and whether the page exists is one boolean read once
 
 ## Deployment
 
@@ -344,7 +346,7 @@ Purpose:
 Implemented:
 
 * GET /login, POST /login — sign in form
-* GET /signup, POST /signup — registration; 404 while SIGNUP_INVITE_CODE is unset
+* GET /signup, POST /signup — registration; 404 while SIGNUP_OPEN is false
 * POST /logout — ends the session
 * GET / — HTML console
 * GET /about, GET /project — static public documents, no session needed.
@@ -457,7 +459,7 @@ An identity with no pair resolves to itself, so an unpaired deployment behaves
 exactly as it did before.
 
 Accounts are created either from the host with `python -m app.manage
-create-user`, or through the sign-up page when `SIGNUP_INVITE_CODE` is set.
+create-user`, or through the sign-up page when `SIGNUP_OPEN` is set.
 Passwords are stored as salted scrypt hashes; only the SHA-256 of a session
 token is kept. Two web users cannot read each other's data.
 
@@ -657,8 +659,9 @@ deployment that never sets it records everything as before.
   carrying it — anyone who has the value can keep themselves out of the log,
   and a browser cannot be made to send it. It is for the owner's own
   measuring, not a way to refuse a visitor.
-* Sign-up is gated by one shared invite code with no approval step behind it —
-  whoever holds the code can join.
+* Sign-up, when it is open, is open to everyone with no approval step or
+  invite gate behind it — `SIGNUP_OPEN` is a binary on/off. Anyone who reaches
+  the form can join.
 * Web notifications are still dropped rather than delivered, but only for an
   account that has not linked Telegram. A linked one reaches its chat, and a
   reminder for an unlinked one is refused at create time rather than dropped

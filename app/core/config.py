@@ -50,12 +50,11 @@ class Config:
 
     SESSION_TTL_DAYS = int(os.getenv("SESSION_TTL_DAYS", "30"))
 
-    # Invite code required to register a web account. Empty disables sign-up
-    # entirely: the login page then offers no link and /signup answers 404,
-    # which is what every deployment that never set this should see. It should
-    # be long and random — the code is the only thing standing between the
-    # internet and an account: openssl rand -hex 16
-    SIGNUP_INVITE_CODE = os.getenv("SIGNUP_INVITE_CODE", "")
+    # Whether registration is open to anyone who reaches the sign-up page.
+    # "true" / "1" / "yes" enable it; anything else (and the unset default)
+    # leaves sign-up off, which is what a deployment that never thought about
+    # it should see: no link on the login page and /signup answers 404.
+    SIGNUP_OPEN = os.getenv("SIGNUP_OPEN", "").strip().lower() in ("1", "true", "yes")
 
     # Telegram username of the bot, without the leading @. The Login Widget
     # needs it, and so does the button on the account page. Empty hides the

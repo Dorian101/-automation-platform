@@ -30,7 +30,6 @@ from .auth import (
     resolve_identity,
     resolve_user,
     set_session_cookie,
-    signup_allowed,
     signup_enabled,
     verify_access,
 )
@@ -100,9 +99,9 @@ NONCE_TTL_SECONDS = 600
 # here. Anything added to them later has to keep that property, or the page
 # has to leave this set.
 #
-# /signup is listed even though it answers 404 when no invite code is
-# configured: it is the page itself that decides, so that turning sign-up off
-# cannot leave a route behind that still needs a session to reach.
+# /signup is listed even though it answers 404 when registration is closed:
+# it is the page itself that decides, so that turning sign-up off cannot leave
+# a route behind that still needs a session to reach.
 #
 # /robots.txt and /sitemap.xml are fetched by a crawler that has no session and
 # cannot have one. Left out of this set they answered a redirect to the login
@@ -880,9 +879,9 @@ class WebServer:
         return response
 
     async def _signup_form(self, request: web.Request) -> web.Response:
-        # 404 rather than 403: with no invite code configured this deployment
-        # has no sign-up page, and the path should behave like any other that
-        # does not exist.
+        # 404 rather than 403: with registration closed this deployment has no
+        # sign-up page, and the path should behave like any other that does not
+        # exist.
         if not signup_enabled():
             return web.Response(status=404)
 
@@ -903,7 +902,6 @@ class WebServer:
 
         form = await request.post()
 
-        invite = _form_value(form, "invite")
         username = _form_value(form, "username")
         password = _form_value(form, "password")
 
@@ -931,13 +929,6 @@ class WebServer:
                 error="Слишком много попыток. Попробуйте позже.",
                 username=username,
                 status=429,
-            )
-
-        if not signup_allowed(invite):
-            return self._render_signup(request,
-                error="Неверный инвайт-код.",
-                username=username,
-                status=403,
             )
 
         try:
@@ -1228,8 +1219,7 @@ def _rate_key(request: web.Request, action: str, name: str = "") -> str:
     """Key an attempt, binding it to the address that made it.
 
     For login the username rides along too, so one person's typos do not lock
-    out a whole network behind the proxy. Sign-ups are keyed by address alone:
-    anyone registering is expected to hand out an invite code first.
+    out a whole network behind the proxy. Sign-ups are keyed by address alone.
     """
     return f"{action}|{client_ip(request)}|{name.strip().lower()}"
 
@@ -1621,8 +1611,8 @@ def _error_block(message: str) -> str:
 def _signup_link() -> str:
     """Offer registration exactly where it works.
 
-    With no invite code configured there is no sign-up page either — it
-    answers 404 — so showing the link would send people to a dead end.
+    With registration closed there is no sign-up page either — it answers 404 —
+    so showing the link would send people to a dead end.
     """
     if not signup_enabled():
         return ""

@@ -111,7 +111,7 @@ CSRF_SECRET=<openssl rand -hex 32>
 PUBLIC_BASE_URL=https://<domain>
 SESSION_TTL_DAYS=30
 SESSION_COOKIE_SECURE=true
-SIGNUP_INVITE_CODE=   # empty: no sign-up page at all (see Accounts)
+SIGNUP_OPEN=false     # true: open registration; anything else: no sign-up page
 PROXY_URL=          # empty: api.telegram.org is reachable from Germany
 
 TELEGRAM_BOT_USERNAME=   # empty: no Telegram link button (see Telegram linking)
@@ -275,29 +275,28 @@ identities: web data stays under `web:<name>` and Telegram data stays under
 
 ### Accounts
 
-Two ways in, and neither of them is an open door.
+Two ways in. Registration is the open one, and it is off by default.
 
-**Sign-up page.** Enable it with an invite code in `.env`:
+**Sign-up page.** Enable it with the flag in `.env`:
 
 ```bash
-SIGNUP_INVITE_CODE=$(openssl rand -hex 16)
+SIGNUP_OPEN=true
 ```
 
-Leave the variable unset and there is no sign-up page at all: the login form
+Leave it false (or unset) and there is no sign-up page at all: the login form
 offers no link and `/signup` answers 404. That is the default for every
-deployment that never thought about it, so forgetting the variable fails
-closed rather than open.
+deployment that never thought about it, so forgetting the flag fails closed
+rather than open.
 
-With a code set, `/signup` asks for the code, a username and a password, and
-a successful registration signs the person in on the spot. The code is a gate
-rather than a credential: it decides who may join, it is never stored, and
-rotating it does not disturb the accounts that already exist. There is no
-approval step behind it — anyone holding the code can create an account —
-which is why it should be long. Guessing it is the only thing standing
-between the internet and a working login.
+With `SIGNUP_OPEN=true`, `/signup` asks for a username and a password and a
+successful registration signs the person in on the spot. There is no approval
+step and no invite code behind it — anyone who reaches the form can create an
+account — which is exactly the trade the flag makes. The per-address rate limit
+(see below) is the only brake, so a deployment that opens sign-up should expect
+it to be used by strangers.
 
 **From the host.** No browser involved, which is what to reach for when the
-invite code should never be typed anywhere:
+owner does not want anything typed through a web form:
 
 ```bash
 cd /opt/automation-platform
@@ -525,7 +524,7 @@ Expected shape of each:
 | `/about` or `/project` with the header, no cookie | `200` — static documents, no session needed |
 | `/account/telegram/link` with the header, no cookie | `303` to `/login`; `404` while linking is disabled |
 | `/api/command` with the header, no cookie | `401` |
-| `/signup` with the header, no cookie | `404` while `SIGNUP_INVITE_CODE` is unset, `200` once it is |
+| `/signup` with the header, no cookie | `404` while `SIGNUP_OPEN` is false, `200` once it is |
 | `/login` with the header, no cookie | `200` with `Content-Security-Policy`, `X-Frame-Options: DENY` headers |
 | `POST /login` with the header, no cookie and no `csrf` field | `400` — the form's token is missing |
 | wrong `/login` posts beyond the allowance | `429` `Слишком много попыток. Попробуйте позже.` |
@@ -539,7 +538,7 @@ because the dump exists to precede a migration and there was none.
 Then open the site in a browser: it must land on the sign-in form, and a wrong
 password must return `Incorrect username or password.` without saying which
 half was wrong. The login page shows a sign-up link only when
-`SIGNUP_INVITE_CODE` is set in `.env`; following it and registering should
+`SIGNUP_OPEN=true` in `.env`; following it and registering should
 leave you on the index, already signed in, with a new row in `users`.
 
 Security headers land on every response, so a page should come back with

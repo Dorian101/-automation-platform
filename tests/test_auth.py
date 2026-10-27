@@ -5,7 +5,7 @@ from aiohttp import CookieJar
 from aiohttp.test_utils import TestClient, TestServer
 
 from app.core.config import Config
-from app.web.auth import AUTH_HEADER, SESSION_COOKIE, signup_allowed
+from app.web.auth import AUTH_HEADER, SESSION_COOKIE, signup_enabled
 from app.web.csrf import CsrfSigner
 from app.web.ratelimit import MAX_KEYS, RateLimiter
 from app.web.server import WebServer
@@ -17,8 +17,6 @@ def _texts(entries):
     return [text for _, text in entries]
 
 TOKEN = "s3cret-token-value"
-
-INVITE_CODE = "correct-horse-invite"
 
 WRONG_CREDENTIALS_MESSAGE = "Неверное имя пользователя или пароль."
 
@@ -50,7 +48,6 @@ def _client(server, proxy: bool = True) -> TestClient:
 async def _signup(
     client,
     *,
-    invite: str = INVITE_CODE,
     username: str = "newcomer",
     password: str = TEST_PASSWORD,
 ):
@@ -67,7 +64,6 @@ async def _signup(
     return await client.post(
         "/signup",
         data={
-            "invite": invite,
             "username": username,
             "password": password,
             "csrf": csrf,
@@ -494,7 +490,7 @@ class TestDenial:
 
 @pytest.fixture
 def with_signup(monkeypatch):
-    monkeypatch.setattr(Config, "SIGNUP_INVITE_CODE", INVITE_CODE)
+    monkeypatch.setattr(Config, "SIGNUP_OPEN", True)
 
 
 @pytest.fixture
@@ -516,37 +512,26 @@ async def signup_client(guest_client, with_signup):
 
 
 class TestSignup:
-    """The invite code is the whole door.
+    """Open registration is the whole door.
 
-    There is no approval step behind it — whoever holds the code is in — so
-    what is worth testing is that the code is checked, that a failed attempt
-    leaves nothing behind, and that a successful one leaves the user signed
-    in rather than back at the login form.
+    There is no approval step behind it — anyone who reaches the form is in —
+    so what is worth testing is that a failed attempt leaves nothing behind,
+    and that a successful one leaves the user signed in rather than back at
+    the login form.
     """
 
     async def test_page_is_reachable_without_a_session(self, signup_client):
         response = await signup_client.get("/signup")
 
         assert response.status == 200
-        assert "Инвайт-код" in await response.text()
+        assert "Имя пользователя" in await response.text()
 
     async def test_still_needs_the_proxy_secret(self, with_signup, bare_client):
         response = await bare_client.get("/signup")
 
         assert response.status == 401
 
-    async def test_wrong_invite_code_creates_nothing(
-        self,
-        signup_client,
-        users,
-    ):
-        response = await _signup(signup_client, invite="not-the-code")
-
-        assert response.status == 403
-        assert "Неверный инвайт-код." in await response.text()
-        assert users.count() == 0
-
-    async def test_valid_invite_code_creates_the_account_and_signs_in(
+    async def test_creates_the_account_and_signs_in(
         self,
         signup_client,
         users,
@@ -556,17 +541,6 @@ class TestSignup:
         assert response.status == 303
         assert response.headers["Location"] == "/"
         assert SESSION_COOKIE in response.cookies
-        assert users.count() == 1
-
-    async def test_pasted_invite_code_with_stray_whitespace_still_works(
-        self,
-        signup_client,
-        users,
-    ):
-        """A code copied out of a terminal or a chat often drags a newline."""
-        response = await _signup(signup_client, invite=f"  {INVITE_CODE}\n")
-
-        assert response.status == 303
         assert users.count() == 1
 
     async def test_new_account_can_use_the_platform(self, signup_client):
@@ -622,7 +596,7 @@ class TestSignup:
         pages = [
             await guest_client.get("/login"),
             await guest_client.get("/signup"),
-            await _signup(guest_client, invite="wrong"),
+            await _signup(guest_client, username="   "),
         ]
 
         for response in pages:
@@ -657,11 +631,16 @@ class TestSignup:
         # Only the account the client fixture signed in as.
         assert users.count() == 1
 
-    def test_empty_code_never_opens_the_door(self, monkeypatch):
-        """compare_digest would happily match an empty string to itself."""
-        monkeypatch.setattr(Config, "SIGNUP_INVITE_CODE", "")
+    def test_flag_off_means_closed(self, monkeypatch):
+        """The default (and any non-truthy value) keeps the door shut."""
+        monkeypatch.setattr(Config, "SIGNUP_OPEN", False)
 
-        assert signup_allowed("") is False
+        assert signup_enabled() is False
+
+    def test_flag_on_means_open(self, monkeypatch):
+        monkeypatch.setattr(Config, "SIGNUP_OPEN", True)
+
+        assert signup_enabled() is True
 
 
 class TestUsernameValidation:
@@ -1038,19 +1017,19 @@ class TestSecurityHeaders:
 
 
 class TestSignupDisabled:
-    """No invite code configured is the default, and it means no sign-up.
+    """Closed registration is the default, and it means no sign-up.
 
     Every deployment that never thought about this has to end up with the
     page absent, the route answering 404 and the login page offering nothing.
 
     Sign-up is pinned off here rather than assumed off: a developer's own
-    `.env` can set a code, and the default under test should not depend on
+    `.env` can open it, and the default under test should not depend on
     what happens to be in it.
     """
 
     @pytest.fixture(autouse=True)
     def signup_off(self, monkeypatch):
-        monkeypatch.setattr(Config, "SIGNUP_INVITE_CODE", "")
+        monkeypatch.setattr(Config, "SIGNUP_OPEN", False)
 
     async def test_page_is_not_found(self, guest_client):
         response = await guest_client.get("/signup")
@@ -1058,7 +1037,7 @@ class TestSignupDisabled:
         assert response.status == 404
 
     async def test_post_creates_no_account(self, guest_client, users):
-        response = await _signup(guest_client, invite="", username="intruder")
+        response = await _signup(guest_client, username="intruder")
 
         assert response.status == 404
         assert users.count() == 0
@@ -1068,21 +1047,11 @@ class TestSignupDisabled:
 
         assert 'href="/signup"' not in await response.text()
 
-    async def test_a_whitespace_only_code_counts_as_unset(
-        self,
-        guest_client,
-        users,
-        monkeypatch,
-    ):
-        """The gate and signup_allowed have to agree with each other.
+    async def test_a_blank_flag_reads_as_off(self, guest_client, users, monkeypatch):
+        """The flag is parsed strictly, so a stray value cannot open the door."""
+        monkeypatch.setattr(Config, "SIGNUP_OPEN", False)
 
-        signup_allowed() strips the configured code, so a variable holding
-        only spaces would otherwise render a page that rejects every code
-        typed into it — sign-up that looks on and cannot work.
-        """
-        monkeypatch.setattr(Config, "SIGNUP_INVITE_CODE", "   ")
-
-        response = await _signup(guest_client, invite="   ")
+        response = await _signup(guest_client, username="intruder")
 
         assert response.status == 404
         assert users.count() == 0

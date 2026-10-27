@@ -201,12 +201,12 @@ class TestPublicPages:
     async def test_registration_asks_not_to_be_indexed_at_all(
         self, crawler, monkeypatch
     ):
-        """Configured first: without an invite code the page does not exist.
+        """Configured first: with registration closed the page does not exist.
 
         A deployment with sign-up turned off has nothing to hide from an
         index, and the test would be asserting against a 404.
         """
-        monkeypatch.setattr(Config, "SIGNUP_INVITE_CODE", "a-code")
+        monkeypatch.setattr(Config, "SIGNUP_OPEN", True)
 
         body = await (await crawler.get("/signup")).text()
 

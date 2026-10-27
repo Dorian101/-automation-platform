@@ -87,9 +87,9 @@ answer while the database is down, and the two static documents `/about` and
 is the only reason they may work without a session).
 
 Accounts exist only in the application. Caddy holds no credentials — see
-docs/DECISIONS.md for why `basicauth` was removed. Sign-up is gated by the
-invite code in `SIGNUP_INVITE_CODE`, and when that is unset the sign-up page
-does not exist at all.
+docs/DECISIONS.md for why `basicauth` was removed. Sign-up is governed by the
+single `SIGNUP_OPEN` flag, and when it is false the sign-up page does not
+exist at all.
 
 `WEB_HOST` defaults to loopback for this reason. See docs/DEPLOYMENT.md.
 
@@ -259,7 +259,7 @@ to read as MSK.
 ## Web interface
 
 - GET /login, POST /login — sign-in form
-- GET /signup, POST /signup — registration, 404 while the invite code is unset
+- GET /signup, POST /signup — registration, 404 while SIGNUP_OPEN is false
 - GET /about, GET /project — static public documents
 - POST /logout — ends the session
 - GET / — HTML console

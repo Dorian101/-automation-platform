@@ -1835,3 +1835,44 @@ public pages were checked at 390 px and 1440 px through headless screenshots
 read by a vision agent. The HR copy and the measurable case studies stay a
 separate, future sprint. One piece of unrelated dead CSS (`.viz-fav-bg`, left
 over from the earlier favicon mark) is noted but left alone.
+
+## 2026-10-27
+
+### Decision
+Replace the invite code with a single `SIGNUP_OPEN` flag
+
+### Reason
+The owner wants to test whether guests actually arrive and register, so an
+invite code standing between the internet and an account no longer serves
+anything. The code played two roles at once — it turned the feature on (empty
+meant no `/signup` page at all) and it was the secret someone had to type. Once
+registration is meant to be open, the second role disappears and the first
+should be an explicit on/off rather than "is there a secret set".
+
+The flag keeps the default fail-closed: a deployment that never sets it has no
+sign-up page, no link on the login form, and `/signup` answers 404 — the same
+behaviour an unset invite code gave, but now a deliberate choice.
+
+### How it is done
+
+- `Config.SIGNUP_INVITE_CODE` becomes `Config.SIGNUP_OPEN`, parsed strictly to a
+  boolean (`true` / `1` / `yes`; anything else and the unset default are off).
+- `signup_enabled()` reads that flag. `signup_allowed()` is gone, along with its
+  empty-string / `compare_digest` guard — with no secret to compare there is no
+  empty-string edge case to defend against.
+- `_signup_submit` drops the `invite` field and the `signup_allowed(invite)`
+  check; the form template loses the invite input, and the username field takes
+  the autofocus.
+- The per-address rate limit on `/signup` stays unchanged: with no invite gate,
+  it is the only brake against a bot filling the table.
+
+### Result
+`/signup` asks for a username and a password and nothing else; whether it exists
+at all is one flag read once. 836 tests pass — the invite-focused tests were
+replaced by flag-on/flag-off tests, and one placeholder test that relied on a
+failed invite to render the error branch now uses an invalid username instead.
+The public `/about` and `/project` pages never mentioned the invite code, so
+their copy is untouched (their "no registration needed" note for the demo stays
+true). The invite-code framing was rewritten in `PROJECT_STATE.md`,
+`AI_CONTEXT.md` and `DEPLOYMENT.md`; the 2026-10-06 decision that introduced it
+stays as history.
