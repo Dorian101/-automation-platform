@@ -107,14 +107,21 @@ class TestBuildRouter:
         router = manager.build_router()
 
         assert router.name == "platform"
-        # The generic text parser hangs off the platform router directly; the
-        # menu and the plugins' own handlers hang off it as sub-routers.
-        assert len(router.message.handlers) == 1
+        # The platform router holds no handlers of its own: the menu and the
+        # generic text parser are sub-routers, in that order, so a button
+        # label beats a "/"-command and neither beats the other out of turn.
+        assert any(sub.name == "menu" for sub in router.sub_routers)
+        assert any(sub.name == "commands" for sub in router.sub_routers)
 
     def test_the_menu_router_is_always_attached(self, manager):
         router = manager.build_router()
 
         assert any(sub.name == "menu" for sub in router.sub_routers)
+
+    def test_the_menu_runs_before_the_parser(self, manager):
+        names = [sub.name for sub in manager.build_router().sub_routers]
+
+        assert names.index("menu") < names.index("commands")
 
     def test_includes_plugin_specific_router_when_present(self, manager):
         from aiogram import Router
@@ -135,9 +142,10 @@ class TestBuildRouter:
         assert any(sub.name == "extra" for sub in router.sub_routers)
 
     def test_skips_empty_plugin_routers(self, manager):
-        # The menu router is present; no plugin contributed one of its own.
+        # Only the menu and the parser; no plugin contributed one of its own.
         assert [sub.name for sub in manager.build_router().sub_routers] == [
-            "menu"
+            "menu",
+            "commands",
         ]
 
 
@@ -146,7 +154,8 @@ class TestTelegramDispatch:
 
     def test_router_dispatch_is_wired(self, manager):
         router = manager.build_router()
-        handler = router.message.handlers[0].callback
+        commands = next(s for s in router.sub_routers if s.name == "commands")
+        handler = commands.message.handlers[0].callback
 
         assert callable(handler)
 

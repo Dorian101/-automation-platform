@@ -140,9 +140,11 @@ class PluginManager:
         router = Router(name="platform")
 
         # The menu first, then the plugins' own handlers, then the generic
-        # text parser. Order matters: aiogram matches in registration order.
-        menu = build_menu_router(self.execute)
-        router.include_router(menu)
+        # text parser. Order matters: aiogram matches in registration order,
+        # and a handler on the parent router fires before its sub-routers — so
+        # the catch-all text parser must also be a sub-router, and the last
+        # one, or it would swallow "/start" and every button label first.
+        router.include_router(build_menu_router(self.execute))
 
         for plugin in self._plugins:
             plugin_router = plugin.router()
@@ -150,7 +152,9 @@ class PluginManager:
             if plugin_router.message.handlers:
                 router.include_router(plugin_router)
 
-        @router.message()
+        commands_router = Router(name="commands")
+
+        @commands_router.message()
         async def dispatch(message: Message) -> None:
             if not message.text:
                 return
@@ -165,6 +169,8 @@ class PluginManager:
 
             if result.text:
                 await message.answer(result.text)
+
+        router.include_router(commands_router)
 
         return router
 
