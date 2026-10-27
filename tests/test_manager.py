@@ -107,7 +107,14 @@ class TestBuildRouter:
         router = manager.build_router()
 
         assert router.name == "platform"
+        # The generic text parser hangs off the platform router directly; the
+        # menu and the plugins' own handlers hang off it as sub-routers.
         assert len(router.message.handlers) == 1
+
+    def test_the_menu_router_is_always_attached(self, manager):
+        router = manager.build_router()
+
+        assert any(sub.name == "menu" for sub in router.sub_routers)
 
     def test_includes_plugin_specific_router_when_present(self, manager):
         from aiogram import Router
@@ -125,11 +132,13 @@ class TestBuildRouter:
 
         router = manager.build_router()
 
-        assert len(router.sub_routers) == 1
-        assert router.sub_routers[0].name == "extra"
+        assert any(sub.name == "extra" for sub in router.sub_routers)
 
     def test_skips_empty_plugin_routers(self, manager):
-        assert len(manager.build_router().sub_routers) == 0
+        # The menu router is present; no plugin contributed one of its own.
+        assert [sub.name for sub in manager.build_router().sub_routers] == [
+            "menu"
+        ]
 
 
 class TestTelegramDispatch:
@@ -161,29 +170,3 @@ class TestBotCommands:
         commands = expenses_manager.bot_commands()
 
         assert all(c.command != "/spend" for c in commands)
-
-
-class TestMenuKeyboard:
-    """Permanent buttons hold only the commands that run with no arguments."""
-
-    def test_a_command_with_args_is_not_a_button(self, manager):
-        labels = [
-            button.text
-            for row in manager.menu_keyboard().keyboard
-            for button in row
-        ]
-
-        assert "/add" not in labels
-        assert "/del" not in labels
-        assert "/copy" not in labels
-
-    def test_argumentless_commands_are_buttons(self, manager):
-        labels = [
-            button.text
-            for row in manager.menu_keyboard().keyboard
-            for button in row
-        ]
-
-        assert "/notes" in labels
-        assert "/clear" in labels
-        assert "/paste" in labels

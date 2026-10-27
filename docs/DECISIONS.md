@@ -1948,3 +1948,48 @@ plugin pages already do. 840 tests pass. The step-back one: a command needing an
 argument is not a button at all, which is the honest limit of a keyboard; the
 follow-up (a step-by-step dialogue that asks for the argument) is a separate,
 larger piece.
+
+## 2026-10-27
+
+### Decision
+Drive the argument-bearing commands through a step-by-step flow, and group the
+buttons so they are not one undifferentiated row
+
+### Reason
+The first keyboard pass put the argument-less commands on buttons and left the
+argument-bearing ones in the "/" menu, on the reasoning that a button cannot ask
+for an argument. The owner pushed back where a reader actually trips: a new
+user must first think to type "/", then read a description, and only after
+sending sees the input hint as a reply — and every such hint is a message that
+clutters the chat. Two needs followed: show the commands without the "/", and
+show the argument hint without sending anything.
+
+A keyboard cannot do the second on its own, and the three raw groups — "commands
+with arguments", "output", "help" — split the buttons by whether they write or
+read, which is the axis a reader already thinks in. The buffer is left off the
+buttons on purpose: anyone with Telegram already has saved messages.
+
+### How it is done
+
+- A short FSM (`app/bot/menu.py`, a `StatesGroup` with one state per step) drives
+  the argument-bearing commands: tapping "Заметка" or "Напоминание" moves the
+  chat into a waiting state, and the next plain message is taken as the argument
+  — the running hint lives in `input_field_placeholder` (the grey prompt in the
+  input box), not in a reply.
+- The menu lives in `app/bot/` beside the bot, not in a plugin: it gathers
+  arguments and hands them to `PluginManager.execute`, so the plugins keep their
+  transport-free `execute` and nothing in business logic learns about buttons.
+- `create_dispatcher` gains `MemoryStorage`, because the FSM needs somewhere to
+  keep its state; in-memory, so an unfinished entry resets on a restart and is
+  worth nothing persisted.
+
+### Result
+A reader reaches "add a note" or "set a reminder" without typing "/", gets the
+argument asked for in the input box itself, and sees no dead-end hint messages.
+The three groups keep the keyboard short; the buffer stays out of it. 850 tests
+pass — the flow is unit-checked on the keyboards and exercised end to end
+against a fake bot, which recorded exactly `/add <text>` and
+`/remind <minutes> <text>` for the two taps. The trade is the first per-user
+state in the bot and a state store that does not survive a restart, both
+accepted for a personal bot and revisitable (persistent FSM storage) if the bot
+ever grows a paying audience.

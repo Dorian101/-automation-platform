@@ -1,8 +1,9 @@
 from typing import Sequence
 
 from aiogram import Router
-from aiogram.types import BotCommand, KeyboardButton, Message, ReplyKeyboardMarkup
+from aiogram.types import BotCommand, Message
 
+from app.bot.menu import build_menu_router
 from app.core.commands import parse_command
 from app.core.identity import WEB, Identity, telegram
 from app.core.results import CommandError, CommandResult
@@ -103,27 +104,6 @@ class PluginManager:
 
         return commands
 
-    def menu_keyboard(self) -> ReplyKeyboardMarkup:
-        """Permanent buttons for the commands that run with no arguments.
-
-        A command that needs an argument cannot be a button: tapping it would
-        send the bare command and hit its "Usage" error. Those stay in the
-        native menu above, where the description names the form. Two buttons to
-        a row, so the board reads as a grid rather than a tall list.
-        """
-        labels = [
-            command
-            for plugin, command, _ in self._commands_in_order()
-            if not plugin.web_only and command not in plugin.command_args
-        ]
-
-        buttons = [KeyboardButton(text=label) for label in labels]
-        rows = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
-
-        return ReplyKeyboardMarkup(
-            keyboard=rows, resize_keyboard=True, selective=False
-        )
-
     async def execute(
         self,
         command: str,
@@ -152,13 +132,23 @@ class PluginManager:
         repeat adapter code. Plugins needing transport-specific behaviour
         contribute their own router through :meth:`BasePlugin.router`.
 
-        The permanent command menu is attached to every answer so the buttons
-        stay under the input after the first message; ``/start`` gets its own
-        greet-and-offer handler because it is the one command the platform does
-        not know how to parse.
+        The button menu and the step-by-step input flow run first
+        (:func:`app.bot.menu.build_menu_router`); the generic text parser runs
+        last, so a bare message like "Заметка" reaches the menu rather than
+        falling into the command parser and failing on the missing "/".
         """
         router = Router(name="platform")
-        keyboard = self.menu_keyboard()
+
+        # The menu first, then the plugins' own handlers, then the generic
+        # text parser. Order matters: aiogram matches in registration order.
+        menu = build_menu_router(self.execute)
+        router.include_router(menu)
+
+        for plugin in self._plugins:
+            plugin_router = plugin.router()
+
+            if plugin_router.message.handlers:
+                router.include_router(plugin_router)
 
         @router.message()
         async def dispatch(message: Message) -> None:
@@ -168,28 +158,13 @@ class PluginManager:
             try:
                 command, args = parse_command(message.text)
                 identity = telegram(message.chat.id)
-
-                if command == "/start":
-                    await message.answer(
-                        "Добро пожаловать на платформу автоматизации.\n"
-                        "Нажмите кнопку ниже или введите команду.",
-                        reply_markup=keyboard,
-                    )
-                    return
-
                 result = await self.execute(command, args, identity)
             except CommandError as error:
-                await message.answer(str(error), reply_markup=keyboard)
+                await message.answer(str(error))
                 return
 
             if result.text:
-                await message.answer(result.text, reply_markup=keyboard)
-
-        for plugin in self._plugins:
-            plugin_router = plugin.router()
-
-            if plugin_router.message.handlers:
-                router.include_router(plugin_router)
+                await message.answer(result.text)
 
         return router
 

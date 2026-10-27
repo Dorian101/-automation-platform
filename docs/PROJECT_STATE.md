@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.60.0
+v0.61.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -75,6 +75,11 @@ The platform is operational.
 - the Telegram bot offers its command set two ways: a permanent button row for
   the argument-less commands, and a native "/" menu (set at startup) that names
   every chat command with the form of its arguments
+- the bot groups its buttons into three — commands with arguments, output, and
+  help — and drives the argument-bearing commands through a short step-by-step
+  flow: tap the command, then type each argument, with the running hint shown
+  as the input field's placeholder rather than as chat noise; the state is kept
+  in memory, so an unfinished entry resets on a restart and nothing else does
 
 ## Deployment
 
