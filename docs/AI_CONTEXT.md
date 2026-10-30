@@ -702,13 +702,14 @@ Running it locally is the same command and carries one condition: the local
 `.env` holds a **development bot token**, never the production one. Two pollers
 on one Telegram bot fight, and the production bot stops fetching for as long as
 the local process lives — which has happened once, and is why
-`../automation-platform.agent/check-local-bot.sh` exists and should be run first.
+`check-local-bot.sh` in the sibling `automation-platform.agent/` exists and should
+be run first.
 Setup and the rest of the local arrangement are in `DEPLOYMENT.md`.
 
 ## Tests
 
-Run against a dedicated `automation_platform_test` database, dropped and
-recreated per test. Covers identity, command parsing, repositories,
+Run against a dedicated `automation_platform_test` database, with the schema
+built once and emptied per test. Covers identity, command parsing, repositories,
 migrations, plugins, the manager, notification channels, the web layer,
 accounts and sessions, password hashing, and database backups.
 
@@ -730,8 +731,8 @@ over a genuinely empty database, and `database_with_schema` rebuilds the schema
 if it finds it gone, so one such test cannot leave the rest of the run
 addressing tables that are not there.
 
-**While working — run only what the change can break.** This is the fast mode
-and it is the default during a sprint. Pick by area:
+**While working — run only what the change can break.** This is the targeted
+run and it is the default during a sprint. Pick by area:
 
 | Changed | Run |
 |---|---|
@@ -749,8 +750,8 @@ how a two-minute suite becomes a five-minute one nobody runs.
 
 **Before a commit — run everything.** `uv run ruff check . && uv run pytest`
 with no selection, as CLAUDE.md requires. This is what catches a change
-reaching something the fast mode never loaded, and skipping it because the
-fast mode was green is exactly how a green suite stops meaning anything.
+reaching something the targeted run never loaded, and skipping it because the
+targeted run was green is exactly how a green suite stops meaning anything.
 
 **After a full run, iterate on failures with `-x`.** The first failure is
 usually the one that explains the rest; stopping there is faster than

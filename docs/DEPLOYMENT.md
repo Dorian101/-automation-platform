@@ -1052,7 +1052,8 @@ The token is not optional either. The application refuses to start without
 `BOT_TOKEN`, and a well-formed token that Telegram rejects kills the process
 when polling fails — the web interface goes down with it.
 
-So that nobody has to remember this, a check sits next to the repository:
+So that nobody has to remember this, a check sits next to the repository. From
+the main checkout:
 
 ```bash
 ../automation-platform.agent/check-local-bot.sh
@@ -1092,7 +1093,7 @@ migrations. The parts worth knowing about:
 - `tests/test_auth.py` — the transport secret and the session separately; the
   CSRF token on the anonymous and session-backed forms, the rate limit and its
   reset on a successful login, the sign-up gate, and that sign-up is off by
-  default when no invite code is configured.
+  default unless `SIGNUP_OPEN` is set.
 - `tests/test_telegram_auth.py` and `tests/test_telegram_link.py` — the Login
   Widget signature, the one-use nonce, and the link/unlink flow including the
   theft a nonce exists to block.
