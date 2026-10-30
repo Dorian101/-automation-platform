@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.62.1
+v0.63.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -45,7 +45,7 @@ The platform is operational.
 - account administration from the host (disable, enable, reset a password,
   revoke sessions)
 - deployment runbook
-- automatic deploy on push to `main`, over SSH from GitHub Actions
+- automatic deploy on push to `main`, over SSH from GitHub Actions, after ruff and pytest pass there
 - an administrative area at `/admin`, one boolean on the account, granted from
   the host
 - accounts, search by name, and enabling and disabling from there
@@ -743,21 +743,4 @@ before trusting it.
 
 ## Development rules
 
-* Keep core independent from plugin internals.
-* New functionality should be implemented as plugins.
-* Keep business logic transport-independent.
-* Avoid unnecessary architectural complexity.
-* Prefer incremental improvements over large rewrites.
-
-## Development workflow
-
-Before starting a new sprint:
-- Read PROJECT_STATE.md
-- Check DECISIONS.md
-- Do not rely on previous chat history as source of truth
-
-During implementation:
-- Always specify full file paths
-- Name new files in the report; agree new dependencies first
-- Keep changes minimal
-- Run ruff check and pytest before committing
+The working rules and the release order live in `CLAUDE.md`, in one place.

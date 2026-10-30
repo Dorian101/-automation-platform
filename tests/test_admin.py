@@ -1084,11 +1084,14 @@ class TestHidingTheAdministrator:
         The count line is composed in Python and its numbers are filled in
         afterwards, so the two have to travel together through the same
         substitution. They did not, once, and the page said __TOTAL__.
+
+        Matched by shape: the page also carries a random nonce, and "__" alone
+        turns up in one of those about once in two hundred runs.
         """
         for suffix in ("", "?hide=1", "?q=/about"):
             body = await (await admin_client.get(f"/admin/visits{suffix}")).text()
 
-            assert "__" not in body, suffix
+            assert not re.search(r"__[A-Z]+(?:_[A-Z]+)*__", body), suffix
 
     async def test_the_box_filters_without_pressing_the_button(self, admin_client):
         """It is a filter, so it filters when it moves. The form is a GET and

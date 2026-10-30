@@ -438,8 +438,8 @@ Bound to `WEB_HOST` and `WEB_PORT`, defaulting to 127.0.0.1:8080.
 
 ## Deploy
 
-A push to `main` runs `scripts/deploy.sh` on the host via
-`.github/workflows/deploy.yml`. The script pulls with `--ff-only`, runs
+A push to `main` runs ruff and pytest on a runner and then, if both pass,
+`scripts/deploy.sh` on the host via `.github/workflows/deploy.yml`. The script pulls with `--ff-only`, runs
 `uv sync --frozen --no-dev`, restarts the service and prints the journal tail
 through the two sudo rules,
 and prints the last 50 journal lines.
@@ -689,29 +689,7 @@ is the reason they were written.
 
 ## Development rules
 
-- Complete one sprint at a time.
-- Update PROJECT_STATE.md after every completed sprint.
-- Update AI_CONTEXT.md after every completed sprint.
-- Prefer small, incremental refactoring.
-- Avoid unnecessary complexity.
-- Error handling is centralized at Dispatcher level.
-- Business logic stays transport-independent.
-- Run `ruff check .` and `pytest` before committing.
-- If the owner proposes something that would only hurt the work, stop and warn
-  instead of starting to execute it right away. State the tradeoff before
-  acting, not afterwards, and let the owner decide with the warning in hand.
-
-## Development workflow
-
-Before starting a new sprint:
-- Read PROJECT_STATE.md
-- Check DECISIONS.md
-- Do not rely on previous chat history as source of truth
-
-During implementation:
-- Always specify full file paths
-- Name new files in the report; agree new dependencies first
-- Keep changes minimal
+The working rules and the release order live in `CLAUDE.md`, in one place.
 
 ## Runtime
 

@@ -2049,3 +2049,30 @@ shows. This reverses the reduced-motion branch of the previous entry.
 ### Result
 Every visitor sees the animation from its start. A reader who asked for reduced
 motion sees it too, and that is a deliberate trade.
+
+## 2026-10-30
+
+### Decision
+Run ruff and pytest in the deploy workflow, and answer 404 to an address nothing
+serves, for a guest as well
+
+### Reason
+Nothing stood between a push to `main` and the server except a local habit. The
+guest redirect to `/login` told a reader, and a crawler, that every address
+exists.
+
+### How it is done
+
+- `deploy` now `needs: test`, a job with a throwaway PostgreSQL service. It uses
+  no third-party action, `actions/checkout` included, in keeping with the file.
+- A failed run leaves the commit in `main` and the server on the old one. A rerun
+  from the Actions page is the way to deploy after a fix.
+- `test_no_placeholder_reaches_the_browser` failed at random on a `__` inside a
+  CSP nonce, which would now block a deploy, so it matches the placeholder shape.
+- `_authenticate` lets a request through when routing found nothing. `/admin` and
+  other real paths still redirect a guest, so a guest can tell which paths exist.
+  The repository is public, so that discloses nothing new.
+
+### Result
+A commit that fails lint or tests no longer reaches the server, and a mistyped
+address reads as missing. A deploy now takes as long as the suite does.

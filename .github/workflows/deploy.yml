@@ -1,5 +1,7 @@
-# Runs on a GitHub runner, so the runner never sees the source — only the
-# credentials to open one connection and run scripts/deploy.sh on the host.
+# Two jobs. `test` runs ruff and pytest on the pushed commit, and a failure
+# stops there: the server keeps what it was running. `deploy` never sees the
+# source, only the credentials to open one connection and run scripts/deploy.sh
+# on the host.
 #
 # Why SSH rather than a self-hosted runner on the server: a runner living
 # there would be another process on the box with repository access and
@@ -17,10 +19,11 @@
 # deletion and covers anyone without admin. The boundary is the GitHub
 # account itself.
 #
-# No third-party action is used. `webfactory/ssh-agent` and its neighbours are
-# the usual way to do this and each one is code from somebody else's account
-# with write access to this repository's pipeline. The few lines below are the
-# whole of it.
+# No third-party action is used. `webfactory/ssh-agent`, `setup-uv` and their
+# neighbours are the usual way to do this and each one is code from somebody
+# else's account with write access to this repository's pipeline. The few lines
+# below are the whole of it. Even `actions/checkout` is left out: the repository
+# is public, and two git commands do what the test job needs.
 
 name: Deploy
 
@@ -36,7 +39,47 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      # The names and the empty password are what tests/conftest.py sets. Trust
+      # is safe here: the database lives for one job and holds nothing.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: automation
+          POSTGRES_DB: automation_platform_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U automation"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Fetch the pushed commit
+        run: |
+          git init --quiet .
+          git fetch --quiet --depth 1 "https://github.com/$GITHUB_REPOSITORY" "$GITHUB_SHA"
+          git checkout --quiet FETCH_HEAD
+
+      - name: Install the project
+        run: |
+          pipx install uv
+          uv sync --frozen
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Test
+        run: uv run pytest
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

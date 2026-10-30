@@ -213,6 +213,12 @@ class TestPublicPages:
         assert response.status == 200
         assert response.content_type == "text/html"
 
+    async def test_an_address_nothing_serves_is_a_404_for_a_guest(self, guest):
+        """Not a redirect to the login page, which would say the page exists."""
+        response = await guest.get("/no-such-place", allow_redirects=False)
+
+        assert response.status == 404
+
     async def test_everything_else_still_requires_a_session(self, guest):
         """Being public has to stay the exception, not a growing habit."""
         for path in ("/about", "/project"):

@@ -620,8 +620,8 @@ as root, so new files come out root-owned.
 
 ## Automatic deploy
 
-A push to `main` runs `scripts/deploy.sh` on this host through
-`.github/workflows/deploy.yml`. The workflow lives in the repository; the
+A push to `main` runs ruff and pytest on a runner and then, if both pass,
+`scripts/deploy.sh` on this host through `.github/workflows/deploy.yml`. The workflow lives in the repository; the
 server-side half below does not, and has to be set up once.
 
 ### Two things both deploy paths depend on

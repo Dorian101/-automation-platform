@@ -1124,6 +1124,7 @@ class WebServer:
             request.path in PUBLIC_PATHS
             or request.path.startswith("/fonts/")
             or is_public_demo_path(request.path)
+            or isinstance(request.match_info.http_exception, web.HTTPNotFound)
         ):
             return await handler(request)
 
