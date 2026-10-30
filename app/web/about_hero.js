@@ -247,9 +247,12 @@
   }
 
   let frame = 0;
-  let started = 0;
+  let started = null;
 
   function tick(now) {
+    // From the first painted frame, not from the load: a tab opened behind
+    // another gets no frames, and would otherwise wake up on the last one.
+    started ??= now;
     const t = (now - started) / 1000;
     draw(Math.min(t, END));
     frame = t < END ? requestAnimationFrame(tick) : 0;
@@ -257,26 +260,23 @@
 
   function play() {
     cancelAnimationFrame(frame);
-    started = performance.now();
+    started = null;
     frame = requestAnimationFrame(tick);
   }
 
   replay.addEventListener("click", play);
   replay.hidden = false;
 
-  // A reduced-motion visitor gets the finished report, and the button lets them
-  // choose to watch it anyway.
   const faces = [
     document.fonts.load(`600 16px ${MANROPE}`, "Яя"),
     document.fonts.load(`11px ${MONO}`, "Яя"),
   ];
   Promise.allSettled(faces).then(() => {
     layout();
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      draw(END);
-    } else {
-      play();
-    }
+    // Plays whatever prefers-reduced-motion says: a managed work laptop sets it
+    // by policy, and that is where much of this page's audience reads it. One
+    // short run with no flashing is the accepted cost; see DECISIONS.md.
+    play();
     // Watched only from here: before the fonts arrive, a redraw would show the
     // last frame ahead of the first.
     new ResizeObserver(() => {

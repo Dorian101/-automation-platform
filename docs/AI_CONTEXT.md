@@ -357,8 +357,8 @@ radiating off it, the platform's shape, not a chat bubble.
 The `/about` hero is a canvas drawn by `app/web/about_hero.js`, served at
 `/about-hero.js` as a file because the CSP allows scripts from this origin only.
 Each point is one ticket of an invented SLA report; the counts are in the script
-and the page labels them as an example. A reduced-motion visitor gets the
-finished report and a replay button.
+and the page labels them as an example. It runs once on load, whatever
+`prefers-reduced-motion` says, and a replay button stays under it.
 
 ## Navigation
 

@@ -2025,3 +2025,27 @@ test because the page named a file the repository did not hold.
 The hero shows the owner's actual subject and ends on a finding rather than on a
 shape. It now depends on a script, so a visitor without JavaScript sees an empty
 area. The hero no longer sits beside the headline below 980px. 852 tests pass.
+
+## 2026-10-30
+
+### Decision
+Play the `/about` hero regardless of `prefers-reduced-motion`, and start its clock
+on the first painted frame
+
+### Reason
+The owner opened the page on a managed Windows laptop and saw only the last
+frame. Such machines commonly report reduced motion by policy, not by the reader's
+choice, so the visitors most likely to read this page lose the one thing it
+shows. This reverses the reduced-motion branch of the previous entry.
+
+### How it is done
+
+- `about_hero.js` no longer checks the media query. The run is one pass of about
+  five seconds with no flashing, which is the accepted cost, and the older SMIL
+  hero ignored the flag too.
+- `started` is set by the first `tick`, because a tab opened in the background
+  gets no frames and would otherwise wake up already past the end.
+
+### Result
+Every visitor sees the animation from its start. A reader who asked for reduced
+motion sees it too, and that is a deliberate trade.
