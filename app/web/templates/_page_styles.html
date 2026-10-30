@@ -167,9 +167,8 @@
     .orbit::before { animation: none; }
     .viz-svg * { animation: none; }
   }
-  /* The data-visualisation in the hero: a grouped bar chart that grows in,
-     then a trend line draws over set 1 and the labels surface. Native SMIL,
-     no script. One run, frozen on the final frame. */
+  /* The hero: a canvas report drawn by about_hero.js on /about, and the small
+     SVG mark on /project. */
   .viz {
     position: absolute;
     right: 0;
@@ -180,18 +179,22 @@
   }
   .viz-svg { width: 100%; height: auto; display: block; }
   .viz--small { width: min(12rem, 30%); }
-  .viz-frame line { stroke: var(--border); stroke-width: 1; }
-  .viz-frame .viz-grid { stroke: #26282a; stroke-dasharray: 3 5; }
-  .viz-axis { fill: var(--muted); font: 9px 'JetBrains Mono', monospace; }
-  .viz-bar.viz-rev { fill: var(--accent); }
-  .viz-bar.viz-lead { fill: var(--lime); }
-  .viz-trend { stroke: var(--coral); stroke-width: 2; }
-  .viz-head { fill: var(--text); font: 600 15px 'Manrope', sans-serif; }
-  .viz-kpi { fill: var(--text); font: 600 22px 'Manrope', sans-serif; }
-  .viz-cap { fill: var(--muted); font: 10px 'JetBrains Mono', monospace; }
-  .viz-dot.viz-rev { fill: var(--accent); }
-  .viz-dot.viz-lead { fill: var(--lime); }
-  .viz-legend { font-size: 10px; }
+  /* The headline's longest line would otherwise run up to the chart beside it
+     on every width until the chart reaches its own maximum. */
+  .hero--report { min-height: 33rem; }
+  .hero--report h1 { font-size: clamp(2.2rem, 5.6vw, 5.5rem); }
+  .viz canvas { width: 100%; display: block; }
+  .viz-replay {
+    margin-top: 0.75rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font: 11px 'JetBrains Mono', monospace;
+    cursor: pointer;
+    pointer-events: auto;
+  }
+  .viz-replay:hover { color: var(--text); }
   .viz-fav-bg { fill: #222a38; }
   .section-tag {
     font: 400 11px 'JetBrains Mono', monospace;
@@ -318,6 +321,17 @@
     color: var(--muted);
     font-size: 0.85rem;
   }
+  /* The report's text needs about 340px, which 38% of the page only gives on a
+     wide screen. Below that it goes under the headline, as on a phone. */
+  @media (max-width: 980px) {
+    .hero--report { min-height: 0; }
+    .hero--report .viz {
+      position: static;
+      width: 100%;
+      max-width: 26rem;
+      margin-top: 2rem;
+    }
+  }
   @media (max-width: 640px) {
     h1 { font-size: 1.6rem; }
     main { padding-top: 2rem; }
@@ -327,6 +341,7 @@
        screens; a phone has no width for that, so it drops into the flow
        below the headline instead of overlapping it. */
     .hero { padding: 2.5rem 0 3rem; }
+    .hero--report h1 { font-size: 2.6rem; }
     .viz {
       position: static;
       width: 100%;

@@ -12,94 +12,12 @@ __MENU_STYLES__
 <main>
   __NAV__
 
-  <section class="hero">
+  <section class="hero hero--report">
     <p class="eyebrow">Алексей Лебедев · BI-аналитик</p>
     <h1>Превращаю<br>данные в <em>понятные</em><br>решения.</h1>
-    <div class="viz" aria-hidden="true">
-      <svg viewBox="0 0 460 340" class="viz-svg">
-        <!-- axes -->
-        <g class="viz-frame">
-          <line x1="40" y1="30" x2="40" y2="290" />
-          <line x1="40" y1="290" x2="440" y2="290" />
-          <line x1="40" y1="205" x2="440" y2="205" class="viz-grid" />
-          <line x1="40" y1="120" x2="440" y2="120" class="viz-grid" />
-          <text x="30" y="294" text-anchor="end" class="viz-axis">0</text>
-          <text x="30" y="209" text-anchor="end" class="viz-axis">4</text>
-          <text x="30" y="124" text-anchor="end" class="viz-axis">8</text>
-          <text x="60" y="306" text-anchor="middle" class="viz-axis">Пн</text>
-          <text x="117" y="306" text-anchor="middle" class="viz-axis">Вт</text>
-          <text x="174" y="306" text-anchor="middle" class="viz-axis">Ср</text>
-          <text x="231" y="306" text-anchor="middle" class="viz-axis">Чт</text>
-          <text x="288" y="306" text-anchor="middle" class="viz-axis">Пт</text>
-          <text x="345" y="306" text-anchor="middle" class="viz-axis">Сб</text>
-          <text x="402" y="306" text-anchor="middle" class="viz-axis">Вс</text>
-        </g>
-
-        <!-- BAR TARGETS (baseline y for each bar, set 1 then set 2) -->
-        <!-- each: a point flies from chaos to its column, then the bar grows -->
-        <g class="viz-bars">
-          <circle class="viz-dot viz-rev" r="3"><animate attributeName="cx" values="380;56;56;56;56" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="cy" values="250;176;176;176;176" dur="4s" fill="freeze"/><animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.15;0.28;0.34;1" dur="4s" fill="freeze"/></circle>
-          <rect x="48" y="290" height="0" width="16" class="viz-bar viz-rev"><animate attributeName="height" values="0;0;110;110;110" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="y" values="290;290;180;180;180" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/></rect>
-
-          <circle class="viz-dot viz-lead" r="3"><animate attributeName="cx" values="60;76;76;76;76" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="cy" values="40;150;150;150;150" dur="4s" fill="freeze"/><animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.15;0.28;0.34;1" dur="4s" fill="freeze"/></circle>
-          <rect x="68" y="290" height="0" width="16" class="viz-bar viz-lead"><animate attributeName="height" values="0;0;136;136;136" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="y" values="290;290;154;154;154" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/></rect>
-
-          <circle class="viz-dot viz-rev" r="3"><animate attributeName="cx" values="310;113;113;113;113" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="cy" values="270;146;146;146;146" dur="4s" fill="freeze"/><animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.15;0.28;0.34;1" dur="4s" fill="freeze"/></circle>
-          <rect x="105" y="290" height="0" width="16" class="viz-bar viz-rev"><animate attributeName="height" values="0;0;140;140;140" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="y" values="290;290;150;150;150" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/></rect>
-
-          <circle class="viz-dot viz-lead" r="3"><animate attributeName="cx" values="90;133;133;133;133" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="cy" values="70;185;185;185;185" dur="4s" fill="freeze"/><animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.15;0.28;0.34;1" dur="4s" fill="freeze"/></circle>
-          <rect x="125" y="290" height="0" width="16" class="viz-bar viz-lead"><animate attributeName="height" values="0;0;101;101;101" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="y" values="290;290;189;189;189" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/></rect>
-
-          <circle class="viz-dot viz-rev" r="3"><animate attributeName="cx" values="420;170;170;170;170" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="cy" values="35;117;117;117;117" dur="4s" fill="freeze"/><animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.15;0.28;0.34;1" dur="4s" fill="freeze"/></circle>
-          <rect x="162" y="290" height="0" width="16" class="viz-bar viz-rev"><animate attributeName="height" values="0;0;169;169;169" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="y" values="290;290;121;121;121" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/></rect>
-
-          <circle class="viz-dot viz-lead" r="3"><animate attributeName="cx" values="50;190;190;190;190" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="cy" values="260;159;159;159;159" dur="4s" fill="freeze"/><animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.15;0.28;0.34;1" dur="4s" fill="freeze"/></circle>
-          <rect x="182" y="290" height="0" width="16" class="viz-bar viz-lead"><animate attributeName="height" values="0;0;127;127;127" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="y" values="290;290;163;163;163" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/></rect>
-
-          <circle class="viz-dot viz-rev" r="3"><animate attributeName="cx" values="270;227;227;227;227" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="cy" values="80;156;156;156;156" dur="4s" fill="freeze"/><animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.15;0.28;0.34;1" dur="4s" fill="freeze"/></circle>
-          <rect x="219" y="290" height="0" width="16" class="viz-bar viz-rev"><animate attributeName="height" values="0;0;130;130;130" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="y" values="290;290;160;160;160" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/></rect>
-
-          <circle class="viz-dot viz-lead" r="3"><animate attributeName="cx" values="150;247;247;247;247" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="cy" values="25;136;136;136;136" dur="4s" fill="freeze"/><animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.15;0.28;0.34;1" dur="4s" fill="freeze"/></circle>
-          <rect x="239" y="290" height="0" width="16" class="viz-bar viz-lead"><animate attributeName="height" values="0;0;150;150;150" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="y" values="290;290;140;140;140" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/></rect>
-
-          <circle class="viz-dot viz-rev" r="3"><animate attributeName="cx" values="360;284;284;284;284" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="cy" values="255;98;98;98;98" dur="4s" fill="freeze"/><animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.15;0.28;0.34;1" dur="4s" fill="freeze"/></circle>
-          <rect x="276" y="290" height="0" width="16" class="viz-bar viz-rev"><animate attributeName="height" values="0;0;188;188;188" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="y" values="290;290;102;102;102" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/></rect>
-
-          <circle class="viz-dot viz-lead" r="3"><animate attributeName="cx" values="80;304;304;304;304" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="cy" values="55;176;176;176;176" dur="4s" fill="freeze"/><animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.15;0.28;0.34;1" dur="4s" fill="freeze"/></circle>
-          <rect x="296" y="290" height="0" width="16" class="viz-bar viz-lead"><animate attributeName="height" values="0;0;110;110;110" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="y" values="290;290;180;180;180" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/></rect>
-
-          <circle class="viz-dot viz-rev" r="3"><animate attributeName="cx" values="300;341;341;341;341" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="cy" values="245;136;136;136;136" dur="4s" fill="freeze"/><animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.15;0.28;0.34;1" dur="4s" fill="freeze"/></circle>
-          <rect x="333" y="290" height="0" width="16" class="viz-bar viz-rev"><animate attributeName="height" values="0;0;150;150;150" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="y" values="290;290;140;140;140" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/></rect>
-
-          <circle class="viz-dot viz-lead" r="3"><animate attributeName="cx" values="440;361;361;361;361" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="cy" values="90;153;153;153;153" dur="4s" fill="freeze"/><animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.15;0.28;0.34;1" dur="4s" fill="freeze"/></circle>
-          <rect x="353" y="290" height="0" width="16" class="viz-bar viz-lead"><animate attributeName="height" values="0;0;133;133;133" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="y" values="290;290;157;157;157" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/></rect>
-
-          <circle class="viz-dot viz-rev" r="3"><animate attributeName="cx" values="200;398;398;398;398" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="cy" values="30;107;107;107;107" dur="4s" fill="freeze"/><animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.15;0.28;0.34;1" dur="4s" fill="freeze"/></circle>
-          <rect x="390" y="290" height="0" width="16" class="viz-bar viz-rev"><animate attributeName="height" values="0;0;179;179;179" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="y" values="290;290;111;111;111" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/></rect>
-
-          <circle class="viz-dot viz-lead" r="3"><animate attributeName="cx" values="120;418;418;418;418" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="cy" values="265;166;166;166;166" dur="4s" fill="freeze"/><animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.15;0.28;0.34;1" dur="4s" fill="freeze"/></circle>
-          <rect x="410" y="290" height="0" width="16" class="viz-bar viz-lead"><animate attributeName="height" values="0;0;120;120;120" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/><animate attributeName="y" values="290;290;170;170;170" keyTimes="0;0.28;0.45;0.6;1" dur="4s" fill="freeze"/></rect>
-        </g>
-
-        <!-- trend line over set 1, after the bars -->
-        <polyline class="viz-trend" fill="none" points="56,180 113,150 170,120 227,160 284,100 341,140 398,110">
-          <animate attributeName="opacity" values="0;0;0;1;1" keyTimes="0;0.45;0.5;0.6;1" dur="4s" fill="freeze"/>
-        </polyline>
-
-        <!-- labels fade in at the end -->
-        <g class="viz-final">
-          <text x="40" y="22" class="viz-head">Метрики за неделю</text>
-          <text x="40" y="48" class="viz-kpi">7.1</text>
-          <text x="40" y="64" class="viz-cap"><tspan class="viz-dot viz-rev">●</tspan> Набор 1, среднее за день</text>
-          <text x="230" y="48" class="viz-kpi">5.9</text>
-          <text x="230" y="64" class="viz-cap"><tspan class="viz-dot viz-lead">●</tspan> Набор 2, среднее за день</text>
-          <g class="viz-legend" transform="translate(40, 328)">
-            <tspan class="viz-dot viz-rev">●</tspan><tspan class="viz-axis">Набор 1</tspan>
-            <tspan class="viz-dot viz-lead" dx="14">●</tspan><tspan class="viz-axis" dx="4">Набор 2</tspan>
-          </g>
-          <animate attributeName="opacity" values="0;0;0;1;1" keyTimes="0;0.6;0.65;0.8;1" dur="4s" fill="freeze"/>
-        </g>
-      </svg>
+    <div class="viz">
+      <canvas id="hero-report" role="img" aria-label="Пример отчёта по SLA: 1 240 обращений, 93,7 % выполнено в срок, 4 из 5 услуг укладываются в цель 90 %."></canvas>
+      <button id="hero-replay" type="button" class="viz-replay" hidden>↻ Повторить</button>
     </div>
   </section>
 
@@ -204,5 +122,6 @@ __MENU_STYLES__
     <a href="https://github.com/Dorian101/-automation-platform">Исходный код на GitHub</a>
   </footer>
 </main>
+<script src="/about-hero.js" defer></script>
 </body>
 </html>

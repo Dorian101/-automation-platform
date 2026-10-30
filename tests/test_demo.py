@@ -356,7 +356,7 @@ class TestProjectPage:
     async def test_it_names_the_agents_file(self, visitor):
         body = await (await visitor.get("/project")).text()
 
-        assert "AGENTS.md" in body
+        assert "CLAUDE.md" in body
 
     async def test_it_credits_the_source_of_the_rules(self, visitor):
         body = await (await visitor.get("/project")).text()

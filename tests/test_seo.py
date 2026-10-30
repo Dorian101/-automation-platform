@@ -487,6 +487,16 @@ class TestWhenTheLinkIsShared:
         assert response.content_type == "image/png"
         assert await response.read()
 
+    async def test_the_about_hero_script_answers_without_a_session(self, crawler):
+        """The public page loads it, so a stranger has to be able to fetch it."""
+        response = await crawler.get("/about-hero.js", allow_redirects=False)
+
+        assert response.status == 200
+        assert response.content_type == "text/javascript"
+
+        page = await (await crawler.get("/about")).text()
+        assert 'src="/about-hero.js"' in page
+
     async def test_no_url_when_the_public_name_is_unknown(
         self, web_server, monkeypatch
     ):

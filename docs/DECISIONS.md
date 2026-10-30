@@ -1993,3 +1993,35 @@ against a fake bot, which recorded exactly `/add <text>` and
 state in the bot and a state store that does not survive a restart, both
 accepted for a personal bot and revisitable (persistent FSM storage) if the bot
 ever grows a paying audience.
+
+## 2026-10-30
+
+### Decision
+Replace the `/about` hero SVG with a canvas animation served as a script, and
+keep the working rules in one tracked `CLAUDE.md`
+
+### Reason
+The SMIL chart moved a few dozen hand-placed elements and labelled them "Набор
+1", which said nothing about the work. Scattered tickets settling into a report
+need over a thousand moving points, which SMIL cannot carry. Separately, the
+rules lived in three untracked files that had drifted: the ban on pushing without
+a command sat in one, the deploy proof in another, and a clean checkout failed a
+test because the page named a file the repository did not hold.
+
+### How it is done
+
+- `app/web/about_hero.js` draws 1 320 points, one per ticket, into five service
+  lanes and then an on-time report. Position is a pure function of time.
+- It is a file at `/about-hero.js`, because the CSP allows scripts from this
+  origin and the page carries no nonce.
+- The figures are invented and the page says so. They are hardcoded beside the
+  counts, which is acceptable for one fixed example.
+- A reduced-motion visitor gets the finished report and a replay button, which is
+  hidden until the script runs. The owner's own machine has reduced motion on.
+- `CLAUDE.md` holds the rules and the release order. The server address and
+  credentials stay out of it, because the repository is public.
+
+### Result
+The hero shows the owner's actual subject and ends on a finding rather than on a
+shape. It now depends on a script, so a visitor without JavaScript sees an empty
+area. The hero no longer sits beside the headline below 980px. 852 tests pass.

@@ -70,6 +70,10 @@ OG_IMAGE_PNG = Path(__file__).resolve().parent / "og-image.png"
 # `fonts/`, generated once and served without an external request.
 FONTS_DIR = Path(__file__).resolve().parent / "fonts"
 
+# The /about hero. A file rather than inline: the CSP allows scripts from this
+# origin, and an inline one would need a nonce the page does not carry.
+ABOUT_HERO_JS = Path(__file__).resolve().parent / "about_hero.js"
+
 DAY_SECONDS = 86400
 
 # Binds a Login Widget payload to the browser that started it. The signature
@@ -119,6 +123,7 @@ PUBLIC_PATHS = {
     "/favicon.ico",
     "/favicon.svg",
     "/og-image.png",
+    "/about-hero.js",
 }
 
 # What a request carries to say it is the owner's own working rather than a
@@ -710,6 +715,14 @@ class WebServer:
             headers={"Cache-Control": "public, max-age=86400"},
         )
 
+    async def _about_hero(self, request: web.Request) -> web.Response:
+        """The script that draws the hero of /about."""
+        return web.Response(
+            body=ABOUT_HERO_JS.read_bytes(),
+            content_type="text/javascript",
+            headers={"Cache-Control": "public, max-age=3600"},
+        )
+
     async def _fonts(self, request: web.Request) -> web.Response:
         """A self-hosted font file or its stylesheet.
 
@@ -1148,6 +1161,7 @@ class WebServer:
                 web.get("/favicon.ico", self._favicon),
                 web.get("/favicon.svg", self._favicon),
                 web.get("/og-image.png", self._og_image),
+                web.get("/about-hero.js", self._about_hero),
                 web.get("/fonts/{name}", self._fonts),
             ],
         )

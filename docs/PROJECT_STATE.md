@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.61.1
+v0.62.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -353,6 +353,7 @@ Implemented:
 Purpose:
 
 * browser access to the same command set
+* `/about` opens on a canvas animation of an invented SLA report (`app/web/about_hero.js`)
 
 Implemented:
 
@@ -757,6 +758,6 @@ Before starting a new sprint:
 
 During implementation:
 - Always specify full file paths
-- Do not create new files without agreement
+- Name new files in the report; agree new dependencies first
 - Keep changes minimal
 - Run ruff check and pytest before committing

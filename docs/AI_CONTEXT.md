@@ -354,6 +354,12 @@ render SVG. Change the look in the SVG and re-render the PNG — never edit the
 PNG by hand. Both the favicon and this image share one mark: a hub with modules
 radiating off it, the platform's shape, not a chat bubble.
 
+The `/about` hero is a canvas drawn by `app/web/about_hero.js`, served at
+`/about-hero.js` as a file because the CSP allows scripts from this origin only.
+Each point is one ticket of an invented SLA report; the counts are in the script
+and the page labels them as an example. A reduced-motion visitor gets the
+finished report and a replay button.
+
 ## Navigation
 
 One navigation, rendered into every page by `pages.nav()`, built from what the
@@ -704,7 +710,7 @@ Before starting a new sprint:
 
 During implementation:
 - Always specify full file paths
-- Do not create new files without agreement
+- Name new files in the report; agree new dependencies first
 - Keep changes minimal
 
 ## Runtime
@@ -764,7 +770,7 @@ of it — the count grows every sprint, and paying it on every small change is
 how a two-minute suite becomes a five-minute one nobody runs.
 
 **Before a commit — run everything.** `uv run ruff check . && uv run pytest`
-with no selection, as AGENTS.md requires. This is what catches a change
+with no selection, as CLAUDE.md requires. This is what catches a change
 reaching something the fast mode never loaded, and skipping it because the
 fast mode was green is exactly how a green suite stops meaning anything.
 
