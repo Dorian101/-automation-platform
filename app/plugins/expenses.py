@@ -104,6 +104,22 @@ def _money(value: Decimal) -> str:
     return f"{value.quantize(Decimal('1')):,.0f}".replace(",", " ")
 
 
+#: How a month's total splits into separate purchases in the demonstration, in
+#: percent. One line a category reads as a summary rather than as a month lived.
+DEMO_PURCHASES = {
+    "Продукты": (31, 24, 19, 15, 11),
+    "Кафе и рестораны": (52, 29, 19),
+    "Транспорт": (40, 35, 25),
+}
+
+
+def _purchases(total: int, shares: tuple[int, ...]) -> list[int]:
+    """Split a total by percent; the last part takes what rounding left."""
+    parts = [total * share // 100 for share in shares[:-1]]
+
+    return [*parts, total - sum(parts)]
+
+
 class ExpensesPlugin(BasePlugin):
     name = "expenses"
     version = "0.1.0"
@@ -306,7 +322,6 @@ class ExpensesPlugin(BasePlugin):
                 {"key": "total", "label": "Сумма", "num": True},
                 {"key": "share", "label": "Доля", "num": True},
             ],
-            "empty": "В этом месяце трат нет",
             "rows": [
                 {
                     "category": row["category"],
@@ -330,7 +345,7 @@ class ExpensesPlugin(BasePlugin):
             for category in categories
         ]
 
-        return [
+        forms = [
             {
                 "id": "spend",
                 "title": "Добавить трату",
@@ -390,6 +405,10 @@ class ExpensesPlugin(BasePlugin):
                 ],
             },
         ]
+
+        # A first visit has nothing to spend against, so the form that fixes
+        # that comes first rather than under one that cannot be submitted.
+        return forms if options else forms[::-1]
 
     def _check_guest_room(self, identity: Identity, expenses: bool = False) -> None:
         """Refuse a write that would take a guest past its cap.
@@ -579,12 +598,15 @@ class ExpensesPlugin(BasePlugin):
             day = today.day if back == 0 else min(15, int(number))
 
             for name, values in amounts.items():
-                self.repo.add(
-                    identity,
-                    self._category_id(identity, name),
-                    Decimal(values[back]),
-                    date(int(year), int(number), day),
-                )
+                for index, amount in enumerate(
+                    _purchases(values[back], DEMO_PURCHASES.get(name, (100,)))
+                ):
+                    self.repo.add(
+                        identity,
+                        self._category_id(identity, name),
+                        Decimal(amount),
+                        date(int(year), int(number), max(1, day - index * 3)),
+                    )
 
     def _category_id(self, identity: Identity, name: str) -> int:
         """Find the demo category, creating it the first time.

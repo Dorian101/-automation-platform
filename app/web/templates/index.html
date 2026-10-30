@@ -119,7 +119,6 @@
   .plugin { margin-bottom: 0.9rem; }
   .plugin:last-child { margin-bottom: 0; }
   .plugin-name { font-weight: 600; }
-  .plugin-desc { color: var(--muted); font-size: 0.85rem; }
   ul { margin: 0.35rem 0 0; padding-left: 1.1rem; }
   li { margin-bottom: 0.2rem; }
   .chip {
@@ -168,15 +167,15 @@ __MENU_STYLES__
   <div class="panel">
     <h2>Команда</h2>
     <form id="form">
-      <input type="text" id="input" placeholder="/add buy milk" autocomplete="off" autofocus>
+      <input type="text" id="input" placeholder="/add купить молоко" autocomplete="off" autofocus>
       <button type="submit" id="send">Выполнить</button>
     </form>
-    <p class="hint">Заметки хранятся раздельно по каналам и читаются вместе при связанной паре.</p>
+    <p class="hint">Заметки из бота и браузера видны вместе, если аккаунт связан с Telegram.</p>
   </div>
 
   <div class="panel" id="result-panel">
     <h2>Результат</h2>
-    <div id="output">Готово.</div>
+    <div id="output">Здесь появится ответ на команду.</div>
     <div id="rendered"></div>
   </div>
 
@@ -358,13 +357,8 @@ fetch('/api/commands')
 
       const name = document.createElement('div');
       name.className = 'plugin-name';
-      name.textContent = plugin.name;
+      name.textContent = plugin.description;
       block.appendChild(name);
-
-      const desc = document.createElement('div');
-      desc.className = 'plugin-desc';
-      desc.textContent = plugin.description;
-      block.appendChild(desc);
 
       const list = document.createElement('ul');
       for (const [command, description] of Object.entries(plugin.commands)) {

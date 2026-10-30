@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>__TITLE__ — Automation Platform</title>
+<title>__TITLE__ — Платформа автоматизации</title>
 __STYLES__
 <style>
   /* A plugin page may need more room than a document: a kanban board or a
@@ -180,10 +180,10 @@ __STYLES__
   /* The kanban board: three columns side by side, one per status. A pile of
      tasks reads as a board, not as a long list, and moving a card between the
      columns is the whole of changing its status. */
-  .kanban { display: flex; gap: 1.25rem; align-items: flex-start; }
+  .kanban { display: flex; flex-wrap: wrap; gap: 1.25rem; align-items: flex-start; }
   .kbcol {
     flex: 1 1 0;
-    min-width: 16rem;
+    min-width: 13rem;
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 10px;

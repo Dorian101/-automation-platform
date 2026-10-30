@@ -291,9 +291,19 @@ class TestCategoryActions:
 
         view = await plugin.page_action(OTHER, "month", {})
 
-        options = view["forms"][0]["fields"][0]["options"]
+        spend = next(form for form in view["forms"] if form["id"] == "spend")
 
-        assert options == []
+        assert spend["fields"][0]["options"] == []
+
+    async def test_a_first_visit_opens_on_the_category_form(self, plugin, web_identity):
+        view = await plugin.page_action(web_identity, "month", {})
+
+        assert view["forms"][0]["id"] == "catadd"
+
+    async def test_an_empty_month_says_so_once(self, plugin, web_identity):
+        view = await plugin.page_action(web_identity, "month", {})
+
+        assert "empty" not in view["table"]
 
 
 class TestDeleteAction:
@@ -389,7 +399,7 @@ class TestDateFollowsTheMonth:
         )
         amount = next(
             field
-            for field in view["forms"][0]["fields"]
+            for field in next(f for f in view["forms"] if f["id"] == "spend")["fields"]
             if field["name"] == "amount"
         )
 
