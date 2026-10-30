@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.64.0
+v0.64.1
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -354,6 +354,7 @@ Purpose:
 * browser access to the same command set
 * `/about` opens on a canvas animation of an invented SLA report (`app/web/about_hero.js`), then three case studies from the owner's work
 * an address nothing serves answers a styled page, `templates/not_found.html`
+* the about page counts the owner's experience from `CAREER_START` and scrolls smoothly to its anchors
 
 Implemented:
 

@@ -83,6 +83,8 @@ ABOUT_HERO_JS = Path(__file__).resolve().parent / "about_hero.js"
 
 DAY_SECONDS = 86400
 
+CAREER_START = date(2023, 7, 1)
+
 # Binds a Login Widget payload to the browser that started it. The signature
 # proves a real Telegram user signed it; this proves this browser is the one
 # presenting it. Without it, anyone could take their own valid payload and ask
@@ -518,7 +520,7 @@ class WebServer:
         return _render_page(
             "about.html",
             self._nav(request),
-            replacements=self._project_counts(),
+            replacements={"__EXPERIENCE__": _experience(date.today())},
             path=request.path,
         )
 
@@ -1311,6 +1313,33 @@ def _telegram_panel(link, nonce: str, csrf: str) -> str:
         f'data-auth-url="/account/telegram/link?nonce={nonce}">'
         "</script>"
     )
+
+
+def _experience(today: date) -> str:
+    """How long the owner has worked, in the words the about page uses.
+
+    Counted rather than typed, because a figure in a template goes stale on the
+    first of every month. July 2023 counts as a whole month.
+    """
+    start = CAREER_START
+    months = (today.year - start.year) * 12 + today.month - start.month + 1
+    years, months = divmod(months, 12)
+    parts = []
+
+    if years:
+        parts.append(f"{years} {_plural(years, 'год', 'года', 'лет')}")
+
+    if months:
+        parts.append(f"{months} {_plural(months, 'месяц', 'месяца', 'месяцев')}")
+
+    return " ".join(parts)
+
+
+def _plural(number: int, one: str, few: str, many: str) -> str:
+    if 11 <= number % 100 <= 14:
+        return many
+
+    return {1: one, 2: few, 3: few, 4: few}.get(number % 10, many)
 
 
 def _is_a_visit(request: web.Request, response: web.StreamResponse) -> bool:

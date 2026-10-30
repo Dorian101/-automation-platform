@@ -184,6 +184,8 @@
   .viz--small { width: min(12rem, 30%); }
   /* The headline's longest line would otherwise run up to the chart beside it
      on every width until the chart reaches its own maximum. */
+  html { scroll-behavior: smooth; }
+  section[id] { scroll-margin-top: 1.5rem; }
   .hero--report { min-height: 33rem; }
   .hero--report h1 { font-size: clamp(2.2rem, 5.6vw, 5.5rem); }
   .viz canvas { width: 100%; display: block; }

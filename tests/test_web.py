@@ -1,10 +1,11 @@
 import re
+from datetime import date
 
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
 from app.core.identity import WEB, Identity, telegram
-from app.web.server import WebServer
+from app.web.server import WebServer, _experience
 from tests.conftest import TEST_USERNAME
 
 
@@ -212,6 +213,28 @@ class TestPublicPages:
 
         assert response.status == 200
         assert response.content_type == "text/html"
+
+    async def test_the_about_page_anchors_lead_somewhere(self, guest):
+        body = await (await guest.get("/about")).text()
+
+        for anchor in ("cases", "contact"):
+            assert f'href="#{anchor}"' in body
+            assert f'id="{anchor}"' in body
+
+        assert "__EXPERIENCE__" not in body
+
+    @pytest.mark.parametrize(
+        ("today", "expected"),
+        [
+            (date(2026, 10, 30), "3 года 4 месяца"),
+            (date(2026, 11, 1), "3 года 5 месяцев"),
+            (date(2027, 6, 1), "4 года"),
+            (date(2027, 7, 1), "4 года 1 месяц"),
+            (date(2028, 6, 1), "5 лет"),
+        ],
+    )
+    def test_the_experience_is_counted(self, today, expected):
+        assert _experience(today) == expected
 
     async def test_an_address_nothing_serves_is_a_404_for_a_guest(self, guest):
         """Not a redirect to the login page, which would say the page exists."""
