@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.63.1
+v0.63.2
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -743,4 +743,4 @@ before trusting it.
 
 ## Development rules
 
-The working rules and the release order live in `CLAUDE.md`, in one place.
+The working rules and the release order live in a local, untracked `CLAUDE.md`.

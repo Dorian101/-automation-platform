@@ -689,7 +689,7 @@ is the reason they were written.
 
 ## Development rules
 
-The working rules and the release order live in `CLAUDE.md`, in one place.
+The working rules and the release order live in a local, untracked `CLAUDE.md`.
 
 ## Runtime
 
@@ -749,7 +749,7 @@ of it — the count grows every sprint, and paying it on every small change is
 how a two-minute suite becomes a five-minute one nobody runs.
 
 **Before a commit — run everything.** `uv run ruff check . && uv run pytest`
-with no selection, as CLAUDE.md requires. This is what catches a change
+with no selection. This is what catches a change
 reaching something the targeted run never loaded, and skipping it because the
 targeted run was green is exactly how a green suite stops meaning anything.
 

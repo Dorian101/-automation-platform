@@ -2076,3 +2076,23 @@ exists.
 ### Result
 A commit that fails lint or tests no longer reaches the server, and a mistyped
 address reads as missing. A deploy now takes as long as the suite does.
+
+## 2026-10-30
+
+### Decision
+Keep the agent's own configuration out of the repository
+
+### Reason
+`CLAUDE.md` and `.claude/` are local development setup. Tracking them puts one
+machine's arrangement in a public project, and every edit to them would deploy.
+This reverses the tracked `CLAUDE.md` of the entries above.
+
+### How it is done
+
+- Both are listed in `.git/info/exclude` and removed from the index.
+- The project page no longer names the rules file, because a page test requires
+  every named file to exist in a clean checkout.
+
+### Result
+Changing the agent's setup no longer touches git or the server. The rules are not
+readable from the repository, and a clean checkout has none of them.
