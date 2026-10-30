@@ -12,12 +12,11 @@
 # their code executed on the server, because the deploy runs it. Triggering a
 # deploy removes the waiting, not the permission.
 #
-# Note what is *not* claimed here. Branch protection on main does not put a
-# reviewer between the owner and the server — the owner is a bypass actor, and
-# an author cannot approve their own pull request, so for one person there is
-# no setting that does. The rule still refuses force pushes and branch
-# deletion and covers anyone without admin. The boundary is the GitHub
-# account itself.
+# Note what is *not* claimed here. The ruleset on main does not put a reviewer
+# between the owner and the server: an author cannot approve their own pull
+# request, so for one person there is no setting that does. It refuses force
+# pushes and branch deletion for everyone, the owner included. The boundary is
+# the GitHub account itself.
 #
 # No third-party action is used. `webfactory/ssh-agent`, `setup-uv` and their
 # neighbours are the usual way to do this and each one is code from somebody

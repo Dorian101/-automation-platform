@@ -258,6 +258,10 @@ to read as MSK.
 
 ## Web interface
 
+An address nothing serves gets `templates/not_found.html` with a 404, and so does
+a non-admin asking for the administration, so the two answers are identical. A
+missing demonstration page gets the same page.
+
 - GET /login, POST /login — sign-in form
 - GET /signup, POST /signup — registration, 404 while SIGNUP_OPEN is false
 - GET /about, GET /project — static public documents
@@ -450,9 +454,8 @@ Two things about it are easy to get backwards:
   protection.** The key is confined to one script, but that script is in the
   repository, so whoever can push to `main` can change it — and pushing code
   here already means that code runs on the server, because the deploy starts
-  it. Branch protection is on `main`, with the owner as an always-allow
-  bypass: it refuses force pushes and branch deletion and covers anyone
-  without admin, but it does not put a reviewer between the owner and the
+  it. A ruleset on `main` refuses force pushes and branch deletion for
+  everyone, the owner included, but it does not put a reviewer between the owner and the
   server, because there is no second reviewer and an author cannot approve
   their own pull request. The boundary is the GitHub account itself. Saying
   otherwise here would be the comfortable lie, and this file is what gets

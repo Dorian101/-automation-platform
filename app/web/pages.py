@@ -229,3 +229,18 @@ def render_demo_landing(links: list[dict], nav_html: str) -> str:
     source = source.replace("__CARDS__", "".join(cards))
 
     return source
+
+
+def render_not_found() -> str:
+    """The page for an address nothing serves.
+
+    The same bytes for everyone, with no navigation, because the closed
+    administration answers with it too: anything that differed would tell a
+    stranger where that area lives.
+    """
+    source = (TEMPLATES_DIR / "not_found.html").read_text(encoding="utf-8")
+
+    return source.replace(
+        "__PAGE_STYLES__",
+        (TEMPLATES_DIR / "_page_styles.html").read_text(encoding="utf-8"),
+    )

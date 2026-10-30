@@ -44,7 +44,14 @@ from .csrf import (
     new_token,
 )
 from .demo import VISITOR, DemoService, is_public_demo_path
-from .pages import account_block, attic, menu_styles, nav, render_plugin_page
+from .pages import (
+    account_block,
+    attic,
+    menu_styles,
+    nav,
+    render_not_found,
+    render_plugin_page,
+)
 from .ratelimit import RateLimiter, client_ip
 from .responses import redirect as _redirect
 from .responses import token_rejected
@@ -1124,9 +1131,13 @@ class WebServer:
             request.path in PUBLIC_PATHS
             or request.path.startswith("/fonts/")
             or is_public_demo_path(request.path)
-            or isinstance(request.match_info.http_exception, web.HTTPNotFound)
         ):
             return await handler(request)
+
+        if isinstance(request.match_info.http_exception, web.HTTPNotFound):
+            return web.Response(
+                text=render_not_found(), content_type="text/html", status=404
+            )
 
         if self._identity(request) is None:
             return self._login_required(request)

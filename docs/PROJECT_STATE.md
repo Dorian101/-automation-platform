@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.63.2
+v0.64.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -100,10 +100,9 @@ to `main` can change what it runs — and pushing code here already means it
 runs on this server, because the deploy starts it.
 
 **There is no separation of duties in this project, and the documentation does
-not claim otherwise.** Branch protection is configured on `main` with the
-owner as an always-allow bypass. It refuses force pushes and branch deletion,
-and it covers anyone without admin — a later collaborator, a token — without
-anyone having to remember this file. It does not put a reviewer between the
+not claim otherwise.** A ruleset on `main` refuses force pushes and branch
+deletion for everyone, the owner included — a later collaborator, a token —
+without anyone having to remember this file. It does not put a reviewer between the
 owner and the server: an author cannot approve their own pull request, and
 there is no second approver. So the honest boundary is the GitHub account.
 The automation removes the waiting, not the permission.
@@ -353,7 +352,8 @@ Implemented:
 Purpose:
 
 * browser access to the same command set
-* `/about` opens on a canvas animation of an invented SLA report (`app/web/about_hero.js`)
+* `/about` opens on a canvas animation of an invented SLA report (`app/web/about_hero.js`), then three case studies from the owner's work
+* an address nothing serves answers a styled page, `templates/not_found.html`
 
 Implemented:
 
@@ -714,13 +714,6 @@ deployment that never sets it records everything as before.
   connection instead of opening one — the fix to the visit-log page's
   four-second, four-hundred-connection read was to pool, on top of asking
   once rather than once per row.
-* The `/project` architecture diagram scrolls horizontally on a phone rather
-  than fitting the screen, because its labels would become unreadably small if
-  the whole viewBox were squeezed into 390 px. Scrolling keeps the text legible
-  at the cost of a swipe, and it is a deliberate trade rather than a missed
-  responsive breakpoint.
-
-⸻
 
 ## Potential tasks:
 

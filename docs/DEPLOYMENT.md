@@ -669,14 +669,14 @@ one pushing, and the owner is the one whose account would have to be
 compromised for anything else to get in. So the honest statement of the
 boundary is the GitHub account itself.
 
-Branch protection on `main` is configured anyway, and its owner is listed as
-an always-allow bypass — the fast path was worth more than the ceremony. What
-it actually buys:
+A ruleset on `main` is configured anyway, with no bypass and no pull request
+requirement — the fast path was worth more than the ceremony. What it actually
+buys:
 
 - force pushes and branch deletion are refused, so a mistake costs a reflog
   instead of the history;
-- the rules apply in full to anyone without admin, which means a second
-  collaborator or a token added later is covered without revisiting this;
+- the rules apply to everyone, which means a second collaborator or a token
+  added later is covered without revisiting this;
 - there is a place where "main must go through a pull request" becomes a
   setting rather than an intention.
 

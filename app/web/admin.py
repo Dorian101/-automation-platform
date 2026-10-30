@@ -38,7 +38,7 @@ from app.db.users_repo import User, UsersRepository
 from app.db.visits_repo import DEFAULT_LIMIT, Visit, VisitsRepository
 from app.web.auth import SESSION_COOKIE, resolve_user
 from app.web.csrf import CSRF_FIELD, CsrfSigner
-from app.web.pages import menu_styles
+from app.web.pages import menu_styles, render_not_found
 from app.web.responses import redirect, token_rejected
 from app.web.system import cores, disk, load, memory
 
@@ -53,18 +53,6 @@ TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 USERS: web.AppKey[UsersRepository] = web.AppKey("users", UsersRepository)
 SESSIONS: web.AppKey[SessionsRepository] = web.AppKey(
     "sessions", SessionsRepository
-)
-
-#: The body a refused request gets: an ordinary missing page, with `noindex`
-#: on it for the case where a crawler ever arrives. The status is what has to
-#: match the application's own answer for an address that does not exist, and
-#: it does; the body is not claimed to be identical, because there is no
-#: missing-page template in this application to be identical to.
-NOT_FOUND_BODY = (
-    "<!DOCTYPE html><html lang=\"ru\"><head><meta charset=\"utf-8\">"
-    '<meta name="robots" content="noindex, nofollow">'
-    "<title>Страница не найдена</title>"
-    "</head><body><h1>Страница не найдена</h1></body></html>"
 )
 
 
@@ -98,7 +86,7 @@ async def require_admin(
     if not user.is_admin:
         return web.Response(
             status=404,
-            text=NOT_FOUND_BODY,
+            text=render_not_found(),
             content_type="text/html",
             charset="utf-8",
         )

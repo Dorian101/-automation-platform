@@ -218,6 +218,7 @@ class TestPublicPages:
         response = await guest.get("/no-such-place", allow_redirects=False)
 
         assert response.status == 404
+        assert "Такой страницы" in await response.text()
 
     async def test_everything_else_still_requires_a_session(self, guest):
         """Being public has to stay the exception, not a growing habit."""

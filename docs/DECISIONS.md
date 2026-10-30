@@ -2096,3 +2096,25 @@ This reverses the tracked `CLAUDE.md` of the entries above.
 ### Result
 Changing the agent's setup no longer touches git or the server. The rules are not
 readable from the repository, and a clean checkout has none of them.
+
+## 2026-10-30
+
+### Decision
+Give a missing address a page of its own, and show the architecture on a phone as
+a list instead of a sideways scroll
+
+### Reason
+A plain 404 was the one bare page on the public site, and the closed
+administration had its own body, so the two answers could be told apart. The
+diagram's sideways scroll, accepted earlier as a deliberate trade, hid most of
+the drawing on the width recruiters read on.
+
+### How it is done
+
+- `render_not_found` serves `not_found.html` from `_authenticate` and from the
+  admin guard, with no navigation, so both answers are byte for byte the same.
+- Below 640px the SVG is hidden and `.diagram-flow` carries the same chain.
+
+### Result
+A mistyped address offers a way onwards. The list repeats the diagram's content,
+so a change to the architecture now has two places to update.

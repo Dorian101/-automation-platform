@@ -39,7 +39,7 @@ from app.core.config import Config
 from app.core.identity import Identity, guest
 from app.core.results import CommandError
 
-from .pages import nav, render_demo_landing, render_plugin_page
+from .pages import nav, render_demo_landing, render_not_found, render_plugin_page
 from .ratelimit import RateLimiter, client_ip
 
 logger = logging.getLogger(__name__)
@@ -213,7 +213,9 @@ class DemoService:
             # address is a guess away. A plugin that did not ask to be
             # published gets a 404 rather than a page, and says nothing about
             # whether it exists.
-            return web.Response(status=404)
+            return web.Response(
+                text=render_not_found(), content_type="text/html", status=404
+            )
 
         page_path = plugin.page
         identity, token = read_guest(request)

@@ -176,16 +176,12 @@ class TestTheGate:
         """An address that was never registered and one that is closed must
         answer alike, or the difference tells a stranger where the
         administration lives.
-
-        The status is what this asserts. The body is not claimed to match:
-        this application has no missing-page template for the two to match,
-        and a Russian heading on one of them is not what a request author
-        is reading.
         """
         closed = await other_user_client.get(USERS_PATH)
         missing = await other_user_client.get("/no-such-place")
 
         assert closed.status == missing.status == 404
+        assert await closed.text() == await missing.text()
 
     async def test_the_area_is_never_a_search_result(self, admin_client):
         """robots.txt already disallows it, so this is the second of two

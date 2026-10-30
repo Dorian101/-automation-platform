@@ -51,6 +51,9 @@
      diagram is not a reason to start. */
   figure.diagram { margin: 1.5rem 0; }
   figure.diagram svg { width: 100%; max-width: 42rem; height: auto; display: block; }
+  /* A phone cannot fit the drawing at a readable size, so it gets the same
+     chain as a list. */
+  .diagram-flow { display: none; }
   figcaption { color: var(--muted); font-size: 0.85rem; margin: 0.6rem 0 0; }
   p { margin: 0 0 1rem; }
   ul, ol { margin: 0 0 1rem; padding-left: 1.25rem; }
@@ -220,6 +223,33 @@
   .links { display: flex; flex-wrap: wrap; gap: 1rem 2rem; margin-top: 1.5rem; }
   .links a { font: 400 12px 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
   .project-list { border-top: 1px solid var(--border); margin: 0 0 2rem; }
+  .project-list--brief .project { min-height: 120px; }
+  .project-list--brief .project h3 { font-size: clamp(1.4rem, 2.2vw, 2rem); }
+  .case {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    padding: 2.5rem 0;
+    border-top: 1px solid var(--border);
+  }
+  .case .project-meta { margin: 0 0 1rem; }
+  .case h3 {
+    font-size: clamp(1.7rem, 2.8vw, 2.6rem);
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+    font-weight: 500;
+    margin: 0;
+  }
+  .case dl { margin: 0; }
+  .case dt {
+    font: 11px 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-top: 1.25rem;
+  }
+  .case dt:first-child { margin-top: 0; }
+  .case dd { margin: 0.35rem 0 0; line-height: 1.6; }
   .project {
     display: grid;
     grid-template-columns: 18% 1fr 34%;
@@ -254,7 +284,7 @@
     text-transform: uppercase;
   }
   .project:hover .project-meta { color: #272727; }
-  .project h3 { font-size: clamp(2rem, 3.4vw, 3.4rem); letter-spacing: -0.04em; font-weight: 500; margin: 0; }
+  .project h3 { font-size: clamp(2rem, 3.4vw, 3.4rem); letter-spacing: -0.04em; line-height: 1.05; font-weight: 500; margin: 0; }
   .project p { color: var(--muted); font-size: 14px; line-height: 1.7; margin: 0; }
   .project:hover p { color: #272727; }
   .location {
@@ -362,11 +392,20 @@
     }
     .project-meta { flex-direction: row; gap: 0.5rem 1rem; flex-wrap: wrap; }
     .project h3 { font-size: 1.6rem; }
+    .case { grid-template-columns: 1fr; gap: 1.5rem; padding: 2rem 0; }
     .project p { font-size: 0.9rem; }
     .work-heading { flex-direction: column; gap: 1rem; margin-bottom: 2rem; }
     .services { grid-template-columns: 1fr; }
     .services span:nth-child(even) { padding-left: 0; border-left: none; }
-    figure.diagram { overflow-x: auto; }
-    figure.diagram svg { min-width: 42rem; }
+    figure.diagram svg { display: none; }
+    .diagram-flow {
+      display: block;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      border-left: 1px solid var(--border);
+    }
+    .diagram-flow li { padding: 0.5rem 0 0.5rem 1rem; color: var(--muted); font-size: 0.9rem; }
+    .diagram-flow b { display: block; color: var(--text); font-weight: 600; }
   }
 </style>

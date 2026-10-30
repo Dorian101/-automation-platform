@@ -199,6 +199,13 @@ __MENU_STYLES__
         <text class="small" x="403" y="1">идентичность</text>
       </g>
     </svg>
+    <ol class="diagram-flow">
+      <li><b>Транспорт</b>Telegram-бот на aiogram и веб-консоль на aiohttp</li>
+      <li><b>Identity</b>kind:id, PersonResolver связывает каналы</li>
+      <li><b>Dispatcher</b>parse_command → PluginManager.execute → CommandResult</li>
+      <li><b>Плагины</b>system · notes · reminders · clipboard · expenses · applications · todo</li>
+      <li><b>Хранение и доставка</b>PostgreSQL и уведомления в чат Telegram</li>
+    </ol>
     <figcaption>Два транспорта, одно ядро. Плагин не знает, откуда пришла команда,
     поэтому бот и консоль получают новую функцию из одного кода.</figcaption>
     </figure>
@@ -207,8 +214,9 @@ __MENU_STYLES__
     секрет — доказательство, что запрос прошёл через прокси. Кто пользователь,
     решает уже сессионная cookie, выданная за <code>POST /login</code>. Пароли
     хранятся salted-хэшами scrypt, а от сессий в базе остаётся только SHA-256.
-    Пуш в <code>main</code> разворачивает проект сам: GitHub Actions по ключу
-    с единственной разрешённой командой выполняет скрипт деплоя.</p>
+    Пуш в <code>main</code> сначала проходит <code>ruff</code> и <code>pytest</code>
+    в GitHub Actions, а затем проект разворачивается сам: по ключу с единственной
+    разрешённой командой выполняется скрипт деплоя.</p>
   </section>
 
   <section class="about">
@@ -255,9 +263,6 @@ __MENU_STYLES__
     </div>
   </section>
 
-  <footer>Актуальное состояние проекта, ограничения и история решений —
-  в репозитории: <code>PROJECT_STATE.md</code> и
-  <code>DECISIONS.md</code>.</footer>
 </main>
 </body>
 </html>
