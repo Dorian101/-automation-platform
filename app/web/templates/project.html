@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Платформа автоматизации — проект и метод работы</title>
-<meta name="description" content="Личная платформа автоматизации: заметки, напоминания, расходы и отклики на вакансии — в Telegram-боте и веб-интерфейсе над одной базой.">
+<meta name="description" content="Личная платформа автоматизации: заметки, напоминания, расходы, задачи и отклики на вакансии в браузере и Telegram над одной базой.">
 __PAGE_STYLES__
 __MENU_STYLES__
 </head>
@@ -70,14 +70,29 @@ __MENU_STYLES__
   <section class="about">
     <p class="section-tag">01 / Что это</p>
     <p class="location">Личная платформа автоматизации</p>
-    <p>Собственная система для повседневных дел: заметки, напоминания,
-    расходы и отклики на вакансии. Всё это — и в Telegram-боте, и в
-    веб-интерфейсе, над одной базой. Одна команда работает в обоих каналах,
-    а данные у каждого пользователя свои.</p>
-    <p>Проект — способ показать, а не рассказать. Платформа собрана целиком:
-    схема базы и миграции, тесты, деплой на VPS, бэкапы. Заодно — проявление
-    интереса к чат-ботам и агентам, про которые спрашивают в вакансиях.</p>
-    <div class="facts">
+    <p class="lens-brief">Система для повседневных дел: заметки, напоминания,
+    расходы, задачи и отклики на вакансии. Заметки и напоминания доступны и в
+    Telegram, и в браузере, а для расходов, задач и откликов есть отдельные
+    страницы. Аккаунты можно связать: данные станут общими, а напоминания
+    будут приходить в чат.</p>
+    <p class="lens-brief">Проект показывает полный цикл разработки: от схемы
+    базы и тестов до автоматического деплоя и резервных копий. Разработку вели
+    AI-агенты, задачи ставил человек. Платформа работает в проде, а демо
+    открывается <a href="/demo">без регистрации</a>.</p>
+    <p class="lens-deep">Python-монолит: один процесс держит aiogram polling,
+    HTTP-сервер на aiohttp и фоновые воркеры напоминаний и дедлайнов. Данные —
+    в PostgreSQL. Схема сознательно простая: один VPS, один сервис, никаких
+    брокеров и отдельных процессов.</p>
+    <p class="lens-deep">Ядро не зависит от транспорта. Текстовая команда из
+    обоих каналов проходит через <code>parse_command</code> и
+    <code>PluginManager.execute</code> и возвращает <code>CommandResult</code>.
+    Плагин с флагом <code>web_only</code> работает через страницы, а транспорт
+    проверяет роутер.</p>
+    <p class="lens-deep">Identity хранится как <code>kind:id</code>, поэтому
+    одинаковые id из разных каналов не смешиваются. <code>PersonResolver</code>
+    объединяет связанные аккаунты при чтении, а запись остаётся под исходной
+    identity: отвязка действует сразу, а история сохраняет источник.</p>
+    <div class="facts lens-deep">
       <div class="fact"><b>__PLUGINS__</b><span>плагинов</span></div>
       <div class="fact"><b>__COMMANDS__</b><span>команд</span></div>
       <div class="fact"><b>__MIGRATIONS__</b><span>миграций</span></div>
@@ -87,35 +102,45 @@ __MENU_STYLES__
   <section class="work">
     <div class="work-heading">
       <p class="section-tag">02 / Что умеет</p>
-      <h2>Четыре направления,<br>два канала.</h2>
+      <h2>Дела, деньги,<br>поиск работы.</h2>
     </div>
 
     <div class="project-list">
       <article class="project blue">
         <div class="project-meta"><span>01</span><span>Заметки · Напоминания</span></div>
         <h3>Заметки и напоминания</h3>
-        <p>Команды <code>/notes</code>, <code>/remind</code> и <code>/copy</code>
-        работают одинаково в боте и в браузере — один разбор команды, общий
-        набор плагинов, два транспорта.</p>
+        <p class="lens-brief">Записать мысль или поставить напоминание можно
+        командой в боте или в браузере. В нужное время сообщение придёт в
+        Telegram.</p>
+        <p class="lens-deep">Команды <code>/notes</code>, <code>/remind</code> и
+        <code>/copy</code> используют общий разбор и набор плагинов. Напоминания
+        лежат в базе, а фоновый воркер доставляет их через слой уведомлений.</p>
       </article>
       <article class="project lime">
-        <div class="project-meta"><span>02</span><span>Финансы · NUMERIC</span></div>
+        <div class="project-meta"><span>02</span><span>Финансы · Категории</span></div>
         <h3>Расходы</h3>
-        <p>Категории заводит сам пользователь. Суммы хранятся как NUMERIC и
-        проходят через Python как Decimal — деньги не теряют точность.</p>
+        <p class="lens-brief">Учёт трат по своим категориям и сводка за месяц.</p>
+        <p class="lens-deep">Категории заводит сам пользователь. Суммы хранятся
+        как <code>NUMERIC(12, 2)</code> и проходят через Python как
+        <code>Decimal</code>, поэтому деньги не теряют точность.</p>
       </article>
       <article class="project coral">
         <div class="project-meta"><span>03</span><span>Воронка · Статусы</span></div>
         <h3>Отклики на вакансии</h3>
-        <p>Статусы — конечный автомат: каждая стадия знает, куда можно
-        двигаться дальше. Кнопки рисуются из того же объявления, что проверяет
-        сервер.</p>
+        <p class="lens-brief">Воронка поиска работы: каждый отклик идёт по
+        стадиям, а на экране видны только возможные следующие шаги.</p>
+        <p class="lens-deep">Статусы образуют конечный автомат: каждая стадия
+        знает, куда можно двигаться дальше. Кнопки строятся из того же
+        объявления, которое проверяет сервер.</p>
       </article>
       <article class="project blue">
         <div class="project-meta"><span>04</span><span>Канбан · Дедлайны</span></div>
         <h3>Задачи</h3>
-        <p>Доска с колонками «к выполнению / в работе / сделано». Дедлайны
-        приходят напоминанием в Telegram, по одному на задачу.</p>
+        <p class="lens-brief">Канбан-доска с тремя колонками. Если Telegram
+        связан с аккаунтом, за сутки до дедлайна придёт напоминание.</p>
+        <p class="lens-deep">Три статуса и таблица допустимых переходов. Воркер
+        раз в час ищет задачи со сроком в ближайшие сутки, отправляет одно
+        напоминание и помечает задачу, чтобы не повторяться.</p>
       </article>
     </div>
   </section>
@@ -123,8 +148,13 @@ __MENU_STYLES__
   <section class="work">
     <div class="work-heading">
       <p class="section-tag">03 / Как устроено</p>
-      <h2>Два транспорта,<br>одно ядро.</h2>
+      <h2>Два входа,<br>одно ядро.</h2>
     </div>
+
+    <p class="lens-brief">Запрос из Telegram или браузера проходит один путь:
+    система определяет пользователя, передаёт команду нужному модулю и сохраняет
+    результат в базе. Нажмите кнопку под схемой: запрос выполнится по-настоящему,
+    а схема покажет его маршрут.</p>
 
     <figure class="diagram">
     <svg viewBox="0 0 760 600" role="img" aria-labelledby="diagram-title">
@@ -184,8 +214,8 @@ __MENU_STYLES__
       <text class="small" x="380" y="218" text-anchor="middle">PersonResolver связывает каналы</text>
 
       <rect class="box process" data-step="dispatcher" x="160" y="258" width="440" height="58" rx="8" />
-      <text class="label" x="380" y="278" text-anchor="middle" dominant-baseline="middle">Dispatcher</text>
-      <text class="small" x="380" y="298" text-anchor="middle">parse_command → PluginManager.execute → CommandResult</text>
+      <text class="label" x="380" y="278" text-anchor="middle" dominant-baseline="middle">PluginManager</text>
+      <text class="small" x="380" y="298" text-anchor="middle">parse_command → execute → CommandResult</text>
 
       <rect class="box process" data-step="plugin-system" x="32" y="344" width="94" height="40" rx="8" />
       <text class="cell" x="79" y="364" text-anchor="middle" dominant-baseline="middle">system</text>
@@ -229,12 +259,13 @@ __MENU_STYLES__
     <ol class="diagram-flow">
       <li data-step="web telegram"><b>Транспорт</b>Telegram-бот на aiogram и веб-консоль на aiohttp</li>
       <li data-step="identity"><b>Identity</b>kind:id, PersonResolver связывает каналы</li>
-      <li data-step="dispatcher"><b>Dispatcher</b>parse_command → PluginManager.execute → CommandResult</li>
+      <li data-step="dispatcher"><b>PluginManager</b>parse_command → execute → CommandResult</li>
       <li data-step="plugin-system plugin-notes plugin-reminders plugin-clipboard plugin-expenses plugin-applications plugin-todo"><b>Плагины</b>system · notes · reminders · clipboard · expenses · applications · todo</li>
       <li data-step="postgres notify"><b>Хранение и доставка</b>PostgreSQL и уведомления в чат Telegram</li>
     </ol>
-    <figcaption>Два транспорта, одно ядро. Плагин не знает, откуда пришла команда,
-    поэтому бот и консоль получают новую функцию из одного кода.</figcaption>
+    <figcaption class="lens-brief">Бот и браузер работают через один код и одну базу.</figcaption>
+    <figcaption class="lens-deep">Плагин получает команду и identity, а возвращает
+    <code>CommandResult</code>, поэтому ядро одинаково обслуживает оба транспорта.</figcaption>
     </figure>
     <div id="trace-actions" class="trace-actions" hidden>
       <p class="trace-title">Визуализация схемы работы команд</p>
@@ -250,7 +281,7 @@ __MENU_STYLES__
     <p class="lens-deep" style="margin-top: 2rem;">Caddy терминирует TLS и подставляет транспортный
     секрет — доказательство, что запрос прошёл через прокси. Кто пользователь,
     решает уже сессионная cookie, выданная за <code>POST /login</code>. Пароли
-    хранятся salted-хэшами scrypt, а от сессий в базе остаётся только SHA-256.
+    хранятся как хэши scrypt с солью, а от сессий в базе остаётся только SHA-256.
     Пуш в <code>main</code> сначала проходит <code>ruff</code> и <code>pytest</code>
     в GitHub Actions, а затем проект разворачивается сам: по ключу с единственной
     разрешённой командой выполняется скрипт деплоя.</p>
@@ -260,9 +291,10 @@ __MENU_STYLES__
     <p class="section-tag">04 / Как делалось</p>
     <p>Проект собирали несколько AI-агентов — свои и внешние скиллы, задачи
     ставит человек. Каждое изменение — отдельный коммит с объяснением, почему
-    решено так, а не что поменялось (это видно по диффу). Проверки — до пуша,
-    не после: <code>ruff</code> и <code>pytest</code> прогоняются перед каждым
-    коммитом, тесты проверяют и то, что работает, и то, что должно отказывать.</p>
+    решено так, а не что поменялось (это видно по диффу). По правилам работы
+    <code>ruff</code> и <code>pytest</code> запускаются перед коммитом, а CI
+    повторяет их перед деплоем. Тесты проверяют и то, что работает, и то, что
+    должно отказывать.</p>
     <p>Состояние живёт в файлах, а не в переписке: <code>DECISIONS.md</code>,
     <code>PROJECT_STATE.md</code>, <code>DEPLOYMENT.md</code>
     и <code>AI_CONTEXT.md</code>. Правила работы сложились из собственной практики и
@@ -279,23 +311,24 @@ __MENU_STYLES__
 
     <h3>Бэкап, который нельзя восстановить, — не бэкап</h3>
     <p>Создать дамп просто; убедиться, что он восстанавливается, — нет.
-    Поэтому восстановление проверялось заранее, а не в день, когда понадобилось.</p>
+    Поэтому восстановление проверено на отдельной базе: вернулись таблицы,
+    миграции и последовательности, а новая запись прошла сразу.</p>
 
-    <h3>Деплой, рапортовавший об успехе, ничего не сделав</h3>
-    <p>Скрипт деплоя лежит в обновляемом им же репозитории. Bash читает
-    скрипт по смещению, поэтому замена содержимого на меньшее обрывает
-    выполнение. Теперь скрипт переоткрывает себя через <code>exec</code>.</p>
+    <h3>Деплой, который только выглядел успешным</h3>
+    <p>Скрипт деплоя лежит в обновляемом им же репозитории, а Bash читает
+    скрипт по смещению. После <code>git pull</code> выполнился хвост старой
+    версии, поэтому логи не вывелись, хотя сервис перезапустился. Теперь после
+    обновления скрипт перезапускает себя через <code>exec</code>.</p>
   </section>
 
   <section class="contact">
     <p class="section-tag">Дальше</p>
-    <h2>Что <em>осталось</em>.</h2>
-    <p>Уведомления без привязки к Telegram пока не доставляются, аккаунт
-    нельзя переименовать, внешних интеграций нет. Полный список — в
-    <code>PROJECT_STATE.md</code> и <code>DECISIONS.md</code> в репозитории.</p>
+    <h2>Посмотреть <em>вживую</em>.</h2>
+    <p>Демо открывается без регистрации. Решения и текущее состояние проекта —
+    в <code>DECISIONS.md</code> и <code>PROJECT_STATE.md</code> в репозитории.</p>
     <div class="links">
       <a href="https://github.com/Dorian101/-automation-platform">Исходный код</a>
-      <a href="/">Открыть платформу</a>
+      <a href="/demo">Открыть демо</a>
       <a href="/about">Обо мне →</a>
     </div>
   </section>

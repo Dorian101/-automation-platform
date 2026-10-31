@@ -1,7 +1,7 @@
 // The project page: the two reading depths and the live request.
 //
-// Without this script the page shows everything and offers neither control,
-// which is why both start hidden in the markup.
+// Without this script the page shows the engineering text and offers neither
+// control, which is why both start hidden in the markup.
 (() => {
   const main = document.querySelector("main");
   const lens = document.getElementById("lens");
