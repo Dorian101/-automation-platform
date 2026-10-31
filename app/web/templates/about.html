@@ -14,10 +14,13 @@ __MENU_STYLES__
 
   <section class="hero hero--report">
     <p class="eyebrow">Алексей Лебедев · BI-аналитик</p>
-    <h1>Превращаю<br>данные в <em>понятные</em><br>решения.</h1>
+    <h1>Превращаю <br>данные в <em>понятные</em> <br>решения.</h1>
+    <p class="print-only">Telegram: @alexeyr6 · alexeyr101@gmail.com ·
+    github.com/Dorian101/-automation-platform<span id="site-address"></span></p>
     <div class="links">
       <a href="#cases">Кейсы</a>
       <a href="#contact">Контакты</a>
+      <button id="print-resume" type="button" hidden>Сохранить резюме в PDF</button>
     </div>
     <div class="viz">
       <canvas id="hero-report" role="img" aria-label="Пример отчёта по SLA: 1 240 обращений, 93,7 % выполнено в срок, 4 из 5 услуг укладываются в цель 90 %."></canvas>
@@ -164,10 +167,13 @@ __MENU_STYLES__
     <p class="section-tag">04 / Контакты</p>
     <h2>Есть задача<br>по аналитике?</h2>
     <ul>
-      <li>Telegram: <a href="https://t.me/alexeyr6">@alexeyr6</a></li>
-      <li>Почта: <a href="mailto:alexeyr101@gmail.com">alexeyr101@gmail.com</a></li>
+      <li>Telegram: <a href="https://t.me/alexeyr6">@alexeyr6</a>
+        <button type="button" class="page-action" data-copy="@alexeyr6" hidden>Копировать</button></li>
+      <li>Почта: <a href="mailto:alexeyr101@gmail.com">alexeyr101@gmail.com</a>
+        <button type="button" class="page-action" data-copy="alexeyr101@gmail.com" hidden>Копировать</button></li>
       <li>GitHub: <a href="https://github.com/Dorian101/-automation-platform">исходный код</a></li>
     </ul>
+    <button id="share-page" type="button" class="page-action" hidden>Поделиться страницей</button>
     <div class="orbit orbit-one">ANALYTICS</div>
     <div class="orbit orbit-two">DATA</div>
   </section>
@@ -177,5 +183,6 @@ __MENU_STYLES__
   </footer>
 </main>
 <script src="/about-hero.js" defer></script>
+<script src="/about-page.js" defer></script>
 </body>
 </html>

@@ -270,7 +270,21 @@
   }
   .fact span { color: var(--muted); font-size: 0.8rem; }
   .links { display: flex; flex-wrap: wrap; gap: 1rem 2rem; margin-top: 1.5rem; }
-  .links a { font: 400 12px 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
+  .links a, .links button { font: 400 12px 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
+  .links button { padding: 0; border: 0; background: none; color: var(--accent); cursor: pointer; }
+  .links button:hover { text-decoration: underline; }
+  .page-action {
+    margin-left: 0.5rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font: 11px 'JetBrains Mono', monospace;
+    cursor: pointer;
+  }
+  .page-action:hover { color: var(--text); }
+  #share-page { margin-left: 0; }
+  .print-only { display: none; }
   .project-list { border-top: 1px solid var(--border); margin: 0 0 2rem; }
   .project-list--brief .project { min-height: 120px; }
   .project-list--brief .project h3 { font-size: clamp(1.4rem, 2.2vw, 2rem); }
@@ -478,5 +492,67 @@
     }
     .diagram-flow li { padding: 0.5rem 0 0.5rem 1rem; color: var(--muted); font-size: 0.9rem; }
     .diagram-flow b { display: block; color: var(--text); font-weight: 600; }
+  }
+  /* The printed page is the résumé: black on white in either theme, and without
+     whatever only works on a screen. */
+  @media print {
+    @page { margin: 15mm; }
+    html:root[data-theme], :root {
+      --bg: #fff;
+      --panel: #fff;
+      --border: #bbb;
+      --text: #000;
+      --muted: #444;
+      --accent: #000;
+      --lime: #000;
+      --diagram-edge: #888;
+      --diagram-external: #fff;
+      --diagram-input: #fff;
+      --diagram-identity: #fff;
+      --diagram-identity-line: #888;
+      --diagram-process: #fff;
+      --diagram-storage: #fff;
+    }
+    body { font-size: 10pt; line-height: 1.4; }
+    main { padding: 0; }
+    .menu, .attic, .theme-toggle, .viz, .orbit, .links, .note, .page-action,
+    .trace-actions, .trace-result, footer, .lens { display: none; }
+    .hero--report ~ .contact, .hero--report ~ .work .work-heading h2 { display: none; }
+    .print-only { display: block; margin: 0.5rem 0 0; }
+    .hero, .hero--report { min-height: 0; padding: 0; margin-bottom: 0.5rem; }
+    .hero h1, .hero--report h1 { font-size: 20pt; line-height: 1.1; margin: 0; }
+    .hero h1 br { display: none; }
+    .about, .work, .experience { padding: 0.6rem 0; }
+    .section-tag, .work-heading, .about .location, .experience .location { margin-bottom: 0.4rem; }
+    .about > p { max-width: none; margin-bottom: 0.5rem; }
+    .services { margin-top: 0.5rem; }
+    .services span { padding: 4px 0; font-size: 9pt; }
+    .case { grid-template-columns: 1fr; gap: 0.25rem; padding: 0.5rem 0; overflow: visible; }
+    .case h3, .project h3, .experience h3 { font-size: 12pt; }
+    .case dt { margin-top: 0.4rem; font-size: 8pt; }
+    .case dd { margin-top: 0; line-height: 1.4; }
+    .case::before, .project::before { display: none; }
+    /* The tail of the case list is a project row on screen, and on paper it
+       reads as one more case. */
+    .project-list { margin: 0; border-top: 0; }
+    .project, .project-list--brief .project {
+      grid-template-columns: 1fr;
+      gap: 0.25rem;
+      align-items: start;
+      min-height: 0;
+      padding: 0.5rem 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 0;
+      overflow: visible;
+    }
+    .project-list--brief .project h3 { font-size: 12pt; line-height: 1.1; }
+    .project-meta { flex-direction: row; gap: 1rem; }
+    .project p { color: var(--text); font-size: inherit; line-height: 1.4; }
+    .case .project-meta, .project .project-meta { margin: 0 0 1rem; }
+    .facts { margin-top: 0.4rem; gap: 0.25rem 1.5rem; }
+    .fact b { font-size: 12pt; }
+    .fact span { font-size: 8pt; }
+    li { margin-bottom: 0.15rem; }
+    dt, h2, h3 { break-after: avoid; }
   }
 </style>

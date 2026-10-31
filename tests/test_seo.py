@@ -9,6 +9,7 @@ them.
 """
 
 import importlib
+import json
 import re
 from pathlib import Path
 
@@ -309,6 +310,67 @@ def _contrast(first: str, second: str) -> float:
     light, dark = sorted((luminance(first), luminance(second)), reverse=True)
 
     return (light + 0.05) / (dark + 0.05)
+
+
+class TestTheResumePage:
+    """What /about gives a recruiter: a printout, contacts and structured data."""
+
+    async def _structured(self, crawler, path):
+        page = await (await crawler.get(path)).text()
+        block = re.search(
+            r'<script type="application/ld\+json">(.*?)</script>', page, re.S
+        )
+        return page, json.loads(block.group(1))
+
+    async def test_the_script_is_public(self, crawler):
+        response = await crawler.get("/about-page.js", allow_redirects=False)
+
+        assert response.status == 200
+        assert response.content_type == "text/javascript"
+
+    async def test_the_controls_wait_for_the_script(self, crawler):
+        """They do nothing without it, so the markup starts them hidden."""
+        page = await (await crawler.get("/about")).text()
+
+        assert 'id="print-resume" type="button" hidden' in page
+        assert 'id="share-page" type="button" class="page-action" hidden' in page
+        assert page.count('data-copy="') == 2
+        assert 'src="/about-page.js"' in page
+
+    async def test_the_printout_leaves_the_screen_controls_out(self, crawler):
+        page = await (await crawler.get("/about")).text()
+        print_styles = page[page.index("@media print"):]
+
+        for selector in (".menu", ".theme-toggle", ".viz", ".page-action"):
+            assert selector in print_styles
+
+    async def test_the_printout_carries_the_contacts(self, crawler):
+        """The contact section is left out of the print, so the line that
+        replaces it has to name the same ways to reach the author."""
+        page = await (await crawler.get("/about")).text()
+        line = re.search(r'<p class="print-only">(.*?)</p>', page, re.S).group(1)
+
+        assert "@alexeyr6" in line
+        assert "alexeyr101@gmail.com" in line
+
+    async def test_the_person_matches_the_page(self, crawler):
+        page, data = await self._structured(crawler, "/about")
+
+        assert data["@context"] == "https://schema.org"
+        assert data["@type"] == "Person"
+        assert data["jobTitle"] in page
+        assert data["email"] in page
+        assert data["address"]["addressLocality"] in page
+
+        for address in data["sameAs"]:
+            assert address in page
+
+    async def test_the_project_names_its_repository(self, crawler):
+        page, data = await self._structured(crawler, "/project")
+
+        assert data["@type"] == "SoftwareSourceCode"
+        assert data["codeRepository"] in page
+        assert data["description"] in page
 
 
 class TestTheLightTheme:

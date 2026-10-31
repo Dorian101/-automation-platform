@@ -1,5 +1,6 @@
 import hmac
 import html
+import json
 import logging
 import os
 import re
@@ -82,9 +83,14 @@ FONTS_DIR = Path(__file__).resolve().parent / "fonts"
 # The /about hero. A file rather than inline: the CSP allows scripts from this
 # origin, and an inline one would need a nonce the page does not carry.
 ABOUT_HERO_JS = Path(__file__).resolve().parent / "about_hero.js"
+ABOUT_PAGE_JS = Path(__file__).resolve().parent / "about_page.js"
 PROJECT_PAGE_JS = Path(__file__).resolve().parent / "project_page.js"
 
-SCRIPTS = {"/about-hero.js": ABOUT_HERO_JS, "/project-page.js": PROJECT_PAGE_JS}
+SCRIPTS = {
+    "/about-hero.js": ABOUT_HERO_JS,
+    "/about-page.js": ABOUT_PAGE_JS,
+    "/project-page.js": PROJECT_PAGE_JS,
+}
 
 # The live request on the project page. Public and it touches the database, so
 # it is limited per address; a reader clicks it a few times, a script does not.
@@ -152,6 +158,7 @@ PUBLIC_PATHS = {
     "/favicon.svg",
     "/og-image.png",
     "/about-hero.js",
+    "/about-page.js",
     "/project-page.js",
     "/project/trace",
 }
@@ -1270,6 +1277,7 @@ class WebServer:
                 web.get("/favicon.svg", self._favicon),
                 web.get("/og-image.png", self._og_image),
                 web.get("/about-hero.js", self._script),
+                web.get("/about-page.js", self._script),
                 web.get("/project-page.js", self._script),
                 web.get("/project/trace", self._trace),
                 web.get("/fonts/{name}", self._fonts),
@@ -1708,13 +1716,68 @@ def _render_page(
         source = source.replace(name, value)
 
     if path:
-        source = source.replace("</head>", _share_tags(source, path) + "</head>")
+        source = source.replace(
+            "</head>",
+            _share_tags(source, path) + _structured_data(source, path) + "</head>",
+        )
 
     return web.Response(text=source, content_type="text/html", status=status)
 
 
+# Who the site is about, for search engines. The author of the code and the
+# subject of /about are one person, so there is one description of them.
+PERSON = {
+    "@type": "Person",
+    "name": "Алексей Лебедев",
+    "jobTitle": "BI-аналитик",
+    "email": "mailto:alexeyr101@gmail.com",
+    "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Серпухов",
+        "addressRegion": "Московская область",
+        "addressCountry": "RU",
+    },
+    "sameAs": ["https://t.me/alexeyr6"],
+}
+
+SOURCE_CODE = {
+    "@type": "SoftwareSourceCode",
+    "name": "Automation Platform",
+    "codeRepository": "https://github.com/Dorian101/-automation-platform",
+    "programmingLanguage": "Python",
+    "author": PERSON,
+}
+
+STRUCTURED_DATA = {"/about": PERSON, "/project": SOURCE_CODE}
+
 _TITLE = re.compile(r"<title>(.*?)</title>", re.DOTALL)
 _DESCRIPTION = re.compile(r'name="description" content="(.*?)"', re.DOTALL)
+
+
+def _structured_data(source: str, path: str) -> str:
+    """What a search engine reads about the page, as JSON-LD.
+
+    A data block rather than a script, so the browser never runs it and the CSP
+    has nothing to say. The description comes from the page, for the reason
+    `_share_tags` gives, and the address needs a base URL the same way.
+    """
+    data = STRUCTURED_DATA.get(path)
+
+    if data is None:
+        return ""
+
+    data = {"@context": "https://schema.org", **data}
+    description = _DESCRIPTION.search(source)
+
+    if description is not None:
+        data["description"] = html.unescape(description.group(1))
+
+    if PUBLIC_BASE_URL:
+        data["url"] = f"{PUBLIC_BASE_URL}{path}"
+
+    body = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+
+    return f'<script type="application/ld+json">{body}</script>'
 
 
 def _share_tags(source: str, path: str) -> str:

@@ -78,6 +78,8 @@ ALLOWED_HOSTS = {
     "astral.sh",
     "sitemaps.org",
     "www.sitemaps.org",
+    # The JSON-LD vocabulary, an identifier in the same way as the sitemap's.
+    "schema.org",
     # The XML namespace, which is an identifier rather than a place to fetch:
     # an SVG document is not valid without it and no browser ever resolves it.
     # The one that matters is the favicon, which is served as a standalone

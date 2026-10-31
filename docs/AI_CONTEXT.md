@@ -276,6 +276,10 @@ script. The `_nonce` middleware adds it to every HTML page with a head. A new
 colour goes in as a variable with a light value, and a colour used as text must
 pass the contrast test in `tests/test_seo.py`.
 
+The résumé is `/about` under `@media print` in `_page_styles.html`. Its contacts
+replace the contact section through `.print-only`, and `PERSON` in `server.py`
+holds them for JSON-LD, so a changed contact changes in all three.
+
 - GET /login, POST /login — sign-in form
 - GET /signup, POST /signup — registration, 404 while SIGNUP_OPEN is false
 - GET /about, GET /project — static public documents

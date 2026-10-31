@@ -2196,3 +2196,29 @@ of an operating system setting. A reader who wants light can have it.
 
 ### Result
 Light is one click on every page and arrives without a dark flash.
+
+## 2026-10-31
+
+### Decision
+Make the résumé printable from `/about`, with copied contacts, a shared link and
+JSON-LD, rather than keeping a PDF in the repository
+
+### Reason
+A recruiter needs a file and a way to pass the page on. A stored PDF would drift
+from the page, while a print stylesheet cannot.
+
+### How it is done
+
+- The button calls `window.print()`, so the reader saves the PDF themself. The
+  page goes to two A4 pages, black on white in either theme.
+- The contact section is replaced in print by one line under the headline. The
+  site address comes from the page, because the host is not in the repository.
+- Structured data is a JSON-LD block in the head: a Person on `/about` and
+  SoftwareSourceCode on `/project`. It is a data block, so the CSP does not apply.
+- `sameAs` names Telegram only. The repository does not identify a person, and
+  the profile link is ruled out by the rule that GitHub links go to the repository.
+
+### Result
+The page is its own résumé. In-app browsers may ignore `window.print()`; there the
+button does nothing, and that is accepted because the page itself still reads.
+
