@@ -9,6 +9,7 @@
     --accent: #477eff;
     --lime: #b9f45d;
     --coral: #ff795f;
+    --amber: #f5c542;
     --error: #ff6b6b;
   }
   * { box-sizing: border-box; }
@@ -231,9 +232,29 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 3rem;
-    padding: 2.5rem 0;
+    padding: 2.5rem 1rem;
     border-top: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+    transition: color 0.25s;
   }
+  /* The same rising fill as the project rows. The figures are accent-coloured,
+     which would vanish on a blue fill, so they turn dark with the text. */
+  .case::before {
+    content: '';
+    position: absolute;
+    inset: 100% 0 0;
+    z-index: 0;
+    transition: inset 0.35s ease;
+  }
+  .case:hover::before { inset: 0; }
+  .case:hover { color: #111; }
+  .case.blue::before { background: var(--accent); }
+  .case.lime::before { background: var(--lime); }
+  .case.coral::before { background: var(--coral); }
+  .case > * { position: relative; z-index: 1; }
+  .case:hover .project-meta, .case:hover dt, .case:hover .fact span { color: #272727; }
+  .case:hover .fact b { color: #111; }
   .case .project-meta { margin: 0 0 1rem; }
   .case h3 {
     font-size: clamp(1.7rem, 2.8vw, 2.6rem);
@@ -276,6 +297,7 @@
   .project.blue::before { background: var(--accent); }
   .project.lime::before { background: var(--lime); }
   .project.coral::before { background: var(--coral); }
+  .project.amber::before { background: var(--amber); }
   .project > * { position: relative; z-index: 1; }
   .project-meta {
     font: 11px/1.7 'JetBrains Mono', monospace;
@@ -394,7 +416,7 @@
     }
     .project-meta { flex-direction: row; gap: 0.5rem 1rem; flex-wrap: wrap; }
     .project h3 { font-size: 1.6rem; }
-    .case { grid-template-columns: 1fr; gap: 1.5rem; padding: 2rem 0; }
+    .case { grid-template-columns: 1fr; gap: 1.5rem; padding: 2rem 1rem; }
     .project p { font-size: 0.9rem; }
     .work-heading { flex-direction: column; gap: 1rem; margin-bottom: 2rem; }
     .services { grid-template-columns: 1fr; }
