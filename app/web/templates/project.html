@@ -15,6 +15,10 @@ __MENU_STYLES__
   <section class="hero">
     <p class="eyebrow">Проект · Automation Platform</p>
     <h1>Личные дела —<br>в одном <em>месте</em>.</h1>
+    <div id="lens" class="lens" role="group" aria-label="Глубина описания" hidden>
+      <button type="button" data-lens="brief">Кратко</button>
+      <button type="button" data-lens="deep">Инженерно</button>
+    </div>
     <div class="viz viz--small" aria-hidden="true">
       <svg viewBox="0 0 64 64" class="viz-svg">
         <!-- container: grey -> dark blue -->
@@ -137,6 +141,13 @@ __MENU_STYLES__
         .diagram .identity { fill: #161718; stroke: #56595b; }
         .diagram .process { fill: #16203c; stroke: #477eff; }
         .diagram .storage { fill: #14251c; stroke: #b9f45d; }
+        .diagram .box, .diagram .edge { transition: stroke 0.2s; }
+        .diagram .lit { stroke: #b9f45d; stroke-width: 2.5; }
+        .diagram .stop { stroke: #ff795f; stroke-width: 2.5; }
+        .diagram .cell { font-size: 12px; font-weight: 600; fill: #f2f0e9; }
+        .diagram .page-route { stroke-dasharray: 4 4; }
+        .diagram #trace-dot { fill: #b9f45d; opacity: 0; }
+        .diagram #trace-dot.stopped { fill: #ff795f; }
       </style>
       <defs>
         <marker id="d-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -144,12 +155,13 @@ __MENU_STYLES__
         </marker>
       </defs>
 
-      <path class="edge" d="M 205 100 L 205 138 L 380 138" />
-      <path class="edge" d="M 560 100 L 560 138 L 380 138 L 380 182" marker-end="url(#d-arrow)" />
-      <path class="edge" d="M 380 230 L 380 256" marker-end="url(#d-arrow)" />
-      <path class="edge" d="M 380 316 L 380 342" marker-end="url(#d-arrow)" />
-      <path class="edge" d="M 380 384 L 380 462" marker-end="url(#d-arrow)" />
-      <path class="edge" d="M 638 384 L 638 462" marker-end="url(#d-arrow)" />
+      <path class="edge" data-step="telegram" d="M 205 100 L 205 138 L 380 138" />
+      <path class="edge page-route" data-step="page-route" d="M 270 207 L 100 207 L 100 330 L 479 330 L 479 342" marker-end="url(#d-arrow)" />
+      <path class="edge" data-step="identity" d="M 560 100 L 560 138 L 380 138 L 380 182" marker-end="url(#d-arrow)" />
+      <path class="edge" data-step="dispatcher" d="M 380 230 L 380 256" marker-end="url(#d-arrow)" />
+      <path class="edge" data-step="to-plugin" d="M 380 316 L 380 342" marker-end="url(#d-arrow)" />
+      <path class="edge" data-step="postgres" d="M 380 384 L 380 462" marker-end="url(#d-arrow)" />
+      <path class="edge" data-step="notify" d="M 638 384 L 638 462" marker-end="url(#d-arrow)" />
 
       <rect class="zone" x="16" y="16" width="728" height="112" rx="10" />
       <text class="zone-name" x="32" y="36">Транспорт</text>
@@ -160,31 +172,46 @@ __MENU_STYLES__
       <rect class="zone" x="16" y="428" width="728" height="120" rx="10" />
       <text class="zone-name" x="32" y="448">Хранение и доставка</text>
 
-      <rect class="box external" x="60" y="52" width="290" height="48" rx="8" />
+      <rect class="box external" data-step="telegram" x="60" y="52" width="290" height="48" rx="8" />
       <text class="label" x="205" y="76" text-anchor="middle" dominant-baseline="middle">Telegram-бот · aiogram polling</text>
 
-      <rect class="box input" x="410" y="52" width="300" height="48" rx="8" />
+      <rect class="box input" data-step="web" x="410" y="52" width="300" height="48" rx="8" />
       <text class="label" x="560" y="76" text-anchor="middle" dominant-baseline="middle">Веб-консоль · aiohttp</text>
       <text class="small" x="560" y="116" text-anchor="middle">TLS и транспортный секрет — на стороне Caddy</text>
 
-      <rect class="box identity" x="270" y="184" width="220" height="46" rx="8" />
+      <rect class="box identity" data-step="identity" x="270" y="184" width="220" height="46" rx="8" />
       <text class="label" x="380" y="200" text-anchor="middle" dominant-baseline="middle">Identity: kind:id</text>
       <text class="small" x="380" y="218" text-anchor="middle">PersonResolver связывает каналы</text>
 
-      <rect class="box process" x="160" y="258" width="440" height="58" rx="8" />
+      <rect class="box process" data-step="dispatcher" x="160" y="258" width="440" height="58" rx="8" />
       <text class="label" x="380" y="278" text-anchor="middle" dominant-baseline="middle">Dispatcher</text>
       <text class="small" x="380" y="298" text-anchor="middle">parse_command → PluginManager.execute → CommandResult</text>
 
-      <rect class="box process" x="32" y="344" width="696" height="40" rx="8" />
-      <text id="diagram-plugins" class="label" x="380" y="364" text-anchor="middle" dominant-baseline="middle">system · notes · reminders · clipboard · expenses · applications · todo</text>
+      <rect class="box process" data-step="plugin-system" x="32" y="344" width="94" height="40" rx="8" />
+      <text class="cell" x="79" y="364" text-anchor="middle" dominant-baseline="middle">system</text>
+      <rect class="box process" data-step="plugin-notes" x="132" y="344" width="94" height="40" rx="8" />
+      <text class="cell" x="179" y="364" text-anchor="middle" dominant-baseline="middle">notes</text>
+      <rect class="box process" data-step="plugin-reminders" x="232" y="344" width="94" height="40" rx="8" />
+      <text class="cell" x="279" y="364" text-anchor="middle" dominant-baseline="middle">reminders</text>
+      <rect class="box process" data-step="plugin-clipboard" x="332" y="344" width="94" height="40" rx="8" />
+      <text class="cell" x="379" y="364" text-anchor="middle" dominant-baseline="middle">clipboard</text>
+      <rect class="box process" data-step="plugin-expenses" x="432" y="344" width="94" height="40" rx="8" />
+      <text class="cell" x="479" y="364" text-anchor="middle" dominant-baseline="middle">expenses</text>
+      <rect class="box process" data-step="plugin-applications" x="532" y="344" width="94" height="40" rx="8" />
+      <text class="cell" x="579" y="364" text-anchor="middle" dominant-baseline="middle">applications</text>
+      <rect class="box process" data-step="plugin-todo" x="632" y="344" width="94" height="40" rx="8" />
+      <text class="cell" x="679" y="364" text-anchor="middle" dominant-baseline="middle">todo</text>
 
-      <rect class="box storage" x="240" y="464" width="280" height="48" rx="8" />
+      <rect class="box storage" data-step="postgres" x="240" y="464" width="280" height="48" rx="8" />
       <text class="label" x="380" y="488" text-anchor="middle" dominant-baseline="middle">PostgreSQL</text>
       <text class="small" x="380" y="530" text-anchor="middle">репозитории и sql/migrations</text>
 
-      <rect class="box external" x="548" y="464" width="180" height="48" rx="8" />
+      <rect class="box external" data-step="notify" x="548" y="464" width="180" height="48" rx="8" />
       <text class="label" x="638" y="482" text-anchor="middle" dominant-baseline="middle">Уведомления</text>
       <text class="small" x="638" y="500" text-anchor="middle">→ чат Telegram</text>
+
+      <text class="small" x="108" y="198">страницы</text>
+      <circle id="trace-dot" r="6" />
 
       <g transform="translate(32, 578)">
         <rect class="box input" x="0" y="-10" width="14" height="14" rx="3" />
@@ -200,17 +227,27 @@ __MENU_STYLES__
       </g>
     </svg>
     <ol class="diagram-flow">
-      <li><b>Транспорт</b>Telegram-бот на aiogram и веб-консоль на aiohttp</li>
-      <li><b>Identity</b>kind:id, PersonResolver связывает каналы</li>
-      <li><b>Dispatcher</b>parse_command → PluginManager.execute → CommandResult</li>
-      <li><b>Плагины</b>system · notes · reminders · clipboard · expenses · applications · todo</li>
-      <li><b>Хранение и доставка</b>PostgreSQL и уведомления в чат Telegram</li>
+      <li data-step="web telegram"><b>Транспорт</b>Telegram-бот на aiogram и веб-консоль на aiohttp</li>
+      <li data-step="identity"><b>Identity</b>kind:id, PersonResolver связывает каналы</li>
+      <li data-step="dispatcher"><b>Dispatcher</b>parse_command → PluginManager.execute → CommandResult</li>
+      <li data-step="plugin-system plugin-notes plugin-reminders plugin-clipboard plugin-expenses plugin-applications plugin-todo"><b>Плагины</b>system · notes · reminders · clipboard · expenses · applications · todo</li>
+      <li data-step="postgres notify"><b>Хранение и доставка</b>PostgreSQL и уведомления в чат Telegram</li>
     </ol>
     <figcaption>Два транспорта, одно ядро. Плагин не знает, откуда пришла команда,
     поэтому бот и консоль получают новую функцию из одного кода.</figcaption>
     </figure>
+    <div id="trace-actions" class="trace-actions" hidden>
+      <p class="trace-title">Визуализация схемы работы команд</p>
+      <button type="button" data-scenario="notes">Заметки из браузера</button>
+      <button type="button" data-scenario="telegram">Те же заметки из Telegram</button>
+      <button type="button" data-scenario="expenses">Страница расходов</button>
+      <button type="button" data-scenario="reminder">Напоминание в Telegram</button>
+      <button type="button" data-scenario="help">Справка</button>
+      <button type="button" data-scenario="unknown">Неизвестная команда</button>
+    </div>
+    <p id="trace-result" class="trace-result" aria-live="polite"></p>
 
-    <p style="margin-top: 2rem;">Caddy терминирует TLS и подставляет транспортный
+    <p class="lens-deep" style="margin-top: 2rem;">Caddy терминирует TLS и подставляет транспортный
     секрет — доказательство, что запрос прошёл через прокси. Кто пользователь,
     решает уже сессионная cookie, выданная за <code>POST /login</code>. Пароли
     хранятся salted-хэшами scrypt, а от сессий в базе остаётся только SHA-256.
@@ -219,7 +256,7 @@ __MENU_STYLES__
     разрешённой командой выполняется скрипт деплоя.</p>
   </section>
 
-  <section class="about">
+  <section class="about lens-deep">
     <p class="section-tag">04 / Как делалось</p>
     <p>Проект собирали несколько AI-агентов — свои и внешние скиллы, задачи
     ставит человек. Каждое изменение — отдельный коммит с объяснением, почему
@@ -233,7 +270,7 @@ __MENU_STYLES__
     о том, как модели ошибаются в коде</a>.</p>
   </section>
 
-  <section class="experience">
+  <section class="experience lens-deep">
     <p class="section-tag">05 / Сложности</p>
     <h3>Переход от общего пароля к аккаунтам</h3>
     <p>Веб начинал за basicauth Caddy с одним паролем на всех. Пришлось
@@ -251,7 +288,7 @@ __MENU_STYLES__
   </section>
 
   <section class="contact">
-    <p class="section-tag">06 / Дальше</p>
+    <p class="section-tag">Дальше</p>
     <h2>Что <em>осталось</em>.</h2>
     <p>Уведомления без привязки к Telegram пока не доставляются, аккаунт
     нельзя переименовать, внешних интеграций нет. Полный список — в
@@ -264,5 +301,6 @@ __MENU_STYLES__
   </section>
 
 </main>
+<script src="/project-page.js" defer></script>
 </body>
 </html>

@@ -186,6 +186,36 @@
   /* The headline's longest line would otherwise run up to the chart beside it
      on every width until the chart reaches its own maximum. */
   html { scroll-behavior: smooth; }
+  .lens { display: inline-flex; gap: 0.25rem; padding: 0.2rem; border: 1px solid var(--border); border-radius: 8px; }
+  .lens[hidden] { display: none; }
+  .lens button {
+    border: 0;
+    border-radius: 6px;
+    padding: 0.4rem 0.8rem;
+    background: none;
+    color: var(--muted);
+    font: 12px 'JetBrains Mono', monospace;
+    cursor: pointer;
+  }
+  .lens button[aria-pressed="true"] { background: var(--accent); color: var(--bg); }
+  main[data-lens="brief"] .lens-deep { display: none; }
+  .trace-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+  .trace-actions[hidden] { display: none; }
+  .trace-actions button {
+    padding: 0.45rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+    color: var(--text);
+    font: 12px 'JetBrains Mono', monospace;
+    cursor: pointer;
+  }
+  .trace-actions button:hover { border-color: var(--accent); }
+  .trace-actions button:disabled { opacity: 0.5; cursor: default; }
+  .trace-result { min-height: 1.5rem; font: 12px 'JetBrains Mono', monospace; margin: 0.5rem 0 0; }
+  .trace-title { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 0.85rem; }
+  .diagram-flow li.lit { color: var(--text); border-left: 2px solid var(--lime); }
+  .diagram-flow li.stop { color: var(--text); border-left: 2px solid var(--coral); }
   section[id] { scroll-margin-top: 1.5rem; }
   .hero--report { min-height: 33rem; }
   .hero--report h1 { font-size: clamp(2.2rem, 5.6vw, 5.5rem); }

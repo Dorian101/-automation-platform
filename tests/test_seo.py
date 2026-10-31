@@ -348,10 +348,8 @@ class TestTheProjectPage:
             SystemPlugin.name,
             TodoPlugin.name,
         }
-        start = page.index('id="diagram-plugins"')
-        row = page[page.index(">", start) + 1 : page.index("</text>", start)]
+        listed = set(re.findall(r'class="cell"[^>]*>(\w+)</text>', page))
 
-        listed = {part.strip() for part in row.split("·")}
         assert listed == shipped
 
     async def test_the_diagram_carries_a_text_alternative(self, page):

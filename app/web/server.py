@@ -7,13 +7,15 @@ import secrets
 from collections.abc import Mapping
 from datetime import date
 from pathlib import Path
+from time import perf_counter
 from urllib.parse import urlsplit
 
 from aiohttp import web
 from psycopg.errors import UniqueViolation
 
+from app.core.commands import parse_command
 from app.core.config import Config
-from app.core.identity import Identity
+from app.core.identity import WEB, Identity, telegram
 from app.core.results import CommandError
 from app.db.database import Database
 from app.db.links_repo import TelegramLinksRepository
@@ -80,6 +82,23 @@ FONTS_DIR = Path(__file__).resolve().parent / "fonts"
 # The /about hero. A file rather than inline: the CSP allows scripts from this
 # origin, and an inline one would need a nonce the page does not carry.
 ABOUT_HERO_JS = Path(__file__).resolve().parent / "about_hero.js"
+PROJECT_PAGE_JS = Path(__file__).resolve().parent / "project_page.js"
+
+SCRIPTS = {"/about-hero.js": ABOUT_HERO_JS, "/project-page.js": PROJECT_PAGE_JS}
+
+# The live request on the project page. Public and it touches the database, so
+# it is limited per address; a reader clicks it a few times, a script does not.
+TRACE_ATTEMPTS = 30
+TRACE_WINDOW_SECONDS = 60
+# Transport, what runs, and whether it reaches the database.
+TRACE_SCENARIOS = {
+    "help": ("web", "/help", False),
+    "notes": ("web", "/notes", True),
+    "telegram": ("telegram", "/notes", True),
+    "expenses": ("web", "/expenses", True),
+    "reminder": ("web", "/reminders", True),
+    "unknown": ("web", "/nosuchcommand", False),
+}
 
 DAY_SECONDS = 86400
 
@@ -133,6 +152,8 @@ PUBLIC_PATHS = {
     "/favicon.svg",
     "/og-image.png",
     "/about-hero.js",
+    "/project-page.js",
+    "/project/trace",
 }
 
 # What a request carries to say it is the owner's own working rather than a
@@ -724,12 +745,14 @@ class WebServer:
             headers={"Cache-Control": "public, max-age=86400"},
         )
 
-    async def _about_hero(self, request: web.Request) -> web.Response:
-        """The script that draws the hero of /about."""
+    async def _script(self, request: web.Request) -> web.Response:
+        """A public page's script, served as a file for the CSP's sake."""
         return web.Response(
-            body=ABOUT_HERO_JS.read_bytes(),
+            body=SCRIPTS[request.path].read_bytes(),
             content_type="text/javascript",
-            headers={"Cache-Control": "public, max-age=3600"},
+            # Revalidated, because a page and a stale script of the day before
+            # do not fit together.
+            headers={"Cache-Control": "no-cache"},
         )
 
     async def _fonts(self, request: web.Request) -> web.Response:
@@ -760,6 +783,72 @@ class WebServer:
             body=path.read_bytes(),
             content_type=content_type,
             headers={"Cache-Control": "public, max-age=86400"},
+        )
+
+    async def _trace(self, request: web.Request) -> web.Response:
+        """Run one fixed scenario through the real code and report its path.
+
+        Only the scenarios named in `TRACE_SCENARIOS` run, so a stranger cannot
+        pass a command of their own. Each one reads and none writes. Telegram
+        here means the identity a chat would have: no bot is involved.
+        """
+        if not self._rate.allow(
+            f"trace|{client_ip(request)}", TRACE_ATTEMPTS, TRACE_WINDOW_SECONDS
+        ):
+            return web.json_response({"error": "Too many requests"}, status=429)
+
+        scenario = TRACE_SCENARIOS.get(request.query.get("scenario", ""))
+
+        if scenario is None:
+            return web.json_response({"error": "Unknown scenario"}, status=400)
+
+        transport, target, reads = scenario
+        identity = (
+            telegram(0) if transport == "telegram" else Identity(WEB, "guest:trace")
+        )
+        steps = [transport, "identity"]
+        started = perf_counter()
+        ok = True
+
+        try:
+            if target.startswith("/expenses"):
+                plugin = self._manager.find_by_page(target)
+                steps.append("page-route")
+                await plugin.page_view(identity)
+                reply = f"Страница «{plugin.description}» собрана из базы"
+            else:
+                command, args = parse_command(target)
+                plugin = self._manager.find(command)
+                steps.append("dispatcher")
+                if plugin is not None:
+                    steps.append("to-plugin")
+                result = await self._manager.execute(command, args, identity)
+                reply = result.text
+        except CommandError as error:
+            ok = False
+            reply = str(error)
+        except Exception:
+            logger.exception("Trace failed")
+            return web.json_response({"error": "Trace failed"}, status=503)
+
+        if ok:
+            steps.append(f"plugin-{plugin.name}")
+            if reads:
+                steps.append("postgres")
+            # The one stage not executed: a stranger has no chat, and a public
+            # button must not be able to message the owner's. The reply says so.
+            if request.query["scenario"] == "reminder":
+                steps.append("notify")
+                reply = "Маршрут: напоминание → чат Telegram"
+
+        return web.json_response(
+            {
+                "steps": steps,
+                "ok": ok,
+                "reply": reply.partition("\n")[0],
+                "ms": round((perf_counter() - started) * 1000, 1),
+            },
+            headers={"Cache-Control": "no-store"},
         )
 
     async def _health(self, request: web.Request) -> web.Response:
@@ -1175,7 +1264,9 @@ class WebServer:
                 web.get("/favicon.ico", self._favicon),
                 web.get("/favicon.svg", self._favicon),
                 web.get("/og-image.png", self._og_image),
-                web.get("/about-hero.js", self._about_hero),
+                web.get("/about-hero.js", self._script),
+                web.get("/project-page.js", self._script),
+                web.get("/project/trace", self._trace),
                 web.get("/fonts/{name}", self._fonts),
             ],
         )

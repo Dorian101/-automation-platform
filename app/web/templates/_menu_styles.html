@@ -9,6 +9,11 @@
   a comment mentioning one survives into the page and reads as a substitution
   that failed. */
 
+  /* A soft change between pages. Lives here because every page with the menu
+     loads this, and both sides of a navigation have to ask for it. */
+  @view-transition { navigation: auto; }
+  .menu > summary { view-transition-name: site-menu; }
+
   .menu { position: relative; margin-bottom: 2.5rem; }
 
   .menu > summary {

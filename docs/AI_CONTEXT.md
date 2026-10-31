@@ -262,6 +262,11 @@ An address nothing serves gets `templates/not_found.html` with a 404, and so doe
 a non-admin asking for the administration, so the two answers are identical. A
 missing demonstration page gets the same page.
 
+`/project/trace` runs one of the fixed `TRACE_SCENARIOS` and returns the stages
+it passed, for `app/web/project_page.js` to draw. It is public and limited per
+address, takes no command text, and nothing it runs writes. The notification
+stage of the reminder scenario is drawn, not executed.
+
 - GET /login, POST /login — sign-in form
 - GET /signup, POST /signup — registration, 404 while SIGNUP_OPEN is false
 - GET /about, GET /project — static public documents

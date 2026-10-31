@@ -5,7 +5,7 @@ import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
 from app.core.identity import WEB, Identity, telegram
-from app.web.server import WebServer, _experience
+from app.web.server import TRACE_ATTEMPTS, WebServer, _experience
 from tests.conftest import TEST_USERNAME
 
 
@@ -235,6 +235,61 @@ class TestPublicPages:
     )
     def test_the_experience_is_counted(self, today, expected):
         assert _experience(today) == expected
+
+    async def test_a_trace_reports_the_path_it_took(self, guest):
+        response = await guest.get("/project/trace?scenario=notes")
+        body = await response.json()
+
+        assert response.status == 200
+        assert body["ok"] is True
+        assert body["steps"] == [
+            "web",
+            "identity",
+            "dispatcher",
+            "to-plugin",
+            "plugin-notes",
+            "postgres",
+        ]
+
+    async def test_a_telegram_trace_starts_elsewhere(self, guest):
+        body = await (await guest.get("/project/trace?scenario=telegram")).json()
+
+        assert body["steps"][0] == "telegram"
+
+    async def test_a_reminder_reaches_notifications_without_sending(
+        self, every_plugin, guest
+    ):
+        body = await (await guest.get("/project/trace?scenario=reminder")).json()
+
+        assert body["steps"][-3:] == ["plugin-reminders", "postgres", "notify"]
+        assert "чат Telegram" in body["reply"]
+
+    async def test_an_unknown_command_stops_at_the_dispatcher(self, guest):
+        body = await (await guest.get("/project/trace?scenario=unknown")).json()
+
+        assert body["ok"] is False
+        assert body["steps"][-1] == "dispatcher"
+
+    async def test_a_trace_refuses_anything_off_the_list(self, guest):
+        response = await guest.get("/project/trace?scenario=/clear")
+
+        assert response.status == 400
+
+    async def test_the_trace_is_limited_per_address(self, guest):
+        for _ in range(TRACE_ATTEMPTS):
+            await guest.get("/project/trace?scenario=notes")
+
+        response = await guest.get("/project/trace?scenario=notes")
+
+        assert response.status == 429
+
+    async def test_the_project_page_script_is_public(self, guest):
+        page = await (await guest.get("/project")).text()
+        script = await guest.get("/project-page.js", allow_redirects=False)
+
+        assert 'src="/project-page.js"' in page
+        assert script.status == 200
+        assert script.content_type == "text/javascript"
 
     async def test_an_address_nothing_serves_is_a_404_for_a_guest(self, guest):
         """Not a redirect to the login page, which would say the page exists."""

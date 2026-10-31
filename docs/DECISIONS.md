@@ -2118,3 +2118,27 @@ the drawing on the width recruiters read on.
 ### Result
 A mistyped address offers a way onwards. The list repeats the diagram's content,
 so a change to the architecture now has two places to update.
+
+## 2026-10-31
+
+### Decision
+Let a reader run fixed scenarios on `/project` and watch their real path, without
+any of them sending a message
+
+### Reason
+One button lighting the same boxes was worth one click, and per-stage timings
+read as zero. Paths that actually differ show what the architecture means:
+two transports into one core, pages that skip the Dispatcher, a refusal.
+
+### How it is done
+
+- `TRACE_SCENARIOS` is a closed list, so the route takes no input worth abusing.
+  It is limited to 30 requests a minute per address.
+- The reminder scenario reads the reminders and stops short of delivery. A
+  stranger has no chat, and a public button must not reach the owner's.
+- The brief lens is the default when the script runs, and without it the whole
+  page shows. Scripts are revalidated, because a page and an old script clash.
+
+### Result
+The diagram rewards a second click. The Notifications stage is an illustration,
+which is the one place the picture is not the running code.
