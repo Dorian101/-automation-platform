@@ -73,8 +73,8 @@ __MENU_STYLES__
     <p class="lens-brief">Система для повседневных дел: заметки, напоминания,
     расходы, задачи и отклики на вакансии. Заметки и напоминания доступны и в
     Telegram, и в браузере, а для расходов, задач и откликов есть отдельные
-    страницы. Аккаунты можно связать: данные станут общими, а напоминания
-    будут приходить в чат.</p>
+    страницы. Аккаунты можно связать: данные из обоих каналов будут видны
+    вместе, а напоминания станут приходить в чат.</p>
     <p class="lens-brief">Проект показывает полный цикл разработки: от схемы
     базы и тестов до автоматического деплоя и резервных копий. Разработку вели
     AI-агенты, задачи ставил человек. Платформа работает в проде, а демо
@@ -82,7 +82,7 @@ __MENU_STYLES__
     <p class="lens-deep">Python-монолит: один процесс держит aiogram polling,
     HTTP-сервер на aiohttp и фоновые воркеры напоминаний и дедлайнов. Данные —
     в PostgreSQL. Схема сознательно простая: один VPS, один сервис, никаких
-    брокеров и отдельных процессов.</p>
+    брокеров и отдельных воркеров.</p>
     <p class="lens-deep">Ядро не зависит от транспорта. Текстовая команда из
     обоих каналов проходит через <code>parse_command</code> и
     <code>PluginManager.execute</code> и возвращает <code>CommandResult</code>.
@@ -110,8 +110,8 @@ __MENU_STYLES__
         <div class="project-meta"><span>01</span><span>Заметки · Напоминания</span></div>
         <h3>Заметки и напоминания</h3>
         <p class="lens-brief">Записать мысль или поставить напоминание можно
-        командой в боте или в браузере. В нужное время сообщение придёт в
-        Telegram.</p>
+        командой в боте или в браузере. Напоминание придёт в Telegram, поэтому
+        в браузере его можно поставить, когда Telegram связан с аккаунтом.</p>
         <p class="lens-deep">Команды <code>/notes</code>, <code>/remind</code> и
         <code>/copy</code> используют общий разбор и набор плагинов. Напоминания
         лежат в базе, а фоновый воркер доставляет их через слой уведомлений.</p>
@@ -263,9 +263,11 @@ __MENU_STYLES__
       <li data-step="plugin-system plugin-notes plugin-reminders plugin-clipboard plugin-expenses plugin-applications plugin-todo"><b>Плагины</b>system · notes · reminders · clipboard · expenses · applications · todo</li>
       <li data-step="postgres notify"><b>Хранение и доставка</b>PostgreSQL и уведомления в чат Telegram</li>
     </ol>
-    <figcaption class="lens-brief">Бот и браузер работают через один код и одну базу.</figcaption>
-    <figcaption class="lens-deep">Плагин получает команду и identity, а возвращает
-    <code>CommandResult</code>, поэтому ядро одинаково обслуживает оба транспорта.</figcaption>
+    <figcaption>
+      <span class="lens-brief">Бот и браузер работают через один код и одну базу.</span>
+      <span class="lens-deep">Плагин получает команду и identity, а возвращает
+      <code>CommandResult</code>, поэтому ядро одинаково обслуживает оба транспорта.</span>
+    </figcaption>
     </figure>
     <div id="trace-actions" class="trace-actions" hidden>
       <p class="trace-title">Визуализация схемы работы команд</p>

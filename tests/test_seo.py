@@ -305,9 +305,8 @@ class TestTheProjectPage:
     failure is invisible until a reader sees it.
 
     What this covers is the cheap half: names that must exist. It cannot catch
-    "this was finished and the page still says it is not", which is why the
-    list of what is outstanding now points at the repository instead of being
-    copied here.
+    "this was finished and the page still says it is not", which is why what
+    is outstanding lives in the repository rather than on the page.
     """
 
     @pytest.fixture
@@ -320,6 +319,20 @@ class TestTheProjectPage:
         assert f"<b>{len(plugins)}</b><span>плагинов" in page
         assert f"<b>{sum(len(p.commands) for p in plugins)}</b>" \
             "<span>команд" in page
+
+    async def test_each_reading_depth_hides_the_other(self, page):
+        """Both depths are in the markup, so the styles are all that keeps a
+        reader from getting every card twice."""
+        assert 'main[data-lens="brief"] .lens-deep { display: none; }' in page
+        assert 'main:not([data-lens="brief"]) .lens-brief { display: none; }' \
+            in page
+
+        cards = re.findall(r'<article class="project.*?</article>', page, re.S)
+
+        assert cards, "the page has no cards, so this proves nothing"
+        for card in cards:
+            assert 'class="lens-brief"' in card
+            assert 'class="lens-deep"' in card
 
     async def test_the_diagram_lists_exactly_the_shipped_plugins(self, page):
         """The diagram names the plugins by hand, in a picture.

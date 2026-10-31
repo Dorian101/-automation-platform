@@ -267,6 +267,10 @@ it passed, for `app/web/project_page.js` to draw. It is public and limited per
 address, takes no command text, and nothing it runs writes. The notification
 stage of the reminder scenario is drawn, not executed.
 
+`/project` keeps both reading depths in the markup as `.lens-brief` and
+`.lens-deep`. A claim about the platform changes in both places. Without the
+script only the engineering text shows.
+
 - GET /login, POST /login — sign-in form
 - GET /signup, POST /signup — registration, 404 while SIGNUP_OPEN is false
 - GET /about, GET /project — static public documents

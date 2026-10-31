@@ -2142,3 +2142,31 @@ two transports into one core, pages that skip the Dispatcher, a refusal.
 ### Result
 The diagram rewards a second click. The Notifications stage is an illustration,
 which is the one place the picture is not the running code.
+
+## 2026-10-31
+
+### Decision
+Give each reading depth on `/project` its own text, and keep the page to what
+the platform does
+
+### Reason
+The brief lens was the engineering page minus three blocks, so a visitor still
+met `NUMERIC` and `PersonResolver`, and an engineer got little on how the system
+is built. The page also claimed things the code does not do: every feature in
+both channels, and plugins that never see the transport.
+
+The page presents the work, so its closing list of gaps is gone. What is
+outstanding stays in `PROJECT_STATE.md`, and the page links there.
+
+### How it is done
+
+- Cards and the opening section carry a `.lens-brief` and a `.lens-deep` version.
+  Without the script only the engineering text shows, so nothing appears twice.
+- The diagram stays in both depths because running a scenario is the strongest
+  thing on the page. Its box now says `PluginManager`, since no Dispatcher of ours
+  exists.
+- The engineering text shows briefly before the script applies the lens. That
+  is accepted: fixing it needs an inline script and a nonce for one flash.
+
+### Result
+Each depth reads for its own reader, and a test keeps every card in both.
