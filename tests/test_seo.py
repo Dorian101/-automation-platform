@@ -295,6 +295,52 @@ class TestInterfaceLanguage:
             )
 
 
+def _contrast(first: str, second: str) -> float:
+    """The WCAG contrast ratio of two `#rrggbb` colours."""
+
+    def luminance(colour: str) -> float:
+        channels = [int(colour[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        linear = [
+            c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+            for c in channels
+        ]
+        return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+    light, dark = sorted((luminance(first), luminance(second)), reverse=True)
+
+    return (light + 0.05) / (dark + 0.05)
+
+
+class TestTheLightTheme:
+    """Every page reaches for the theme, and the light palette can be read."""
+
+    @pytest.mark.parametrize("path", ["/about", "/project", "/login"])
+    async def test_it_runs_before_the_page_paints(self, crawler, path):
+        response = await crawler.get(path)
+        page = await response.text()
+        nonce = re.search(
+            r"'nonce-([^']+)'", response.headers["Content-Security-Policy"]
+        ).group(1)
+
+        assert page.index(f'<script nonce="{nonce}">\n  // The site\'s light') \
+            < page.index("</head>")
+
+    async def test_a_missing_page_has_it_too(self, crawler):
+        page = await (await crawler.get("/nosuchpage")).text()
+
+        assert "site-theme" in page
+
+    async def test_text_colours_are_readable_on_the_page(self):
+        source = (ROOT / "app/web/templates/_theme.html").read_text()
+        palette = dict(re.findall(r"--([a-z-]+): (#[0-9a-f]{6});", source))
+
+        for name in ("text", "muted", "accent", "lime", "coral", "amber",
+                     "error", "ok"):
+            for ground in ("bg", "panel"):
+                ratio = _contrast(palette[name], palette[ground])
+                assert ratio >= 4.5, f"--{name} on --{ground}: {ratio:.2f}"
+
+
 class TestTheProjectPage:
     """A page of claims about the project, checked against the project.
 

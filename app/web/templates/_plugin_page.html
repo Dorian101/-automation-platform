@@ -48,8 +48,8 @@ __STYLES__
   .totals .big { font-size: 2.2rem; font-weight: 600; line-height: 1; }
   .totals .cap { color: var(--muted); font-size: 0.85rem; }
   .totals .delta { font-size: 0.95rem; color: var(--muted); }
-  .totals .delta.up { color: #ff8a8a; }
-  .totals .delta.down { color: #7bd88f; }
+  .totals .delta.up { color: var(--error); }
+  .totals .delta.down { color: var(--ok); }
   .bars { margin: 0 0 1.5rem; }
   .barrow { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.45rem; }
   .barlabel {
@@ -232,9 +232,9 @@ __STYLES__
     width: 0.55rem; height: 0.55rem; border-radius: 50%;
     border: 1px solid transparent;
   }
-  .kbcard .dot.p1 { background: #ff6b6b; }
-  .kbcard .dot.p2 { background: #e8c67a; }
-  .kbcard .dot.p3 { background: #58c98a; }
+  .kbcard .dot.p1 { background: var(--error); }
+  .kbcard .dot.p2 { background: var(--amber); }
+  .kbcard .dot.p3 { background: var(--ok); }
   .kbcard .due { font-variant-numeric: tabular-nums; font-size: 0.78rem; color: var(--muted); }
   .kbcard.overdue .due { color: var(--error); }
   .kbcard .acts {

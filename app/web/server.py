@@ -1186,7 +1186,7 @@ class WebServer:
 
     @web.middleware
     async def _nonce(self, request: web.Request, handler):
-        """Write the script nonce into the body, then into the header.
+        """Add the theme, then write the script nonce into body and header.
 
         Outermost on purpose. A nonce that governs the response has to be there
         for everything the inner layers can return, including the refusals they
@@ -1200,10 +1200,15 @@ class WebServer:
 
         if response.content_type == "text/html":
             value = secrets.token_urlsafe(16)
+            # The theme goes in here because this is the one place every page
+            # passes through, the login form and the 404 included. A page left
+            # out would flash dark at a reader of the light theme.
             body = response.text
 
-            if CSP_NONCE_PLACEHOLDER in body:
-                response.text = body.replace(CSP_NONCE_PLACEHOLDER, value)
+            if "</head>" in body:
+                body = body.replace("</head>", _theme_head() + "</head>", 1)
+
+            response.text = body.replace(CSP_NONCE_PLACEHOLDER, value)
 
             response.headers.setdefault(
                 "Content-Security-Policy", _content_security_policy(value)
@@ -1669,6 +1674,11 @@ def _render_card(
         source = source.replace(name, value)
 
     return web.Response(text=source, content_type="text/html", status=status)
+
+
+def _theme_head() -> str:
+    """The theme's script and light palette, for every page's head."""
+    return (TEMPLATES_DIR / "_theme.html").read_text(encoding="utf-8")
 
 
 def _render_page(

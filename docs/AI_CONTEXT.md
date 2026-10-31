@@ -271,6 +271,11 @@ stage of the reminder scenario is drawn, not executed.
 `.lens-deep`. A claim about the platform changes in both places. Without the
 script only the engineering text shows.
 
+The light theme lives in `templates/_theme.html`: the palette and an inline
+script. The `_nonce` middleware adds it to every HTML page with a head. A new
+colour goes in as a variable with a light value, and a colour used as text must
+pass the contrast test in `tests/test_seo.py`.
+
 - GET /login, POST /login — sign-in form
 - GET /signup, POST /signup — registration, 404 while SIGNUP_OPEN is false
 - GET /about, GET /project — static public documents

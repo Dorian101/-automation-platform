@@ -31,11 +31,19 @@
 
   const style = getComputedStyle(document.documentElement);
   const color = (name) => style.getPropertyValue(name).trim();
-  const INK = color("--text");
-  const MUTED = color("--muted");
-  const RULE = color("--border");
-  const ON_TIME = color("--accent");
-  const LATE = color("--coral");
+  let INK;
+  let MUTED;
+  let ON_TIME;
+  let LATE;
+
+  function readColors() {
+    INK = color("--text");
+    MUTED = color("--muted");
+    ON_TIME = color("--accent");
+    LATE = color("--coral");
+  }
+
+  readColors();
 
   const ctx = canvas.getContext("2d");
   const clamp = (x) => Math.min(1, Math.max(0, x));
@@ -266,6 +274,13 @@
 
   replay.addEventListener("click", play);
   replay.hidden = false;
+
+  document.addEventListener("themechange", () => {
+    readColors();
+    if (!frame && width) {
+      draw(END);
+    }
+  });
 
   const faces = [
     document.fonts.load(`600 16px ${MANROPE}`, "Яя"),

@@ -11,6 +11,20 @@
     --coral: #ff795f;
     --amber: #f5c542;
     --error: #ff6b6b;
+    --ok: #7bd88f;
+    /* The hover fills stay bright in both themes: the text on them is dark
+       either way, so they do not follow the colours above. */
+    --fill-blue: #477eff;
+    --fill-lime: #b9f45d;
+    --fill-coral: #ff795f;
+    --fill-amber: #f5c542;
+    --diagram-edge: #3a3d42;
+    --diagram-external: #1a1d28;
+    --diagram-input: #121a2a;
+    --diagram-identity: #161718;
+    --diagram-identity-line: #56595b;
+    --diagram-process: #16203c;
+    --diagram-storage: #14251c;
   }
   * { box-sizing: border-box; }
   body {
@@ -116,7 +130,7 @@
   .stats div { min-width: 7rem; }
   .stats b { display: block; font-size: 1.35rem; font-weight: 600; }
   .stats span { color: var(--muted); font-size: 0.85rem; }
-  /* The about page: a dark, technical portfolio. A huge headline over
+  /* The about page: a technical portfolio. A huge headline over
      decorative orbit rings, then numbered project tiles that fill with their
      colour on hover. The mono face carries the small labels — numbers, tags,
      meta — and Manrope carries the reading text and the big type. */
@@ -281,9 +295,9 @@
   }
   .case:hover::before { inset: 0; }
   .case:hover { color: #111; }
-  .case.blue::before { background: var(--accent); }
-  .case.lime::before { background: var(--lime); }
-  .case.coral::before { background: var(--coral); }
+  .case.blue::before { background: var(--fill-blue); }
+  .case.lime::before { background: var(--fill-lime); }
+  .case.coral::before { background: var(--fill-coral); }
   .case > * { position: relative; z-index: 1; }
   .case:hover .project-meta, .case:hover dt, .case:hover .fact span { color: #272727; }
   .case:hover .fact b { color: #111; }
@@ -326,10 +340,10 @@
   }
   .project:hover::before { inset: 0; }
   .project:hover { color: #111; }
-  .project.blue::before { background: var(--accent); }
-  .project.lime::before { background: var(--lime); }
-  .project.coral::before { background: var(--coral); }
-  .project.amber::before { background: var(--amber); }
+  .project.blue::before { background: var(--fill-blue); }
+  .project.lime::before { background: var(--fill-lime); }
+  .project.coral::before { background: var(--fill-coral); }
+  .project.amber::before { background: var(--fill-amber); }
   .project > * { position: relative; z-index: 1; }
   .project-meta {
     font: 11px/1.7 'JetBrains Mono', monospace;
@@ -343,6 +357,7 @@
   .project h3 { font-size: clamp(2rem, 3.4vw, 3.4rem); letter-spacing: -0.04em; line-height: 1.05; font-weight: 500; margin: 0; }
   .project p { color: var(--muted); font-size: 14px; line-height: 1.7; margin: 0; }
   .project:hover p { color: #272727; }
+  .project:hover code { background: none; border-color: currentColor; }
   .location {
     font: 12px 'JetBrains Mono', monospace;
     color: var(--muted);

@@ -2170,3 +2170,29 @@ outstanding stays in `PROJECT_STATE.md`, and the page links there.
 
 ### Result
 Each depth reads for its own reader, and a test keeps every card in both.
+
+## 2026-10-31
+
+### Decision
+Add an optional light theme behind a button, with dark as the default and the
+system theme not followed
+
+### Reason
+The dark look is the face of the site, so a visitor should not lose it because
+of an operating system setting. A reader who wants light can have it.
+
+### How it is done
+
+- One light palette in `_theme.html` overrides the page palettes by selector
+  weight, so the dark ones stay untouched in their stylesheets.
+- The `_nonce` middleware adds that block to every page with a head, the 404
+  included. It is the one place all of them pass through.
+- The script is inline rather than a file: it has to run before the first paint,
+  and a blocking `no-cache` file would add a request ahead of every page.
+- A 404 now carries a nonce, so a closed address and a missing one match apart
+  from it. It is random per response and says nothing about either.
+- Hover fills keep their colours in both themes, because their text is dark
+  either way. The hero mark on `/project` stays dark as a logo.
+
+### Result
+Light is one click on every page and arrives without a dark flash.

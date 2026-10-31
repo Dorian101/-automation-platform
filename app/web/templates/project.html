@@ -160,28 +160,29 @@ __MENU_STYLES__
     <svg viewBox="0 0 760 600" role="img" aria-labelledby="diagram-title">
       <title id="diagram-title">Устройство платформы: транспорт, ядро, хранилище</title>
       <style>
-        .diagram .edge { stroke: #3a3d42; stroke-width: 1.5; fill: none; }
-        .diagram .zone { fill: none; stroke: #303234; stroke-width: 1; stroke-dasharray: 6 5; }
-        .diagram .zone-name { font-size: 12px; fill: #a8a8a4; }
-        .diagram .label { font-size: 15px; font-weight: 600; fill: #f2f0e9; }
-        .diagram .small { font-size: 12px; fill: #a8a8a4; }
+        .diagram .edge { stroke: var(--diagram-edge); stroke-width: 1.5; fill: none; }
+        .diagram .arrow { fill: var(--diagram-edge); }
+        .diagram .zone { fill: none; stroke: var(--border); stroke-width: 1; stroke-dasharray: 6 5; }
+        .diagram .zone-name { font-size: 12px; fill: var(--muted); }
+        .diagram .label { font-size: 15px; font-weight: 600; fill: var(--text); }
+        .diagram .small { font-size: 12px; fill: var(--muted); }
         .diagram .box { stroke-width: 1; }
-        .diagram .external { fill: #1a1d28; stroke: #477eff; }
-        .diagram .input { fill: #121a2a; stroke: #477eff; }
-        .diagram .identity { fill: #161718; stroke: #56595b; }
-        .diagram .process { fill: #16203c; stroke: #477eff; }
-        .diagram .storage { fill: #14251c; stroke: #b9f45d; }
+        .diagram .external { fill: var(--diagram-external); stroke: var(--accent); }
+        .diagram .input { fill: var(--diagram-input); stroke: var(--accent); }
+        .diagram .identity { fill: var(--diagram-identity); stroke: var(--diagram-identity-line); }
+        .diagram .process { fill: var(--diagram-process); stroke: var(--accent); }
+        .diagram .storage { fill: var(--diagram-storage); stroke: var(--lime); }
         .diagram .box, .diagram .edge { transition: stroke 0.2s; }
-        .diagram .lit { stroke: #b9f45d; stroke-width: 2.5; }
-        .diagram .stop { stroke: #ff795f; stroke-width: 2.5; }
-        .diagram .cell { font-size: 12px; font-weight: 600; fill: #f2f0e9; }
+        .diagram .lit { stroke: var(--lime); stroke-width: 2.5; }
+        .diagram .stop { stroke: var(--coral); stroke-width: 2.5; }
+        .diagram .cell { font-size: 12px; font-weight: 600; fill: var(--text); }
         .diagram .page-route { stroke-dasharray: 4 4; }
-        .diagram #trace-dot { fill: #b9f45d; opacity: 0; }
-        .diagram #trace-dot.stopped { fill: #ff795f; }
+        .diagram #trace-dot { fill: var(--lime); opacity: 0; }
+        .diagram #trace-dot.stopped { fill: var(--coral); }
       </style>
       <defs>
         <marker id="d-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="#3a3d42" />
+          <path class="arrow" d="M 0 0 L 10 5 L 0 10 z" />
         </marker>
       </defs>
 

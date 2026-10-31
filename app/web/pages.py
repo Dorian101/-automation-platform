@@ -234,9 +234,9 @@ def render_demo_landing(links: list[dict], nav_html: str) -> str:
 def render_not_found() -> str:
     """The page for an address nothing serves.
 
-    The same bytes for everyone, with no navigation, because the closed
-    administration answers with it too: anything that differed would tell a
-    stranger where that area lives.
+    The same bytes for everyone apart from the per-response nonce, with no
+    navigation, because the closed administration answers with it too:
+    anything else that differed would tell a stranger where that area lives.
     """
     source = (TEMPLATES_DIR / "not_found.html").read_text(encoding="utf-8")
 

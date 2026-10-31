@@ -181,7 +181,12 @@ class TestTheGate:
         missing = await other_user_client.get("/no-such-place")
 
         assert closed.status == missing.status == 404
-        assert await closed.text() == await missing.text()
+
+        # The nonce differs per response on every page, so it says nothing.
+        def page(body: str) -> str:
+            return re.sub(r'nonce="[^"]+"', 'nonce=""', body)
+
+        assert page(await closed.text()) == page(await missing.text())
 
     async def test_the_area_is_never_a_search_result(self, admin_client):
         """robots.txt already disallows it, so this is the second of two

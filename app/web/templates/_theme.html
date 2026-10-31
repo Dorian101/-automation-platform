@@ -1,0 +1,108 @@
+<script nonce="__CSP_NONCE__">
+  // The site's light theme, chosen by the reader and remembered in this browser.
+  //
+  // Inline in <head>: the theme has to be on the root before the first paint,
+  // or a reader of the light theme gets a dark flash, and a blocking file would
+  // be one more request before every page. The button is made here rather than
+  // in the markup, because it does nothing without this script and several
+  // pages have no menu to put it beside.
+  (() => {
+    const STORED = "site-theme";
+    const root = document.documentElement;
+  
+    function remembered() {
+      try {
+        return localStorage.getItem(STORED);
+      } catch {
+        return null;
+      }
+    }
+  
+    function remember(value) {
+      try {
+        localStorage.setItem(STORED, value);
+      } catch {
+        // A private window keeps the choice for this page view only.
+      }
+    }
+  
+    function restore() {
+      root.dataset.theme = remembered() === "light" ? "light" : "dark";
+    }
+  
+    restore();
+  
+    function caption(button) {
+      button.textContent = root.dataset.theme === "light" ? "Тёмная тема" : "Светлая тема";
+    }
+  
+    document.addEventListener("DOMContentLoaded", () => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "theme-toggle";
+      caption(button);
+      button.addEventListener("click", () => {
+        root.dataset.theme = root.dataset.theme === "light" ? "dark" : "light";
+        remember(root.dataset.theme);
+        caption(button);
+        document.dispatchEvent(new Event("themechange"));
+      });
+      (document.querySelector(".account") ?? document.body).prepend(button);
+      // A page back from the browser's cache still has the theme it left with.
+      window.addEventListener("pageshow", (event) => {
+        if (event.persisted) {
+          restore();
+          caption(button);
+          document.dispatchEvent(new Event("themechange"));
+        }
+      });
+    });
+  })();
+</script>
+<style>
+  /* One light palette for every page. The dark palettes stay in each page's
+     own stylesheet; this selector outranks them wherever it lands.
+
+     The colours used as text are darker than their dark-theme twins, because
+     lime and amber cannot be read on a light page. A test holds them to the
+     WCAG contrast for text. */
+  :root[data-theme="light"] {
+    --bg: #f7f6f2;
+    --panel: #ffffff;
+    --border: #dcdad3;
+    --text: #1a1b1d;
+    --muted: #5f6166;
+    --accent: #2456d6;
+    --lime: #4f7a0f;
+    --coral: #c23d27;
+    --amber: #8f6700;
+    --error: #c62f2f;
+    --ok: #1f7a4c;
+    --diagram-edge: #a9abad;
+    --diagram-external: #eef1fb;
+    --diagram-input: #eaf0ff;
+    --diagram-identity: #f1f0ec;
+    --diagram-identity-line: #a9abad;
+    --diagram-process: #dfe8ff;
+    --diagram-storage: #ebf5da;
+  }
+
+  .theme-toggle {
+    position: absolute;
+    top: 1.5rem;
+    right: 4vw;
+    z-index: 10;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.35rem 0.85rem;
+    font: inherit;
+    font-size: 0.88rem;
+    color: var(--muted);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--text); }
+  .account { flex-wrap: wrap; }
+  .account .theme-toggle { position: static; }
+</style>
