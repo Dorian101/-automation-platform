@@ -51,7 +51,8 @@
      needs no file of its own — this project serves no static assets, and one
      diagram is not a reason to start. */
   figure.diagram { margin: 1.5rem 0; }
-  figure.diagram svg { width: 100%; max-width: 42rem; height: auto; display: block; }
+  figure.diagram svg { width: 100%; max-width: 42rem; height: auto; display: block; margin-inline: auto; }
+  figure.diagram figcaption { text-align: center; }
   /* A phone cannot fit the drawing at a readable size, so it gets the same
      chain as a list. */
   .diagram-flow { display: none; }
@@ -199,7 +200,7 @@
   }
   .lens button[aria-pressed="true"] { background: var(--accent); color: var(--bg); }
   main[data-lens="brief"] .lens-deep { display: none; }
-  .trace-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+  .trace-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 1rem; }
   .trace-actions[hidden] { display: none; }
   .trace-actions button {
     padding: 0.45rem 0.75rem;
@@ -212,8 +213,8 @@
   }
   .trace-actions button:hover { border-color: var(--accent); }
   .trace-actions button:disabled { opacity: 0.5; cursor: default; }
-  .trace-result { min-height: 1.5rem; font: 12px 'JetBrains Mono', monospace; margin: 0.5rem 0 0; }
-  .trace-title { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 0.85rem; }
+  .trace-result { text-align: center; min-height: 1.5rem; font: 12px 'JetBrains Mono', monospace; margin: 0.5rem 0 0; }
+  .trace-title { flex-basis: 100%; margin: 0; text-align: center; color: var(--muted); font-size: 0.85rem; }
   .diagram-flow li.lit { color: var(--text); border-left: 2px solid var(--lime); }
   .diagram-flow li.stop { color: var(--text); border-left: 2px solid var(--coral); }
   section[id] { scroll-margin-top: 1.5rem; }
