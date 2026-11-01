@@ -65,4 +65,48 @@
       }
     });
   }
+
+  // The figures in the cases count up as they come into view. The markup holds
+  // the final numbers and they are touched only once visible, so the page
+  // without this script and the printout both read correctly.
+  const COUNT_MS = 900;
+
+  function countUp(figure) {
+    const parts = figure.textContent.match(/^(\d+)(\D*)$/);
+
+    if (!parts) {
+      return;
+    }
+
+    const [, digits, suffix] = parts;
+    const target = Number(digits);
+    // The face is monospaced, so the width can be held while the digits grow.
+    figure.style.minWidth = `${figure.textContent.length}ch`;
+    let started = null;
+
+    function tick(now) {
+      started ??= now;
+      const progress = Math.min((now - started) / COUNT_MS, 1);
+      const eased = 1 - (1 - progress) ** 3;
+      figure.textContent = `${Math.round(target * eased)}${suffix}`;
+      if (progress < 1) {
+        requestAnimationFrame(tick);
+      }
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const watcher = new IntersectionObserver((entries) => {
+      entries.filter((entry) => entry.isIntersecting).forEach((entry) => {
+        watcher.unobserve(entry.target);
+        countUp(entry.target);
+      });
+    }, { threshold: 1 });
+
+    document.querySelectorAll(".case .fact b").forEach((figure) => {
+      watcher.observe(figure);
+    });
+  }
 })();

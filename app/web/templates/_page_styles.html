@@ -185,6 +185,7 @@
   @media (prefers-reduced-motion: reduce) {
     .orbit::before { animation: none; }
     .viz-svg * { animation: none; }
+    .lens[data-placed]::before { transition: none; }
   }
   /* The hero: a canvas report drawn by about_hero.js on /about, and the small
      SVG mark on /project. */
@@ -201,9 +202,23 @@
   /* The headline's longest line would otherwise run up to the chart beside it
      on every width until the chart reaches its own maximum. */
   html { scroll-behavior: smooth; }
-  .lens { display: inline-flex; gap: 0.25rem; padding: 0.2rem; border: 1px solid var(--border); border-radius: 8px; }
+  .lens { position: relative; display: inline-flex; gap: 0.25rem; padding: 0.2rem; border: 1px solid var(--border); border-radius: 8px; }
+  /* One plate that moves between the buttons, placed by project_page.js. */
+  .lens::before {
+    content: '';
+    position: absolute;
+    top: 0.2rem;
+    bottom: 0.2rem;
+    left: 0;
+    width: var(--lens-width, 0);
+    transform: translateX(var(--lens-left, 0));
+    border-radius: 6px;
+    background: var(--accent);
+  }
+  .lens[data-placed]::before { transition: transform 0.25s ease, width 0.25s ease; }
   .lens[hidden] { display: none; }
   .lens button {
+    position: relative;
     border: 0;
     border-radius: 6px;
     padding: 0.4rem 0.8rem;
@@ -211,8 +226,9 @@
     color: var(--muted);
     font: 12px 'JetBrains Mono', monospace;
     cursor: pointer;
+    transition: color 0.25s;
   }
-  .lens button[aria-pressed="true"] { background: var(--accent); color: var(--bg); }
+  .lens button[aria-pressed="true"] { color: var(--bg); }
   main[data-lens="brief"] .lens-deep { display: none; }
   main:not([data-lens="brief"]) .lens-brief { display: none; }
   .trace-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 1rem; }
@@ -492,6 +508,22 @@
     }
     .diagram-flow li { padding: 0.5rem 0 0.5rem 1rem; color: var(--muted); font-size: 0.9rem; }
     .diagram-flow b { display: block; color: var(--text); font-weight: 600; }
+  }
+  /* Blocks rise into place as they scroll in. Driven by the scroll itself, so
+     a browser without scroll timelines simply shows them, and a printout never
+     meets this. */
+  @media screen and (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      .case, .project, .work-heading, .experience, .contact, figure.diagram {
+        animation: rise-in linear both;
+        animation-timeline: view();
+        animation-range: entry 0px entry 220px;
+      }
+    }
+  }
+  @keyframes rise-in {
+    from { opacity: 0; transform: translateY(1.5rem); }
+    to { opacity: 1; transform: none; }
   }
   /* The printed page is the résumé: black on white in either theme, and without
      whatever only works on a screen. */

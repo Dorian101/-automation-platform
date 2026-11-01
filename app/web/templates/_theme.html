@@ -42,10 +42,58 @@
       button.className = "theme-toggle";
       caption(button);
       button.addEventListener("click", () => {
-        root.dataset.theme = root.dataset.theme === "light" ? "dark" : "light";
-        remember(root.dataset.theme);
-        caption(button);
-        document.dispatchEvent(new Event("themechange"));
+        // A second click would cancel the circle halfway.
+        if (root.classList.contains("theme-switching")) {
+          return;
+        }
+
+        const change = () => {
+          root.dataset.theme = root.dataset.theme === "light" ? "dark" : "light";
+          remember(root.dataset.theme);
+          caption(button);
+          document.dispatchEvent(new Event("themechange"));
+        };
+
+        if (
+          !document.startViewTransition ||
+          matchMedia("(prefers-reduced-motion: reduce)").matches
+        ) {
+          change();
+          return;
+        }
+
+        // The new theme spreads from the button as a growing circle.
+        const box = button.getBoundingClientRect();
+        const x = box.left + box.width / 2;
+        const y = box.top + box.height / 2;
+        const radius = Math.hypot(
+          Math.max(x, innerWidth - x),
+          Math.max(y, innerHeight - y),
+        );
+
+        root.classList.add("theme-switching");
+        const transition = document.startViewTransition(change);
+        transition.ready.then(() => {
+          root.animate(
+            {
+              clipPath: [
+                `circle(0px at ${x}px ${y}px)`,
+                `circle(${radius}px at ${x}px ${y}px)`,
+              ],
+            },
+            {
+              // An even pace from any window size: with an eased curve the
+              // edge crawls, then crosses most of the page in a few frames.
+              duration: Math.min(Math.max(radius / 1.2, 450), 1100),
+              easing: "linear",
+              pseudoElement: "::view-transition-new(root)",
+            },
+          );
+        }, () => {
+          // Skipped by the browser, as in a hidden tab. The theme has changed
+          // by then, and there is simply nothing to animate.
+        });
+        transition.finished.finally(() => root.classList.remove("theme-switching"));
       });
       (document.querySelector(".account") ?? document.body).prepend(button);
       // A page back from the browser's cache still has the theme it left with.
@@ -104,5 +152,10 @@
   }
   .theme-toggle:hover { border-color: var(--accent); color: var(--text); }
   .account { flex-wrap: wrap; }
+  /* Only for the theme: a move between pages keeps the browser's own fade. The
+     menu leaves its layer so that it changes with the page under the circle. */
+  .theme-switching::view-transition-old(root),
+  .theme-switching::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+  .theme-switching .menu > summary { view-transition-name: none; }
   .account .theme-toggle { position: static; }
 </style>

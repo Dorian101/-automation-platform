@@ -32,11 +32,23 @@
     lens.querySelectorAll("button").forEach((button) => {
       button.setAttribute("aria-pressed", String(button.dataset.lens === value));
     });
+    placePlate();
+  }
+
+  function placePlate() {
+    const pressed = lens.querySelector('[aria-pressed="true"]');
+    lens.style.setProperty("--lens-left", `${pressed.offsetLeft}px`);
+    lens.style.setProperty("--lens-width", `${pressed.offsetWidth}px`);
   }
 
   if (lens) {
-    setLens(remembered() === "deep" ? "deep" : "brief");
     lens.hidden = false;
+    setLens(remembered() === "deep" ? "deep" : "brief");
+    // The labels change width when the font arrives.
+    new ResizeObserver(placePlate).observe(lens);
+    requestAnimationFrame(() => {
+      lens.dataset.placed = "";
+    });
     lens.addEventListener("click", (event) => {
       const value = event.target.dataset.lens;
       if (value) {

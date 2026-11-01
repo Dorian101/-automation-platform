@@ -280,6 +280,9 @@ The résumé is `/about` under `@media print` in `_page_styles.html`. Its contac
 replace the contact section through `.print-only`, and `PERSON` in `server.py`
 holds them for JSON-LD, so a changed contact changes in all three.
 
+Decorative motion stays out of print and honours `prefers-reduced-motion`. The
+one exception is the `/about` hero report, which plays once either way.
+
 - GET /login, POST /login — sign-in form
 - GET /signup, POST /signup — registration, 404 while SIGNUP_OPEN is false
 - GET /about, GET /project — static public documents

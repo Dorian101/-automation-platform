@@ -353,6 +353,13 @@ class TestTheResumePage:
         assert "@alexeyr6" in line
         assert "alexeyr101@gmail.com" in line
 
+    async def test_the_motion_stays_off_paper(self, crawler):
+        """A block hidden until it scrolls in would be missing from a printout."""
+        page = await (await crawler.get("/about")).text()
+
+        assert "@media screen and (prefers-reduced-motion: no-preference)" in page
+        assert page.index("rise-in") < page.index("@media print")
+
     async def test_the_person_matches_the_page(self, crawler):
         page, data = await self._structured(crawler, "/about")
 

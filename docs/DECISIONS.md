@@ -2222,3 +2222,26 @@ from the page, while a print stylesheet cannot.
 The page is its own résumé. In-app browsers may ignore `window.print()`; there the
 button does nothing, and that is accepted because the page itself still reads.
 
+## 2026-11-01
+
+### Decision
+Add four decorative animations with no library: a circular theme change, counted
+figures on `/about`, blocks rising in on scroll, and a sliding lens plate
+
+### Reason
+The site is the portfolio, so how it feels counts. Every effect fits in a few
+lines of CSS or script, and a library would be more than the effects themselves.
+
+### How it is done
+
+- The circle is a View Transition with a clipped new image. Its easing is linear
+  with a duration from the radius: an eased curve crawled, then crossed most of
+  the page in a few frames.
+- Figures stay final in the markup and change only when fully on screen, so the
+  page without the script and the printout are correct.
+- Rising blocks use a scroll timeline under `@media screen`. A browser without it
+  shows them at once.
+
+### Result
+The motion is decoration only: without it nothing is lost.
+
