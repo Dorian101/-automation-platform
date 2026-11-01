@@ -224,6 +224,7 @@ __STYLES__
     cursor: pointer;
   }
   .kbcard:hover { border-color: var(--accent); }
+  .board-moving::view-transition-group(*) { animation-duration: 0.35s; }
   .kbcard.overdue { border-color: var(--error); }
   .kbcard .toprow { display: flex; align-items: flex-start; gap: 0.4rem; margin-bottom: 0.25rem; }
   .kbcard .text { font-size: 0.9rem; line-height: 1.35; flex: 1; }
@@ -701,6 +702,8 @@ __MENU_STYLES__
     const node = el('div', 'kbcard' + (card.overdue ? ' overdue' : ''));
     node.dataset.id = card.id;
     node.dataset.status = card.status;
+    // A name of its own is what lets a card fly from its old place to the new.
+    node.style.viewTransitionName = 'task-' + card.id;
 
     // The top line: text on the left, priority dots on the right.
     const toprow = el('div', 'toprow');
@@ -984,12 +987,34 @@ __MENU_STYLES__
       }
       view = data.view;
       if (payload.month) view.month.value = payload.month;
-      draw();
+      redraw(action);
     } catch (err) {
       showMessage('Не удалось связаться с сервером', false);
     } finally {
       if (button) button.disabled = false;
     }
+  }
+
+  // The actions that move cards around the board. Editing an opened card is
+  // left out: its fields should not fade while somebody is typing in them.
+  const BOARD_MOVES = new Set(['move', 'delete', 'view']);
+
+  function redraw(action) {
+    if (
+      !view.kanban ||
+      !BOARD_MOVES.has(action) ||
+      !document.startViewTransition ||
+      matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      draw();
+      return;
+    }
+
+    const page = document.documentElement;
+    page.classList.add('board-moving');
+    document.startViewTransition(draw).finished.finally(() => {
+      page.classList.remove('board-moving');
+    });
   }
 
   function showMessage(text, isClear) {

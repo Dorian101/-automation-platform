@@ -5,9 +5,14 @@
 (() => {
   const CONFIRMED_MS = 1500;
 
-  function confirm(button, text) {
+  const CHECK =
+    '<svg class="check" viewBox="0 0 16 16" aria-hidden="true">' +
+    '<path d="M3 8.5 6.5 12 13 4.5"/></svg>';
+
+  function confirm(button, text, succeeded) {
     const label = button.textContent;
-    button.textContent = text;
+    button.innerHTML = succeeded ? CHECK : "";
+    button.append(text);
     button.disabled = true;
     setTimeout(() => {
       button.textContent = label;
@@ -18,9 +23,9 @@
   async function copy(button, value, done) {
     try {
       await navigator.clipboard.writeText(value);
-      confirm(button, done);
+      confirm(button, done, true);
     } catch {
-      confirm(button, "Не удалось");
+      confirm(button, "Не удалось", false);
     }
   }
 

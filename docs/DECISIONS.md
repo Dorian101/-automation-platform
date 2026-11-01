@@ -2245,3 +2245,25 @@ lines of CSS or script, and a library would be more than the effects themselves.
 ### Result
 The motion is decoration only: without it nothing is lost.
 
+## 2026-11-01
+
+### Decision
+Animate the changes a reader causes: the reading depths, a moved kanban card and
+a copied contact
+
+### Reason
+The depth switch jumped, a moved card vanished from one column and appeared in
+another, and the text-only copy confirmation was easy to miss.
+
+### How it is done
+
+- The depths and the board use View Transitions. Each card has its own name, so
+  the browser flies it between positions with no layout code here.
+- The switcher takes its own layer during the fade, or the plate would fade
+  rather than slide.
+- Editing an opened card redraws without a transition, because fields fading
+  under somebody's typing would be worse than no animation.
+
+### Result
+Page height still changes at once on a depth switch; only the picture is smoothed.
+

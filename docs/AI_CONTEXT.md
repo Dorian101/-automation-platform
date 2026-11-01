@@ -283,6 +283,9 @@ holds them for JSON-LD, so a changed contact changes in all three.
 Decorative motion stays out of print and honours `prefers-reduced-motion`. The
 one exception is the `/about` hero report, which plays once either way.
 
+Kanban cards carry `view-transition-name: task-<id>`, so ids on a page must stay
+unique. `redraw` animates moves, deletes and sorting only, never card edits.
+
 - GET /login, POST /login — sign-in form
 - GET /signup, POST /signup — registration, 404 while SIGNUP_OPEN is false
 - GET /about, GET /project — static public documents

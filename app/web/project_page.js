@@ -35,6 +35,26 @@
     placePlate();
   }
 
+  // The texts cross-fade, so the page changes without a jump. The switcher has
+  // its own layer, or the plate would fade instead of sliding.
+  function switchLens(value) {
+    const root = document.documentElement;
+
+    if (
+      !document.startViewTransition ||
+      root.classList.contains("lens-switching") ||
+      matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      setLens(value);
+      return;
+    }
+
+    root.classList.add("lens-switching");
+    document.startViewTransition(() => setLens(value)).finished.finally(() => {
+      root.classList.remove("lens-switching");
+    });
+  }
+
   function placePlate() {
     const pressed = lens.querySelector('[aria-pressed="true"]');
     lens.style.setProperty("--lens-left", `${pressed.offsetLeft}px`);
@@ -52,7 +72,7 @@
     lens.addEventListener("click", (event) => {
       const value = event.target.dataset.lens;
       if (value) {
-        setLens(value);
+        switchLens(value);
         remember(value);
       }
     });

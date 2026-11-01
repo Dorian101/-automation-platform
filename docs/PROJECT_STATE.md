@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.68.0
+v0.69.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -358,6 +358,7 @@ Purpose:
 * pages with the menu change through a view transition
 * `/about` saves as a two-page résumé through the print stylesheet, copies its contacts and shares its link; `/about` and `/project` carry JSON-LD
 * the theme spreads from its button as a circle, the case figures on `/about` count up, blocks rise in on scroll, and the `/project` lens has a sliding plate
+* the reading depths cross-fade, kanban cards fly to their new place, and copying a contact draws a check mark
 * every page has a button for an optional light theme, remembered in the browser; dark is the default and the system theme is not followed
 * the about page counts the owner's experience from `CAREER_START` and scrolls smoothly to its anchors
 

@@ -186,6 +186,7 @@
     .orbit::before { animation: none; }
     .viz-svg * { animation: none; }
     .lens[data-placed]::before { transition: none; }
+    .page-action .check { animation: none; }
   }
   /* The hero: a canvas report drawn by about_hero.js on /about, and the small
      SVG mark on /project. */
@@ -229,6 +230,9 @@
     transition: color 0.25s;
   }
   .lens button[aria-pressed="true"] { color: var(--bg); }
+  .lens-switching .lens { view-transition-name: lens; }
+  .lens-switching::view-transition-old(root),
+  .lens-switching::view-transition-new(root) { animation-duration: 0.3s; }
   main[data-lens="brief"] .lens-deep { display: none; }
   main:not([data-lens="brief"]) .lens-brief { display: none; }
   .trace-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 1rem; }
@@ -300,6 +304,23 @@
   }
   .page-action:hover { color: var(--text); }
   #share-page { margin-left: 0; }
+  .page-action .check {
+    width: 1em;
+    height: 1em;
+    margin-right: 0.25em;
+    vertical-align: -0.15em;
+    fill: none;
+    stroke: var(--ok);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 16;
+    animation: check-draw 0.3s ease-out both;
+  }
+  @keyframes check-draw {
+    from { stroke-dashoffset: 16; }
+    to { stroke-dashoffset: 0; }
+  }
   .print-only { display: none; }
   .project-list { border-top: 1px solid var(--border); margin: 0 0 2rem; }
   .project-list--brief .project { min-height: 120px; }
