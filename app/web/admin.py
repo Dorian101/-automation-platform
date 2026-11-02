@@ -24,7 +24,8 @@ result if it is ever reached.
 import html
 import logging
 from collections.abc import Callable
-from datetime import UTC, datetime
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
@@ -141,6 +142,7 @@ class AdminArea:
         sub.router.add_get("", self.index)
         sub.router.add_get("/users", self.users_page)
         sub.router.add_get("/visits", self.visits_page)
+        sub.router.add_get("/sessions", self.sessions_page)
         sub.router.add_get("/feedback", self.feedback_page)
         sub.router.add_get("/status", self.status_page)
         sub.router.add_get("/status/data", self.status_data)
@@ -225,6 +227,48 @@ class AdminArea:
         })
 
         return self._page("visits", body, request)
+
+    async def sessions_page(self, request: web.Request) -> web.Response:
+        """The log read as people rather than rows: one line per browser visit.
+
+        Bots are hidden unless asked for, because a link sent in a chat makes
+        the messenger fetch it, and those fetches would outnumber readers.
+        """
+        showing_bots = request.query.get("bots") == "1"
+        hiding = request.query.get("hide") == "1"
+        mine = _mine(request) if hiding else None
+
+        found = [
+            session
+            for session in _sessions(self._visits.with_visitor(SESSION_DAYS))
+            if (showing_bots or not session.bot)
+            and (mine is None or mine not in session.identities)
+        ]
+        found.reverse()
+
+        pages = max(1, -(-len(found) // SESSIONS_PER_PAGE))
+        page = min(_page_number(request.query.get("page", "")), pages)
+        offset = (page - 1) * SESSIONS_PER_PAGE
+        shown = found[offset:offset + SESSIONS_PER_PAGE]
+
+        arguments = {"bots": "1"} if showing_bots else {}
+        if hiding:
+            arguments["hide"] = "1"
+
+        body = _fragment("admin_sessions.html", {
+            "__BOTS__": " checked" if showing_bots else "",
+            "__CHECKED__": " checked" if hiding else "",
+            "__GAP__": str(SESSION_GAP_MINUTES),
+            "__COUNT_LINE__": (
+                f"Сессий за {SESSION_DAYS} дней: <b>{len(found)}</b>"
+                + (f" &middot; показано <b>{offset + 1}–{offset + len(shown)}</b>"
+                   if shown else "")
+            ),
+            "__PAGER__": _sessions_pager(page, pages, arguments),
+            "__ROWS__": _session_rows(shown),
+        })
+
+        return self._page("sessions", body, request)
 
     async def feedback_page(self, request: web.Request) -> web.Response:
         """What readers left in the guest book on the public pages."""
@@ -313,7 +357,7 @@ class AdminArea:
         source = source.replace("__BODY__", body)
         source = source.replace("__TITLE__", _section_title(section))
 
-        for name in ("status", "users", "visits", "feedback"):
+        for name in ("status", "users", "visits", "sessions", "feedback"):
             mark = " aria-current='page'" if name == section else ""
             source = source.replace(f"__ACTIVE_{name.upper()}__", mark)
 
@@ -325,6 +369,7 @@ def _section_title(section: str) -> str:
         "status": "Состояние",
         "users": "Пользователи",
         "visits": "Визиты",
+        "sessions": "Сессии",
         "feedback": "Отзывы",
     }[section]
 
@@ -668,3 +713,154 @@ def _feedback_rows(found: list[Feedback]) -> str:
         "<th>Страница</th><th>Текст</th>"
         "</tr></thead><tbody>" + "".join(body) + "</tbody></table>"
     )
+
+
+#: Visits from one browser further apart than this start a new session. The
+#: usual web analytics figure: long enough to read a page, short enough that
+#: coming back after lunch is a second visit.
+SESSION_GAP_MINUTES = 30
+#: How far back the sessions view reads. The hash only exists from the day it
+#: was introduced, and a month of sessions is more than a screen anyway.
+SESSION_DAYS = 30
+SESSIONS_PER_PAGE = 30
+
+
+@dataclass
+class Session:
+    visits: list[Visit] = field(default_factory=list)
+
+    @property
+    def start(self) -> datetime:
+        return self.visits[0].at
+
+    @property
+    def end(self) -> datetime:
+        return self.visits[-1].at
+
+    @property
+    def bot(self) -> bool:
+        return all(visit.bot for visit in self.visits)
+
+    @property
+    def identities(self) -> set[str]:
+        return {visit.identity for visit in self.visits if visit.identity}
+
+
+def _sessions(visits: list[Visit]) -> list[Session]:
+    """Group visits, oldest first, into sessions, oldest first.
+
+    One browser's visits belong together while the gaps between them stay
+    under `SESSION_GAP_MINUTES`. The hash already changes at midnight UTC, so
+    a session never spans two days' salts.
+    """
+    gap = timedelta(minutes=SESSION_GAP_MINUTES)
+    open_sessions: dict[str, Session] = {}
+    done: list[Session] = []
+
+    for visit in visits:
+        current = open_sessions.get(visit.visitor)
+
+        if current is None or visit.at - current.end > gap:
+            current = Session()
+            open_sessions[visit.visitor] = current
+            done.append(current)
+
+        current.visits.append(visit)
+
+    return done
+
+
+def _duration(session: Session) -> str:
+    minutes = int((session.end - session.start).total_seconds() // 60)
+
+    return "&lt;1 мин" if minutes < 1 else f"{minutes} мин"
+
+
+def _route(session: Session) -> str:
+    """The pages in the order they were read, repeats in a row collapsed."""
+    paths: list[str] = []
+
+    for visit in session.visits:
+        if not paths or paths[-1] != visit.path:
+            paths.append(visit.path)
+
+    return " &rarr; ".join(html.escape(path) for path in paths)
+
+
+def _source(session: Session) -> str:
+    """Where the session came from: the link's tag, else the referring site."""
+    first = session.visits[0]
+
+    if first.campaign:
+        return f'<span class="badge on">{html.escape(first.campaign)}</span>'
+
+    if first.referrer:
+        return html.escape(first.referrer.split("://", 1)[-1])
+
+    return "&mdash;"
+
+
+def _who(session: Session) -> str:
+    """Accounts named in the session; a demo guest's random token is just a guest."""
+    names = sorted(
+        "гость демо" if name.startswith("web:guest:") else name
+        for name in session.identities
+    )
+
+    return html.escape(", ".join(dict.fromkeys(names))) if names else "&mdash;"
+
+
+def _session_rows(found: list[Session]) -> str:
+    if not found:
+        return '<p class="none">Пока ничего не записано.</p>'
+
+    zone = ZoneInfo(Config.DISPLAY_TIMEZONE)
+    body = []
+
+    for session in found:
+        start = session.start.replace(tzinfo=UTC).astimezone(zone)
+        agent = html.escape(session.visits[0].agent or "—")
+        if session.bot:
+            agent += ' <span class="badge off">бот</span>'
+
+        body.append(
+            "<tr>"
+            f'<td class="when">{start.strftime("%d.%m.%Y %H:%M")}</td>'
+            f'<td class="when">{_duration(session)}</td>'
+            f"<td>{agent}</td>"
+            f"<td>{_source(session)}</td>"
+            f'<td class="name">{_route(session)}</td>'
+            f"<td>{_who(session)}</td>"
+            "</tr>"
+        )
+
+    return (
+        "<table><thead><tr>"
+        f"<th>Начало, {html.escape(datetime.now(zone).tzname() or '')}</th>"
+        "<th>Длительность</th><th>Устройство</th><th>Откуда</th>"
+        "<th>Путь</th><th>Кто</th>"
+        "</tr></thead><tbody>" + "".join(body) + "</tbody></table>"
+    )
+
+
+def _sessions_pager(page: int, pages: int, arguments: dict[str, str]) -> str:
+    def url(number: int) -> str:
+        query = dict(arguments)
+        if number > 1:
+            query["page"] = str(number)
+        encoded = urlencode(query)
+        return html.escape(
+            "/admin/sessions" + (f"?{encoded}" if encoded else ""), quote=True
+        )
+
+    parts = []
+
+    if page > 1:
+        parts.append(f'<a class="pagerlink" href="{url(page - 1)}">&larr; новее</a>')
+
+    parts.append(f"<span>страница {page} из {pages}</span>")
+
+    if page < pages:
+        parts.append(f'<a class="pagerlink" href="{url(page + 1)}">старше &rarr;</a>')
+
+    return '<nav class="pager">' + " ".join(parts) + "</nav>"

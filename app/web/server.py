@@ -28,6 +28,7 @@ from app.db.users_repo import UsersRepository
 from app.db.visits_repo import SIGNIN, SIGNUP, VIEW, VisitsRepository
 from app.plugins.manager import PluginManager
 
+from . import visitor as visit_details
 from .admin import AdminArea
 from .auth import (
     SESSION_COOKIE,
@@ -1058,7 +1059,10 @@ class WebServer:
 
         if not _leaves_no_trace(request):
             self._visits.record(
-                SIGNIN, path="/login", identity=str(self._users.identity_for(user))
+                SIGNIN,
+                path="/login",
+                identity=str(self._users.identity_for(user)),
+                **self._details(request),
             )
 
         return response
@@ -1177,7 +1181,10 @@ class WebServer:
 
         if not _leaves_no_trace(request):
             self._visits.record(
-                SIGNUP, path="/signup", identity=str(self._users.identity_for(user))
+                SIGNUP,
+                path="/signup",
+                identity=str(self._users.identity_for(user)),
+                **self._details(request),
             )
 
         return response
@@ -1280,9 +1287,33 @@ class WebServer:
                 path=request.path,
                 identity=_visitor(request, self._users, self._sessions),
                 referrer=_referrer_origin(request),
+                **self._details(request),
             )
 
         return response
+
+    def _details(self, request: web.Request) -> dict:
+        """What the log may say about this browser: see `visitor.py`.
+
+        A salt that cannot be read leaves the row without a visitor hash
+        rather than the page without a response.
+        """
+        agent = request.headers.get("User-Agent", "")
+
+        try:
+            salt = self._visits.daily_salt()
+        except Exception:
+            logger.exception("Visitor salt unavailable")
+            hashed = None
+        else:
+            hashed = visit_details.fingerprint(salt, client_ip(request), agent)
+
+        return {
+            "visitor": hashed,
+            "agent": visit_details.describe(agent),
+            "bot": visit_details.is_bot(agent),
+            "campaign": visit_details.campaign(request),
+        }
 
     @web.middleware
     async def _nonce(self, request: web.Request, handler):

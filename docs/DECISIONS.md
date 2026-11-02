@@ -2366,3 +2366,33 @@ behind with nobody told.
 ### Result
 A new advisory can block an unrelated deploy until the package is updated.
 That is intended: shipping a known vulnerability should take a decision.
+
+## 2026-11-03
+
+### Decision
+Tell visitors apart with a daily salted hash, a device label and a bot flag,
+and show the log as sessions; still keep no address
+
+### Reason
+The visit log said only that somebody came. Two rows a minute apart could not
+be told to be one person or two, and link previews from messengers looked like
+readers. The owner wants to see what a recruiter from hh actually read.
+
+### How it is done
+
+- The hash is SHA-256 over a salt, the address and the browser string, cut to
+  12 hex characters. The salt is random, one per UTC day, and deleted when the
+  next day's is made, so the hash cannot be recomputed from an address later
+  and does not follow anybody across days. No cookie, so no consent banner.
+  This is the approach of Plausible and Fathom.
+- The browser string becomes a label ("iPhone · Safari") and a bot flag by a
+  few substring rules, with no dependency. Telegram's in-app browser stays a
+  person; its link preview is a bot.
+- `?from=` keeps a short lowercase tag only; anything else is dropped.
+- City from the address was offered and declined: it needs a database file
+  and monthly updates for little gain.
+
+### Result
+Rows from before v0.74.0 carry none of this and appear only in the plain log.
+A visitor coming back the next day is a new hash, which is the privacy
+property, not a bug.

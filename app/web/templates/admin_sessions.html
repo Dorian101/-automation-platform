@@ -1,0 +1,34 @@
+<h1>Сессии</h1>
+
+<form class="search" method="get" action="/admin/sessions">
+  <label class="hideadmin">
+    <input type="checkbox" id="show-bots" name="bots" value="1"__BOTS__>
+    Показывать ботов
+  </label>
+  <label class="hideadmin">
+    <input type="checkbox" id="hide-admin" name="hide" value="1"__CHECKED__>
+    Скрывать сессии с моей учётной записью
+  </label>
+  <button type="submit">Показать</button>
+</form>
+
+<p class="count">__COUNT_LINE__</p>
+
+__PAGER__
+
+<p class="legend">Сессия — визиты одного браузера, между которыми прошло меньше
+__GAP__ минут. Браузер узнаётся по отпечатку: хэшу адреса и строки браузера с
+солью, которая меняется каждые сутки и затем удаляется. Сам адрес не
+сохраняется, а назавтра тот же человек получит новый отпечаток. «Бот» —
+поисковые роботы, превью ссылок в мессенджерах, мониторинг и скрипты.
+Метка <code>hh</code> — переход по ссылке <code>?from=hh</code>.</p>
+
+__ROWS__
+
+<script nonce="__CSP_NONCE__">
+  /* Filters, so they apply the moment they move; the button does the same
+     with script off. */
+  for (const box of document.querySelectorAll("form.search input[type=checkbox]")) {
+    box.addEventListener("change", function () { this.form.submit(); });
+  }
+</script>

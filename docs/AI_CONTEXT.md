@@ -639,13 +639,22 @@ where a reader will not mistake it for their own mistake.
 `/admin/visits` is a log of what happened on the public side: a view of a
 public page, a sign-in, a sign-up. Newest first, filterable by page.
 
-**No address, no fingerprint, nothing that names a stranger.** A reader with
-no session is recorded as having arrived and nothing more; a demonstration
-guest is recorded under a random token that resolves to no account. An
-address would have told the owner nothing they did not already have — the
-useful part of a visit is when it happened, and "who was that" is answered by
-lining the time up with a résumé site, not by having collected something to
-correlate against.
+**No address, and nothing that follows a stranger across days.** A demo
+guest is recorded under a random token that resolves to no account. Since
+v0.74.0 each row also carries what tells one visitor from another
+(`app/web/visitor.py`): `visitor`, the first 12 hex of SHA-256 over a daily
+salt, the address and the browser string; `agent`, a label such as
+"iPhone · Safari"; `bot`, for crawlers, link previews, monitors and scripts;
+and `campaign`, the `?from=` tag of a link the owner handed out. The salt
+lives in `visit_salts`, one row for today, and older ones are deleted when a
+new day's is made, so a hash says "same browser that day" and cannot be
+recomputed from an address afterwards. The address and the full browser
+string are never stored.
+
+`/admin/sessions` groups the hashed rows of the last 30 days into sessions:
+one browser's visits less than 30 minutes apart. One line per session: start,
+duration, device, source (campaign tag first, then referrer), the route of
+pages, and the accounts named. Bots are hidden unless asked for.
 
 **The referrer is an origin, never a URL.** When a browser arrives across a
 link it sends a `Referer` header, and the log keeps only the origin —

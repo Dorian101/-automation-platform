@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.73.0
+v0.74.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -681,6 +681,11 @@ deployment that never sets it records everything as before.
 
 ## Current limitations
 
+* Since v0.74.0 a visit carries a daily visitor hash, a device label, a bot
+  flag and a `?from=` tag, and `/admin/sessions` reads the log as sessions.
+  The hash changes every day by design, so a returning visitor is a new one
+  tomorrow, and two people behind one address with the same browser look
+  like one.
 * A visit is recorded without an address, deliberately. That leaves the owner's
   own checking indistinguishable from a stranger's in the log, so
   `VISIT_IGNORE_IPS` drops those requests on the way in — but only for the

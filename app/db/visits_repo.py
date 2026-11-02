@@ -9,8 +9,9 @@ part of a visit is when it happened, and the way to answer "who was that" is
 to line it up with a résumé site, not to have collected one.
 """
 
+import os
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from .database import Database
 
@@ -38,6 +39,18 @@ class Visit:
     path: str
     identity: str | None
     referrer: str | None = None
+    visitor: str | None = None
+    agent: str | None = None
+    bot: bool = False
+    campaign: str | None = None
+
+
+#: The columns a `Visit` is read from, in its field order.
+_COLUMNS = "at, kind, path, identity, referrer, visitor, agent, bot, campaign"
+
+
+def _visit(row) -> Visit:
+    return Visit(*row)
 
 
 def _where(path: str, exclude: str | None) -> tuple[str, list]:
@@ -76,6 +89,10 @@ class VisitsRepository:
         path: str = "",
         identity: str | None = None,
         referrer: str | None = None,
+        visitor: str | None = None,
+        agent: str | None = None,
+        bot: bool = False,
+        campaign: str | None = None,
     ) -> None:
         """Write one event.
 
@@ -91,9 +108,11 @@ class VisitsRepository:
             with self.database.connect() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
-                        "INSERT INTO visits (kind, path, identity, referrer) "
-                        "VALUES (%s, %s, %s, %s)",
-                        (kind, path, identity, referrer),
+                        "INSERT INTO visits (kind, path, identity, referrer, "
+                        "visitor, agent, bot, campaign) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                        (kind, path, identity, referrer, visitor, agent, bot,
+                         campaign),
                     )
                 conn.commit()
         except Exception:
@@ -123,7 +142,7 @@ class VisitsRepository:
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT at, kind, path, identity, referrer FROM visits "
+                    f"SELECT {_COLUMNS} FROM visits "
                     f"{where} "
                     "ORDER BY at DESC, id DESC "
                     "LIMIT %s OFFSET %s",
@@ -131,9 +150,58 @@ class VisitsRepository:
                 )
                 rows = cur.fetchall()
 
-        return [Visit(at=row[0], kind=row[1], path=row[2], identity=row[3],
-                      referrer=row[4])
-                for row in rows]
+        return [_visit(row) for row in rows]
+
+    def with_visitor(self, days: int) -> list[Visit]:
+        """The last `days` of events that carry a visitor hash, oldest first.
+
+        What the sessions view groups. Rows from before the hash existed have
+        none and are left to the plain log.
+        """
+        cutoff = datetime.now() - timedelta(days=days)
+
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT {_COLUMNS} FROM visits "
+                    "WHERE visitor IS NOT NULL AND at >= %s "
+                    "ORDER BY at, id",
+                    (cutoff,),
+                )
+                rows = cur.fetchall()
+
+        return [_visit(row) for row in rows]
+
+    def daily_salt(self) -> bytes:
+        """Today's salt for the visitor hash, made on first use.
+
+        Older salts are deleted as a new one is made, which is the whole point:
+        without yesterday's salt, yesterday's hashes cannot be recomputed from
+        an address, so they say "same browser that day" and nothing more. The
+        day is UTC, the clock the rows are written on. Held in memory once read,
+        so a visit costs no extra query.
+        """
+        today = datetime.now(UTC).date()
+        cached = getattr(self, "_salt", None)
+
+        if cached is not None and cached[0] == today:
+            return cached[1]
+
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO visit_salts (day, salt) VALUES (%s, %s) "
+                    "ON CONFLICT (day) DO NOTHING",
+                    (today, os.urandom(32)),
+                )
+                cur.execute("DELETE FROM visit_salts WHERE day < %s", (today,))
+                cur.execute("SELECT salt FROM visit_salts WHERE day = %s", (today,))
+                salt = bytes(cur.fetchone()[0])
+            conn.commit()
+
+        self._salt: tuple[date, bytes] = (today, salt)
+
+        return salt
 
     def paths(self) -> list[str]:
         """Every page anyone has looked at, for the filter."""
