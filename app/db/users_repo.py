@@ -102,6 +102,18 @@ class UsersRepository:
             for row in rows
         ]
 
+    def active_admins(self) -> list[User]:
+        """The accounts that hear about feedback: administrators still active."""
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id, username, is_active, is_admin, created_at "
+                    "FROM users WHERE is_admin AND is_active",
+                )
+                rows = cur.fetchall()
+
+        return [_user(row) for row in rows]
+
     def get_by_id(self, user_id: int) -> User | None:
         with self.database.connect() as conn:
             with conn.cursor() as cur:

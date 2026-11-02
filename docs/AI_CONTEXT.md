@@ -709,6 +709,22 @@ command is written, tested and documented, and the timer runs daily at 05:47
 on the host. It is the only thing that removes from the table, which is
 written on every public request.
 
+### Feedback
+
+`/admin/feedback` lists the guest book, newest first. The notes come from
+`POST /feedback`, the one public route that writes, behind the footer button
+of `/about`, `/project` and `/demo` (`app/web/feedback.js`).
+
+- Text only, up to 2000 characters, kept in `feedback` with the page it came
+  from; a page outside `INDEXABLE_PATHS` is stored as empty.
+- JSON only: a form on another site cannot send it without a preflight that
+  is never answered. Three notes per address an hour. A filled `trap` field
+  is answered as success and dropped.
+- Saved first, then sent in a background task to every active
+  administrator through the `Notifier`, which reaches the linked Telegram
+  chat. A failed or slow send costs the message, never the note or the
+  visitor's answer.
+
 **Not here on purpose:** creating accounts and resetting passwords. A person
 signs up, or resets their own password, through the ordinary forms. The CLI
 commands for both stay for the cases where a browser is not available, which

@@ -2267,3 +2267,26 @@ another, and the text-only copy confirmation was easy to miss.
 ### Result
 Page height still changes at once on a depth switch; only the picture is smoothed.
 
+## 2026-11-02
+
+### Decision
+Add an anonymous guest book to the public pages, kept in the database and sent
+to the owner's Telegram
+
+### Reason
+The owner wants to hear from early readers now. Telegram alone would lose a
+note whenever a send fails; the admin page alone would mean nobody knows a note
+arrived.
+
+### How it is done
+
+- Not a plugin. It is a public form and not a command, and like the admin area
+  it belongs to the deployment rather than to one person's data.
+- Only the text and the page are kept: no contact field, no address.
+- The send runs after the answer, so a slow Bot API never holds the visitor.
+- The trap field is called `trap`, not `website`: autofill knows the second
+  name and would drop a real person's note.
+
+### Result
+The button is a footer link for now. If nobody writes, it moves somewhere more
+visible.

@@ -1,3 +1,4 @@
+import asyncio
 import hmac
 import html
 import json
@@ -19,6 +20,7 @@ from app.core.config import Config
 from app.core.identity import WEB, Identity, telegram
 from app.core.results import CommandError
 from app.db.database import Database
+from app.db.feedback_repo import FeedbackRepository
 from app.db.links_repo import TelegramLinksRepository
 from app.db.migrations import MigrationRunner
 from app.db.sessions_repo import SessionsRepository
@@ -85,11 +87,13 @@ FONTS_DIR = Path(__file__).resolve().parent / "fonts"
 ABOUT_HERO_JS = Path(__file__).resolve().parent / "about_hero.js"
 ABOUT_PAGE_JS = Path(__file__).resolve().parent / "about_page.js"
 PROJECT_PAGE_JS = Path(__file__).resolve().parent / "project_page.js"
+FEEDBACK_JS = Path(__file__).resolve().parent / "feedback.js"
 
 SCRIPTS = {
     "/about-hero.js": ABOUT_HERO_JS,
     "/about-page.js": ABOUT_PAGE_JS,
     "/project-page.js": PROJECT_PAGE_JS,
+    "/feedback.js": FEEDBACK_JS,
 }
 
 # The live request on the project page. Public and it touches the database, so
@@ -105,6 +109,12 @@ TRACE_SCENARIOS = {
     "reminder": ("web", "/reminders", True),
     "unknown": ("web", "/nosuchcommand", False),
 }
+
+# The guest book on the public pages. A person writes once or twice; more than
+# a handful an hour from one address is somebody filling the owner's chat.
+FEEDBACK_ATTEMPTS = 3
+FEEDBACK_WINDOW_SECONDS = 3600
+FEEDBACK_MAX_LENGTH = 2000
 
 DAY_SECONDS = 86400
 
@@ -137,6 +147,9 @@ NONCE_TTL_SECONDS = 600
 # here. Anything added to them later has to keep that property, or the page
 # has to leave this set.
 #
+# /feedback is the one public route that writes: the guest book's form posts
+# there. Its limits are on the handler.
+#
 # /signup is listed even though it answers 404 when registration is closed:
 # it is the page itself that decides, so that turning sign-up off cannot leave
 # a route behind that still needs a session to reach.
@@ -161,6 +174,8 @@ PUBLIC_PATHS = {
     "/about-page.js",
     "/project-page.js",
     "/project/trace",
+    "/feedback",
+    "/feedback.js",
 }
 
 # What a request carries to say it is the owner's own working rather than a
@@ -259,8 +274,13 @@ class WebServer:
         database: Database,
         host: str,
         port: int,
+        notifier=None,
     ):
         self._manager = manager
+        self._notifier = notifier
+        # Sends still in flight. The loop keeps only a weak reference to a
+        # task, so one nobody holds can be collected before it finishes.
+        self._sending: set[asyncio.Task] = set()
         self._database = database
         self._host = host
         self._port = port
@@ -272,6 +292,7 @@ class WebServer:
         self._runner: web.AppRunner | None = None
         self._demo = DemoService(manager, database)
         self._visits = VisitsRepository(database)
+        self._feedback_log = FeedbackRepository(database)
 
     async def _index(self, request: web.Request) -> web.Response:
         user = self._current_user(request)
@@ -858,6 +879,78 @@ class WebServer:
             headers={"Cache-Control": "no-store"},
         )
 
+    async def _feedback(self, request: web.Request) -> web.Response:
+        """Keep a reader's note and pass it on to the administrators' chats.
+
+        Public and it writes, so it is narrow: JSON only, which a form on
+        another site cannot send without a preflight this app never answers;
+        a few per address an hour; plain text of bounded length. A filled
+        `trap` field is a bot that read the markup — it is told the note was
+        taken and nothing is kept.
+        """
+        if request.content_type != "application/json":
+            return web.json_response({"error": "JSON expected"}, status=415)
+
+        if not self._rate.allow(
+            f"feedback|{client_ip(request)}", FEEDBACK_ATTEMPTS, FEEDBACK_WINDOW_SECONDS
+        ):
+            return web.json_response({"error": "Too many requests"}, status=429)
+
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = None
+
+        if not isinstance(payload, dict):
+            return web.json_response({"error": "Bad request"}, status=400)
+
+        text = payload.get("text")
+        page = payload.get("page")
+
+        if not isinstance(text, str) or not text.strip():
+            return web.json_response({"error": "Напишите текст"}, status=400)
+
+        text = text.strip()
+
+        if len(text) > FEEDBACK_MAX_LENGTH:
+            return web.json_response(
+                {"error": f"Не больше {FEEDBACK_MAX_LENGTH} символов"}, status=400
+            )
+
+        if payload.get("trap"):
+            return web.json_response({"ok": True})
+
+        page = page if page in INDEXABLE_PATHS else ""
+
+        try:
+            self._feedback_log.add(text, page)
+        except Exception:
+            logger.exception("Feedback could not be saved")
+            return web.json_response({"error": "Не удалось сохранить"}, status=503)
+
+        # In the background: the note is saved, and a slow Telegram must not
+        # keep the visitor waiting for an answer about it.
+        where = f" ({page})" if page else ""
+        task = asyncio.create_task(
+            self._tell_admins(f"Отзыв с сайта{where}:\n\n{text}")
+        )
+        self._sending.add(task)
+        task.add_done_callback(self._sending.discard)
+
+        return web.json_response({"ok": True})
+
+    async def _tell_admins(self, text: str) -> None:
+        """Send to every active administrator's linked chat. The note is already
+        saved, so a failure here costs the message, not the note."""
+        if self._notifier is None:
+            return
+
+        for user in self._users.active_admins():
+            try:
+                await self._notifier.deliver(self._users.identity_for(user), text)
+            except Exception:
+                logger.exception("Feedback could not be sent to %s", user.username)
+
     async def _health(self, request: web.Request) -> web.Response:
         try:
             with self._database.connect() as conn:
@@ -1280,6 +1373,8 @@ class WebServer:
                 web.get("/about-page.js", self._script),
                 web.get("/project-page.js", self._script),
                 web.get("/project/trace", self._trace),
+                web.get("/feedback.js", self._script),
+                web.post("/feedback", self._feedback),
                 web.get("/fonts/{name}", self._fonts),
             ],
         )

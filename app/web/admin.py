@@ -33,6 +33,7 @@ from aiohttp import web
 
 from app.core.config import Config
 from app.db.database import Database
+from app.db.feedback_repo import Feedback, FeedbackRepository
 from app.db.sessions_repo import SessionsRepository
 from app.db.users_repo import User, UsersRepository
 from app.db.visits_repo import DEFAULT_LIMIT, Visit, VisitsRepository
@@ -110,6 +111,7 @@ class AdminArea:
         self._sessions = sessions
         self._visits = visits
         self._database = database
+        self._feedback = FeedbackRepository(database)
         # The same signer as the rest of the web layer. A second one with its
         # own secret would refuse every token the other half produced, and the
         # failure would look like a forgery rather than a wiring mistake.
@@ -139,6 +141,7 @@ class AdminArea:
         sub.router.add_get("", self.index)
         sub.router.add_get("/users", self.users_page)
         sub.router.add_get("/visits", self.visits_page)
+        sub.router.add_get("/feedback", self.feedback_page)
         sub.router.add_get("/status", self.status_page)
         sub.router.add_get("/status/data", self.status_data)
         sub.router.add_post("/users/{user_id:\\d+}/disable", self.disable)
@@ -223,6 +226,10 @@ class AdminArea:
 
         return self._page("visits", body, request)
 
+    async def feedback_page(self, request: web.Request) -> web.Response:
+        """What readers left in the guest book on the public pages."""
+        return self._page("feedback", _feedback_rows(self._feedback.recent()), request)
+
     async def status_page(self, request: web.Request) -> web.Response:
         """The overview: resources, the database, and the backups.
 
@@ -306,7 +313,7 @@ class AdminArea:
         source = source.replace("__BODY__", body)
         source = source.replace("__TITLE__", _section_title(section))
 
-        for name in ("status", "users", "visits"):
+        for name in ("status", "users", "visits", "feedback"):
             mark = " aria-current='page'" if name == section else ""
             source = source.replace(f"__ACTIVE_{name.upper()}__", mark)
 
@@ -314,7 +321,12 @@ class AdminArea:
 
 
 def _section_title(section: str) -> str:
-    return {"status": "Состояние", "users": "Пользователи", "visits": "Визиты"}[section]
+    return {
+        "status": "Состояние",
+        "users": "Пользователи",
+        "visits": "Визиты",
+        "feedback": "Отзывы",
+    }[section]
 
 
 #: The data tables whose row counts the status page shows. Names as a person
@@ -626,5 +638,33 @@ def _visit_rows(found: list[Visit]) -> str:
         "<table><thead><tr>"
         f"<th>Когда, {html.escape(datetime.now(zone).tzname() or '')}</th>"
         "<th>Событие</th><th>Страница</th><th>Откуда</th><th>Кто</th>"
+        "</tr></thead><tbody>" + "".join(body) + "</tbody></table>"
+    )
+
+
+def _feedback_rows(found: list[Feedback]) -> str:
+    """The guest book, newest first. The text is a stranger's, so it is
+    escaped, and its line breaks are kept by the stylesheet, not by markup."""
+    if not found:
+        return '<p class="none">Отзывов пока нет.</p>'
+
+    zone = ZoneInfo(Config.DISPLAY_TIMEZONE)
+    body = []
+
+    for entry in found:
+        when = entry.at.replace(tzinfo=UTC).astimezone(zone)
+        page = html.escape(entry.page) if entry.page else "&mdash;"
+        body.append(
+            "<tr>"
+            f'<td class="when">{when.strftime("%d.%m.%Y %H:%M")}</td>'
+            f'<td class="when">{page}</td>'
+            f'<td class="feedback-text">{html.escape(entry.text)}</td>'
+            "</tr>"
+        )
+
+    return (
+        "<table><thead><tr>"
+        f"<th>Когда, {html.escape(datetime.now(zone).tzname() or '')}</th>"
+        "<th>Страница</th><th>Текст</th>"
         "</tr></thead><tbody>" + "".join(body) + "</tbody></table>"
     )

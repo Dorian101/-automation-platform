@@ -87,6 +87,7 @@ async def main() -> None:
         database=database,
         host=Config.WEB_HOST,
         port=Config.WEB_PORT,
+        notifier=notifier,
     )
 
     await manager.startup()
