@@ -16,11 +16,11 @@ IPHONE = (
 )
 WINDOWS_CHROME = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+    "(KHTML, like Gecko) Chrome/130.0 Safari/537.36"
 )
 TELEGRAM_IN_APP = (
     "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like "
-    "Gecko) Chrome/130.0.0.0 Mobile Safari/537.36 Telegram-Android/11.2.1"
+    "Gecko) Chrome/130.0 Mobile Safari/537.36 Telegram-Android/11.2.1"
 )
 
 
@@ -42,7 +42,7 @@ class TestDescribe:
         "agent",
         [
             "TelegramBot (like TwitterBot)",
-            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+            "Mozilla/5.0 (compatible; Googlebot/2.1)",
             "Mozilla/5.0 (compatible; YandexBot/3.0)",
             "WhatsApp/2.24.1 A",
             "curl/8.4.0",
@@ -61,25 +61,25 @@ class TestDescribe:
 
 class TestFingerprint:
     def test_same_browser_same_day(self):
-        assert visitor.fingerprint(b"s", "1.2.3.4", IPHONE) == visitor.fingerprint(
-            b"s", "1.2.3.4", IPHONE
+        assert visitor.fingerprint(b"s", "192.0.2.0", IPHONE) == visitor.fingerprint(
+            b"s", "192.0.2.0", IPHONE
         )
 
     def test_another_day_another_hash(self):
-        assert visitor.fingerprint(b"monday", "1.2.3.4", IPHONE) != (
-            visitor.fingerprint(b"tuesday", "1.2.3.4", IPHONE)
+        assert visitor.fingerprint(b"monday", "192.0.2.0", IPHONE) != (
+            visitor.fingerprint(b"tuesday", "192.0.2.0", IPHONE)
         )
 
     def test_another_browser_another_hash(self):
-        assert visitor.fingerprint(b"s", "1.2.3.4", IPHONE) != visitor.fingerprint(
-            b"s", "1.2.3.4", WINDOWS_CHROME
+        assert visitor.fingerprint(b"s", "192.0.2.0", IPHONE) != visitor.fingerprint(
+            b"s", "192.0.2.0", WINDOWS_CHROME
         )
 
     def test_it_is_short_and_carries_no_address(self):
-        value = visitor.fingerprint(b"s", "1.2.3.4", IPHONE)
+        value = visitor.fingerprint(b"s", "192.0.2.0", IPHONE)
 
         assert len(value) == visitor.FINGERPRINT_LENGTH
-        assert "1.2.3.4" not in value
+        assert "192.0.2.0" not in value
 
 
 class TestSalt:
