@@ -102,6 +102,61 @@ bantime = 1h
 
 `fail2ban-client status sshd` shows the current bans.
 
+### Morning SSH digest
+
+Every morning at 09:00 Moscow time the administrators get a Telegram message:
+refused SSH connections over the last day and from how many addresses, the
+usernames tried most, fail2ban's bans, and every successful login with its
+user, address and method.
+
+The collector reads the journal and asks fail2ban, so it runs as root. It is
+**copied out of the checkout, not run from it**: `automation` owns the
+checkout, and a root job executing a file that user can rewrite would give
+root to anything that compromises the application. The sending is done as
+`automation` through `app.manage notify-admins`.
+
+```bash
+install -o root -g root -m 0755 /opt/automation-platform/scripts/ssh-digest.sh \
+  /usr/local/sbin/automation-platform-ssh-digest
+/usr/local/sbin/automation-platform-ssh-digest --print
+```
+
+`--print` shows the message without sending it. After a change to the script
+in the repository, read it, then run the `install` line again.
+
+`/etc/systemd/system/automation-platform-ssh-digest.service`:
+
+```ini
+[Unit]
+Description=Automation Platform morning SSH digest
+After=network-online.target fail2ban.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/automation-platform-ssh-digest
+PrivateTmp=true
+```
+
+`/etc/systemd/system/automation-platform-ssh-digest.timer`:
+
+```ini
+[Unit]
+Description=Daily SSH digest to the administrators
+
+[Timer]
+OnCalendar=*-*-* 09:00 Europe/Moscow
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+systemctl daemon-reload && systemctl enable --now automation-platform-ssh-digest.timer
+systemctl start automation-platform-ssh-digest.service
+journalctl -u automation-platform-ssh-digest.service -n 5 --no-pager
+```
+
 ## Install
 
 ```bash

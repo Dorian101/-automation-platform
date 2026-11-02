@@ -12,6 +12,7 @@
     python -m app.manage unlink-telegram <username>
     python -m app.manage list-links
     python -m app.manage backup
+    python -m app.manage notify-admins < message.txt
 
 Accounts are created here from the machine, with no browser involved, which
 is what an administrator wants when nothing should be typed through a web
@@ -35,22 +36,28 @@ otherwise be a dead end with no way back from the host.
 backup does not depend on the application being able to start. With
 `BACKUP_PASSPHRASE` set it also sends an encrypted copy to the administrators'
 Telegram chats, so a lost host does not take the backups with it.
+
+`notify-admins` sends what arrives on stdin to the same chats. It is how a job
+that has to run as root — the morning SSH digest reads the journal and
+fail2ban — reaches the owner without the application gaining root's access.
 """
 
 import argparse
+import asyncio
 import getpass
 import logging
 import sys
 
 from psycopg.errors import UniqueViolation
 
+from app.admin_chats import recipients, send_text
 from app.core.config import Config
 from app.core.passwords import PasswordError
 from app.db.backup import BackupManager
 from app.db.database import Database
 from app.db.links_repo import TelegramLinksRepository
 from app.db.migrations import MigrationRunner
-from app.db.offsite import recipients, send_copy
+from app.db.offsite import send_copy
 from app.db.sessions_repo import SessionsRepository
 from app.db.users_repo import UsersRepository
 from app.db.visits_repo import RETENTION_DAYS
@@ -432,6 +439,33 @@ def backup(args: argparse.Namespace) -> int:
     return 0
 
 
+def notify_admins(args: argparse.Namespace) -> int:
+    """Send stdin, as plain text, to every linked administrator's chat."""
+    text = sys.stdin.read().strip()
+
+    if not text:
+        print("Nothing to send: stdin was empty", file=sys.stderr)
+        return 1
+
+    database = Database()
+    chats = recipients(UsersRepository(database), TelegramLinksRepository(database))
+
+    if not chats:
+        print("No administrator has linked Telegram", file=sys.stderr)
+        return 1
+
+    try:
+        asyncio.run(send_text(Config.BOT_TOKEN, chats, text))
+    except Exception as error:
+        logger.exception("Message to the administrators failed")
+        print(f"Sending failed: {error}", file=sys.stderr)
+        return 1
+
+    print(f"Sent to {len(chats)} chat(s)")
+
+    return 0
+
+
 def _ready_database() -> UsersRepository:
     """Apply pending migrations so the command works on a fresh install."""
     database = Database()
@@ -557,6 +591,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write a database backup and prune expired ones",
     )
     backuping.set_defaults(func=backup)
+
+    notifying = subparsers.add_parser(
+        "notify-admins",
+        help="Send stdin to every linked administrator's Telegram chat",
+    )
+    notifying.set_defaults(func=notify_admins)
 
     guests = subparsers.add_parser(
         "prune-guests",

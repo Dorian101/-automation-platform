@@ -459,6 +459,13 @@ passphrase goes to gpg on stdin, the sealed file lives in a temporary
 directory only while it is sent, and a failed copy makes the run exit 1 while
 the local dump stays.
 
+`app.manage notify-admins` sends stdin to the same chats (`app/admin_chats.py`).
+It exists for host jobs that must run as root, such as the morning SSH digest
+(`scripts/ssh-digest.sh`): the root side collects, the `automation` side sends,
+and the application never gains root's access. The digest script is copied to
+`/usr/local/sbin` by hand rather than run from the checkout, which
+`automation` can rewrite.
+
 `MigrationRunner` takes an optional backup manager. `app/main.py` passes one,
 so a deploy carrying a migration dumps the database first; nothing is dumped
 when nothing is pending. One dump per run rather than one per file, because

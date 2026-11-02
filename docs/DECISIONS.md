@@ -2315,3 +2315,29 @@ for the same result at this size.
 ### Result
 Losing the server no longer loses the data. Revisit when a dump nears the bot's
 file limit.
+
+## 2026-11-02
+
+### Decision
+Send the administrators a morning SSH digest from a root timer, through a new
+`app.manage notify-admins` command
+
+### Reason
+The host faced about fourteen thousand SSH attempts a day and nobody saw it
+until a manual check. A daily message makes an unexpected successful login,
+the one line that matters, visible the next morning.
+
+### How it is done
+
+- The journal and fail2ban answer only to root, so the collector runs as root
+  and the send runs as `automation`, which already holds the bot token.
+  `automation` is still kept out of `systemd-journal`.
+- The root script is copied to `/usr/local/sbin` by hand, not run from the
+  checkout: `automation` owns the checkout, and a root job running a file that
+  user can rewrite would be a way from the application to root.
+- `notify-admins` is generic on purpose, for the next host job that needs to
+  reach the owner.
+
+### Result
+A change to the script reaches the host only when someone installs it again.
+That is the cost of the separation and is written next to the install line.

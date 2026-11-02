@@ -2,10 +2,12 @@
 
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
 
+from app.admin_chats import recipients
 from app.core.config import Config
 from app.db import offsite
 from app.db.backup import BackupManager
@@ -34,7 +36,7 @@ class TestRecipients:
         plain = create_user(username="reader", password="x" * 12)
         links.link(plain.id, 222)
 
-        assert offsite.recipients(users, links) == [111]
+        assert recipients(users, links) == [111]
 
     def test_a_disabled_admin_is_left_out(
         self, create_user, users, database_with_schema
@@ -45,7 +47,7 @@ class TestRecipients:
         users.set_active(admin.id, False)
         links.link(admin.id, 111)
 
-        assert offsite.recipients(users, links) == []
+        assert recipients(users, links) == []
 
 
 class TestSendCopy:
@@ -75,6 +77,13 @@ class TestSendCopy:
 
 @pytest.mark.skipif(shutil.which("gpg") is None, reason="gpg is not installed")
 class TestEncrypt:
+    @pytest.fixture
+    def tmp_path(self):
+        """A short directory: gpg-agent's socket lives in the gpg home, and
+        macOS's per-user temp path is too long for a socket name."""
+        with tempfile.TemporaryDirectory(dir="/tmp") as short:
+            yield Path(short)
+
     def test_it_opens_with_the_passphrase_only(self, tmp_path):
         dump = tmp_path / "scheduled.sql"
         dump.write_bytes(b"-- secret notes")

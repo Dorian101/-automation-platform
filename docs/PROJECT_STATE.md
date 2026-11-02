@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.71.0
+v0.72.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -616,6 +616,9 @@ were worth the sprint:
 * Backups lived only on the database's own disk. Each scheduled backup now
   also goes, gpg-encrypted, to the administrators' Telegram chats when
   `BACKUP_PASSPHRASE` is set.
+* Nobody saw what SSH was facing. A root timer now sends the administrators a
+  morning digest of refused logins, successful logins and fail2ban bans
+  (`scripts/ssh-digest.sh`, installed by hand; `app.manage notify-admins`).
 
 * `script-src` carried `unsafe-inline`, which turns any escaping mistake
   anywhere in the layer into script that runs. It now carries a per-response

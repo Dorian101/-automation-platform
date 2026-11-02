@@ -18,8 +18,6 @@ from pathlib import Path
 from aiogram.types import FSInputFile
 
 from app.bot.bot import create_bot
-from app.db.links_repo import TelegramLinksRepository
-from app.db.users_repo import UsersRepository
 
 
 def encrypt(source: Path, passphrase: str, target_dir: Path) -> Path:
@@ -51,19 +49,6 @@ def encrypt(source: Path, passphrase: str, target_dir: Path) -> Path:
         )
 
     return target
-
-
-def recipients(users: UsersRepository, links: TelegramLinksRepository) -> list[int]:
-    """The chats of active administrators who linked Telegram."""
-    chats = []
-
-    for user in users.active_admins():
-        link = links.get_by_user_id(user.id)
-
-        if link is not None:
-            chats.append(link.telegram_id)
-
-    return chats
 
 
 async def _send(token: str, chats: list[int], path: Path) -> None:
