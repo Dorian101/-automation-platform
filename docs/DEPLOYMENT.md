@@ -766,6 +766,15 @@ sudo -u automation git pull
 There is no checkpoint that means "deployed": the job's own log is the record,
 and the script ends by printing the last 50 journal lines.
 
+### Dependencies
+
+Dependabot (`.github/dependabot.yml`) opens a pull request every Monday for
+the packages in `uv.lock`: minor and patch updates together, each major
+version on its own. A pull request runs the test job — lint, audit, tests —
+and never deploys; merging it is a push to `main` and deploys like any other.
+The audit fails the job, and so the deploy, on any published vulnerability in
+a locked package.
+
 ### What it does, and what it does not claim
 
 The key stored in GitHub is restricted to one script, but that is not the

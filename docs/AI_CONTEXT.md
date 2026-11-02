@@ -480,11 +480,17 @@ Bound to `WEB_HOST` and `WEB_PORT`, defaulting to 127.0.0.1:8080.
 
 ## Deploy
 
-A push to `main` runs ruff and pytest on a runner and then, if both pass,
+A push to `main` runs ruff, a dependency audit and pytest on a runner and
+then, if all pass,
 `scripts/deploy.sh` on the host via `.github/workflows/deploy.yml`. The script pulls with `--ff-only`, runs
 `uv sync --frozen --no-dev`, restarts the service and prints the journal tail
 through the two sudo rules,
 and prints the last 50 journal lines.
+
+The audit is `pip-audit` over `uv export --frozen`, the lock file with hashes.
+Pointed at `.venv` instead, pip-audit finds no packages and reports nothing.
+Pull requests to `main` — Dependabot's weekly ones from `.github/dependabot.yml`
+included — run the test job and never deploy.
 
 Two things about it are easy to get backwards:
 

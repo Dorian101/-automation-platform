@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.72.0
+v0.73.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -619,6 +619,10 @@ were worth the sprint:
 * Nobody saw what SSH was facing. A root timer now sends the administrators a
   morning digest of refused logins, successful logins and fail2ban bans
   (`scripts/ssh-digest.sh`, installed by hand; `app.manage notify-admins`).
+* The release rule's audit, `pip-audit --path .venv`, checked no packages at
+  all. CI now audits the lock file on every push and pull request, and
+  Dependabot opens weekly update pull requests; all locked packages were
+  brought to their latest versions in v0.73.0.
 
 * `script-src` carried `unsafe-inline`, which turns any escaping mistake
   anywhere in the layer into script that runs. It now carries a per-response

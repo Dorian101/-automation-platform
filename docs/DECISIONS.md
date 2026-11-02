@@ -2341,3 +2341,28 @@ the one line that matters, visible the next morning.
 ### Result
 A change to the script reaches the host only when someone installs it again.
 That is the cost of the separation and is written next to the install line.
+
+## 2026-11-02
+
+### Decision
+Audit dependencies in CI from the lock file, and let Dependabot propose
+updates weekly
+
+### Reason
+The manual audit in the release rule, `pip-audit --path .venv`, turned out to
+audit zero packages and always pass. Seven direct dependencies had fallen
+behind with nobody told.
+
+### How it is done
+
+- `uv export --frozen` writes the locked set with hashes and `pip-audit
+  --disable-pip --strict` checks it, pinned to one pip-audit version. A
+  finding fails the test job, so it also stops the deploy.
+- The workflow now runs on pull requests too, without the deploy job, so a
+  Dependabot pull request is tested before anyone merges it.
+- Minor and patch updates come grouped in one pull request; a major version
+  comes alone, because that is the one to read.
+
+### Result
+A new advisory can block an unrelated deploy until the package is updated.
+That is intended: shipping a known vulnerability should take a decision.

@@ -1,5 +1,6 @@
-# Two jobs. `test` runs ruff and pytest on the pushed commit, and a failure
-# stops there: the server keeps what it was running. `deploy` never sees the
+# Two jobs. `test` runs ruff, a dependency audit and pytest on the pushed
+# commit, and a failure stops there: the server keeps what it was running.
+# A pull request — Dependabot's included — runs `test` only and never deploys. `deploy` never sees the
 # source, only the credentials to open one connection and run scripts/deploy.sh
 # on the host.
 #
@@ -29,12 +30,16 @@ name: Deploy
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
   # Two pushes in quick succession would otherwise race: the second pull
   # happens while the first service is still restarting.
-  group: deploy
+  # A pull request gets its own group, so its checks never queue behind a
+  # deploy or hold one up.
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || 'deploy' }}
   cancel-in-progress: false
 
 jobs:
@@ -74,11 +79,21 @@ jobs:
       - name: Lint
         run: uv run ruff check .
 
+      # Audited from the lock file, not from the environment: pointed at
+      # `.venv`, pip-audit finds no packages and reports nothing to fix. The
+      # hashes in the export are what lets it skip pip entirely. A published
+      # vulnerability in any locked package fails the job, and so the deploy.
+      - name: Audit dependencies
+        run: |
+          uv export --frozen --no-emit-project > "$RUNNER_TEMP/requirements.txt"
+          uvx pip-audit@2.10.1 --strict --disable-pip -r "$RUNNER_TEMP/requirements.txt"
+
       - name: Test
         run: uv run pytest
 
   deploy:
     needs: test
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

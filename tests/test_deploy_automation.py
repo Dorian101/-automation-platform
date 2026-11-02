@@ -68,6 +68,23 @@ class TestWorkflow:
         """Two pushes in a row would otherwise race on the restart."""
         assert workflow["concurrency"]["cancel-in-progress"] is False
 
+    def test_a_pull_request_is_tested_but_never_deployed(self, workflow):
+        """Dependabot's pull requests need the tests; only main is deployed."""
+        assert _triggers(workflow)["pull_request"]["branches"] == ["main"]
+        assert workflow["jobs"]["deploy"]["if"] == (
+            "github.event_name != 'pull_request'"
+        )
+
+    def test_the_dependencies_are_audited_from_the_lock_file(self, workflow):
+        """Pointed at `.venv`, pip-audit finds no packages and passes."""
+        runs = " ".join(
+            step.get("run", "") for step in workflow["jobs"]["test"]["steps"]
+        )
+
+        assert "uv export --frozen" in runs
+        assert "pip-audit" in runs and "-r " in runs
+        assert "--path" not in runs
+
     def test_it_uses_no_third_party_action(self, workflow):
         """An action from another account has write access to this pipeline.
 
