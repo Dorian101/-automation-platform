@@ -134,6 +134,11 @@ class Config:
     # and keeps everything.
     BACKUP_RETENTION_DAYS = int(os.getenv("BACKUP_RETENTION_DAYS", "14"))
 
+    # Seals the copy of each scheduled backup sent to the administrators'
+    # Telegram chats. Empty means no copy leaves the host. Lose it and the
+    # copies cannot be opened, so keep it outside this server.
+    BACKUP_PASSPHRASE = os.getenv("BACKUP_PASSPHRASE", "")
+
     # Time zone the administration pages render timestamps in. Rows are written
     # by CURRENT_TIMESTAMP on a host that keeps UTC, and the column carries no
     # offset, so the stored value is UTC whatever this is set to — that is why

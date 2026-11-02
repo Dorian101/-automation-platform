@@ -51,6 +51,57 @@ to act as.
 Neither is enough on its own, and neither replaces the other: the transport
 secret says *where the request came from*, the cookie says *who sent it*.
 
+## Host hardening
+
+The box faced the internet with root password login on, no firewall and no
+ban on guessing: the SSH journal held about fourteen thousand failed logins a
+day. Three changes, all made by hand as root.
+
+**Keys only.** `/etc/ssh/sshd_config.d/00-hardening.conf`:
+
+```
+PermitRootLogin prohibit-password
+PasswordAuthentication no
+```
+
+The `00-` matters: sshd keeps the first value it reads, and the image ships
+`50-cloud-init.conf` with `PasswordAuthentication yes`. Check that a key login
+works before reloading, and keep the old session open until a new one does:
+
+```bash
+ssh -o PreferredAuthentications=publickey -o PasswordAuthentication=no root@<ip> 'echo KEY_OK'
+sshd -t && systemctl reload ssh
+sshd -T | grep -Ei '^(permitrootlogin|passwordauthentication) '
+```
+
+The provider's web console is not SSH and still takes the root password, which
+is the way back from a lost key.
+
+**Firewall.** The image has no ufw; install it and allow SSH first:
+
+```bash
+apt-get install -y ufw
+ufw default deny incoming && ufw default allow outgoing
+ufw allow OpenSSH && ufw allow 80/tcp && ufw allow 443/tcp && ufw allow 443/udp
+ufw --force enable
+```
+
+PostgreSQL, the app and Caddy's admin API listen on loopback anyway; the
+firewall is the second line for anything that one day binds to every address.
+
+**fail2ban** on sshd: five failures in ten minutes ban the address for an hour.
+`/etc/fail2ban/jail.local`:
+
+```ini
+[sshd]
+enabled = true
+maxretry = 5
+findtime = 10m
+bantime = 1h
+```
+
+`fail2ban-client status sshd` shows the current bans.
+
 ## Install
 
 ```bash
@@ -139,6 +190,9 @@ VISIT_PROBE_TOKEN=
 # exist and belong to the user the job runs as.
 BACKUP_DIR=/var/backups/automation-platform
 BACKUP_RETENTION_DAYS=14
+# Seals the copy of each scheduled backup sent to the administrators'
+# Telegram chats. Empty keeps every backup on this host only.
+BACKUP_PASSPHRASE=
 ```
 
 `app/core/config.py` calls `load_dotenv()` itself. Do not "simplify" that away
@@ -399,9 +453,11 @@ paths named, which is why they are named. Bytecode caching is not affected —
 Python skips writing it rather than failing — and the application itself writes
 nothing outside the database.
 
-The backup and guest-cleanup units are **not** sandboxed yet. They are separate
-units and were left alone deliberately rather than forgotten: each needs its own
-`ReadWritePaths`, and neither is worth a mistake.
+The backup and the two cleanup units carry the same directives in their own
+`override.conf` under `/etc/systemd/system/automation-platform-<unit>.service.d/`,
+with one difference: the backup gets `ReadWritePaths=/var/backups/automation-platform`
+and the cleanups get none, because they only delete rows. Each was started by
+hand after the change and finished with `Result=success`.
 
 To check what systemd actually applied, rather than what the file says:
 
@@ -882,6 +938,23 @@ systemctl start automation-platform-backup.service
 journalctl -u automation-platform-backup.service -n 20 --no-pager
 systemctl list-timers automation-platform-backup.timer
 ```
+
+### The copy off the host
+
+A dump on the database's own disk does not survive losing the server. With
+`BACKUP_PASSPHRASE` set in `.env`, each scheduled run also sends the dump to
+every active administrator with a linked Telegram chat, encrypted with
+symmetric gpg (AES256). Keep the passphrase outside this server, in a password
+manager: without it the copies cannot be opened. `gpg` ships with Ubuntu.
+
+A failed copy fails the unit (`Result=exit-code`), and the local dump is
+already written by then. To open a copy:
+
+```bash
+gpg -d scheduled_<timestamp>.sql.gpg > scheduled_<timestamp>.sql
+```
+
+Then restore it as below.
 
 ## Demonstration cleanup
 

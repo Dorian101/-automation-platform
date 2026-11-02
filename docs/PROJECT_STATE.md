@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.70.0
+v0.71.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -608,8 +608,14 @@ were worth the sprint:
   not a peak of 128 MiB per request.
 * `systemd` ran the service without sandbox directives, which decides how far a
   compromise reaches. Applied as a drop-in and checked against the running
-  process rather than the file; the backup and guest-cleanup units are still
-  unsandboxed.
+  process rather than the file; the backup and both cleanup units carry the
+  same directives since v0.71.0.
+* The host took root password logins with no firewall and no ban on guessing.
+  SSH is keys only, ufw allows 22, 80 and 443, and fail2ban bans repeated SSH
+  failures (DEPLOYMENT.md, Host hardening).
+* Backups lived only on the database's own disk. Each scheduled backup now
+  also goes, gpg-encrypted, to the administrators' Telegram chats when
+  `BACKUP_PASSPHRASE` is set.
 
 * `script-src` carried `unsafe-inline`, which turns any escaping mistake
   anywhere in the layer into script that runs. It now carries a per-response

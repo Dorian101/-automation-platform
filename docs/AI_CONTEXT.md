@@ -452,6 +452,13 @@ the right size of answer here — say so rather than claiming protection.
 
 ## Migrations and the dump
 
+The scheduled `app.manage backup` keeps its dump on the host and, with
+`BACKUP_PASSPHRASE` set, sends a copy sealed with symmetric gpg to every
+active administrator with a linked Telegram chat (`app/db/offsite.py`). The
+passphrase goes to gpg on stdin, the sealed file lives in a temporary
+directory only while it is sent, and a failed copy makes the run exit 1 while
+the local dump stays.
+
 `MigrationRunner` takes an optional backup manager. `app/main.py` passes one,
 so a deploy carrying a migration dumps the database first; nothing is dumped
 when nothing is pending. One dump per run rather than one per file, because

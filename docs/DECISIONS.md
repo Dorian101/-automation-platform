@@ -2290,3 +2290,28 @@ arrived.
 ### Result
 The button is a footer link for now. If nobody writes, it moves somewhere more
 visible.
+
+## 2026-11-02
+
+### Decision
+Send each scheduled backup off the host as a gpg-encrypted file to the
+administrators' Telegram chats
+
+### Reason
+The dumps sat on the same disk as the database. The bot already reaches the
+owner, a dump is a few hundred kilobytes against a 50 MB limit for a bot's
+file, and a chat keeps every copy with its date: no new account, key or
+dependency. Object storage would cost an account and credentials on the host
+for the same result at this size.
+
+### How it is done
+
+- Symmetric gpg with a passphrase from `BACKUP_PASSPHRASE`, because a chat is
+  not end-to-end encrypted and the dump holds notes and password hashes.
+- The passphrase reaches gpg on stdin, never the command line. gpg gets a
+  throwaway home and `--no-symkey-cache`, so nothing stays with the agent.
+- A failed copy fails the run without touching the local dump.
+
+### Result
+Losing the server no longer loses the data. Revisit when a dump nears the bot's
+file limit.

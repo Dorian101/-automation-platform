@@ -32,7 +32,9 @@ Telegram account is the only other way in, so a wrong or revoked link would
 otherwise be a dead end with no way back from the host.
 
 `backup` is what the systemd timer calls. It is a plain command so that a
-backup does not depend on the application being able to start.
+backup does not depend on the application being able to start. With
+`BACKUP_PASSPHRASE` set it also sends an encrypted copy to the administrators'
+Telegram chats, so a lost host does not take the backups with it.
 """
 
 import argparse
@@ -48,6 +50,7 @@ from app.db.backup import BackupManager
 from app.db.database import Database
 from app.db.links_repo import TelegramLinksRepository
 from app.db.migrations import MigrationRunner
+from app.db.offsite import recipients, send_copy
 from app.db.sessions_repo import SessionsRepository
 from app.db.users_repo import UsersRepository
 from app.db.visits_repo import RETENTION_DAYS
@@ -406,6 +409,25 @@ def backup(args: argparse.Namespace) -> int:
         print(f"Pruned {len(removed)} expired backup(s)")
     elif Config.BACKUP_RETENTION_DAYS > 0:
         print(f"Retention {Config.BACKUP_RETENTION_DAYS}d, nothing to prune")
+
+    if not Config.BACKUP_PASSPHRASE:
+        print("Offsite copy off: BACKUP_PASSPHRASE is not set")
+        return 0
+
+    # The local dump is already written, so a failed copy is reported as a
+    # failed run — the unit turns red — without undoing anything.
+    try:
+        database = Database()
+        chats = recipients(
+            UsersRepository(database), TelegramLinksRepository(database)
+        )
+        sent = send_copy(path, Config.BACKUP_PASSPHRASE, Config.BOT_TOKEN, chats)
+    except Exception as error:
+        logger.exception("Offsite backup copy failed")
+        print(f"Offsite copy failed: {error}", file=sys.stderr)
+        return 1
+
+    print(f"Offsite copy sent to {len(chats)} chat(s): {sent}")
 
     return 0
 
