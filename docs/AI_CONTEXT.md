@@ -756,6 +756,32 @@ of `/about`, `/project` and `/demo` (`app/web/feedback.js`).
   chat. A failed or slow send costs the message, never the note or the
   visitor's answer.
 
+### Settings, errors, announcements, tasks
+
+- `settings` (`app/db/settings_repo.py`) holds the switches set on
+  `/admin/settings`; a missing key is the `.env` or code default. One
+  `SettingsRepository` instance is shared by the web server, the admin area
+  and, through `PluginManager.switches`, the bot, cached in memory for ten
+  seconds and refreshed at once on a write.
+- A switched-off plugin is skipped by `find`, `find_by_page` and the page
+  list; `execute` answers that the command is off. `system` cannot be turned
+  off. Maintenance makes `execute` refuse everything and a web middleware
+  answer 503 with `Retry-After` to all but administrators, leaving `/login`,
+  `/admin`, `/health` and fonts open. Commands refuse for administrators
+  too, since `execute` does not know who is asking.
+- `ErrorLogHandler` (installed in `app/main.py`) writes ERROR records to
+  `app_errors`, keeping the newest 500, for `/admin/errors`; a failed write
+  is dropped rather than logged, which would recurse.
+- `/admin/broadcast` sends through the `Notifier` to the linked chats of
+  active accounts. Bot users without a web account are not reachable: there
+  is no list of them outside the plugin tables.
+- Task buttons on `/admin/status` run a backup (`manual_…`), the demo
+  cleanup and the visit pruning in a thread. The demo cleanup records its
+  time under `demo.pruned_at`, which the demo block shows with guest counts
+  per table in `DEMO_TABLES`.
+- `sessions` carries an `id` and the device label of the sign-in;
+  `/admin/users` lists live sessions with a button that deletes one.
+
 **Not here on purpose:** creating accounts and resetting passwords. A person
 signs up, or resets their own password, through the ordinary forms. The CLI
 commands for both stay for the cases where a browser is not available, which

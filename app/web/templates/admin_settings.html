@@ -1,0 +1,36 @@
+<h1>Настройки</h1>
+
+__FLASH__
+
+<form class="settings" method="post" action="/admin/settings">
+  <input type="hidden" name="__CSRF_FIELD__" value="__CSRF__">
+
+  <h2>Режим</h2>
+  <label class="toggle">
+    <input type="checkbox" name="maintenance" value="1"__MAINTENANCE__>
+    Режим обслуживания — посетители видят «Технические работы», бот отвечает
+    «на обслуживании». Админка и вход работают.
+  </label>
+  <label class="toggle">
+    <input type="checkbox" name="signup" value="1"__SIGNUP__>
+    Регистрация открыта
+  </label>
+
+  <h2>Плагины</h2>
+  <p class="legend">Выключенный плагин пропадает из меню и консоли, его команды
+  отвечают «временно отключена». Фоновые задачи (напоминания, дедлайны)
+  продолжают работать. Меню команд в Telegram обновится после перезапуска.</p>
+  __PLUGINS__
+
+  <h2>Лимиты</h2>
+  <label class="number">
+    Отзывов в час с одного адреса
+    <input type="number" name="feedback_per_hour" min="1" max="100" value="__FEEDBACK__">
+  </label>
+  <label class="number">
+    Запросов к демо в час с одного адреса
+    <input type="number" name="demo_per_hour" min="10" max="10000" value="__DEMO__">
+  </label>
+
+  <button type="submit">Сохранить</button>
+</form>

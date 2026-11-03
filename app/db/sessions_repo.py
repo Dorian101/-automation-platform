@@ -1,11 +1,23 @@
 import hashlib
 import secrets
+from dataclasses import dataclass
+from datetime import datetime
 
 from .database import Database
 
 # Long enough that a leaked dump cannot be replayed, short enough to fit the
 # column comfortably.
 TOKEN_BYTES = 32
+
+
+@dataclass(frozen=True)
+class ActiveSession:
+    id: int
+    username: str
+    created_at: datetime
+    expires_at: datetime
+    agent: str | None
+    token_hash: str
 
 
 class SessionsRepository:
@@ -19,7 +31,7 @@ class SessionsRepository:
     def __init__(self, database: Database | None = None):
         self.database = database or Database()
 
-    def create(self, user_id: int, ttl_seconds: int) -> str:
+    def create(self, user_id: int, ttl_seconds: int, agent: str | None = None) -> str:
         token = secrets.token_urlsafe(TOKEN_BYTES)
 
         # Expiry is computed against the database clock on both write and read
@@ -28,14 +40,15 @@ class SessionsRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO sessions (token_hash, user_id, expires_at)
+                    INSERT INTO sessions (token_hash, user_id, expires_at, agent)
                     VALUES (
                         %s,
                         %s,
-                        CURRENT_TIMESTAMP + make_interval(secs => %s)
+                        CURRENT_TIMESTAMP + make_interval(secs => %s),
+                        %s
                     )
                     """,
-                    (_digest(token), user_id, ttl_seconds),
+                    (_digest(token), user_id, ttl_seconds, agent),
                 )
             conn.commit()
 
@@ -92,6 +105,33 @@ class SessionsRepository:
 
         return deleted
 
+    def active(self) -> list[ActiveSession]:
+        """Every live session with its account, newest first."""
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT s.id, u.username, s.created_at, s.expires_at, s.agent,
+                           s.token_hash
+                    FROM sessions s JOIN users u ON u.id = s.user_id
+                    WHERE s.expires_at > CURRENT_TIMESTAMP
+                    ORDER BY s.created_at DESC
+                    """
+                )
+                rows = cur.fetchall()
+
+        return [ActiveSession(*row) for row in rows]
+
+    def delete_by_id(self, session_id: int) -> bool:
+        """End one session by its row id, as the admin area names it."""
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM sessions WHERE id = %s", (session_id,))
+                deleted = cur.rowcount
+            conn.commit()
+
+        return deleted > 0
+
     def delete_expired(self) -> int:
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -109,3 +149,8 @@ class SessionsRepository:
 
 def _digest(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def digest(token: str) -> str:
+    """The stored form of a cookie value, to recognise the caller's own row."""
+    return _digest(token)

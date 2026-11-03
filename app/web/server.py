@@ -24,6 +24,7 @@ from app.db.feedback_repo import FeedbackRepository
 from app.db.links_repo import TelegramLinksRepository
 from app.db.migrations import MigrationRunner
 from app.db.sessions_repo import SessionsRepository
+from app.db.settings_repo import DEFAULT_FEEDBACK_PER_HOUR, SettingsRepository
 from app.db.users_repo import UsersRepository
 from app.db.visits_repo import SIGNIN, SIGNUP, VIEW, VisitsRepository
 from app.plugins.manager import PluginManager
@@ -36,7 +37,6 @@ from .auth import (
     resolve_identity,
     resolve_user,
     set_session_cookie,
-    signup_enabled,
     verify_access,
 )
 from .csrf import (
@@ -113,7 +113,8 @@ TRACE_SCENARIOS = {
 
 # The guest book on the public pages. A person writes once or twice; more than
 # a handful an hour from one address is somebody filling the owner's chat.
-FEEDBACK_ATTEMPTS = 3
+# The default; the administrator can change it on /admin/settings.
+FEEDBACK_ATTEMPTS = DEFAULT_FEEDBACK_PER_HOUR
 FEEDBACK_WINDOW_SECONDS = 3600
 FEEDBACK_MAX_LENGTH = 2000
 
@@ -291,7 +292,11 @@ class WebServer:
         self._rate = RateLimiter()
         self._csrf = CsrfSigner(Config.CSRF_SECRET)
         self._runner: web.AppRunner | None = None
-        self._demo = DemoService(manager, database)
+        self._settings = SettingsRepository(database)
+        # The bot shares this manager, so a plugin switched off or maintenance
+        # turned on here reaches the chat as well.
+        manager.switches = self._settings
+        self._demo = DemoService(manager, database, settings=self._settings)
         self._visits = VisitsRepository(database)
         self._feedback_log = FeedbackRepository(database)
 
@@ -893,7 +898,9 @@ class WebServer:
             return web.json_response({"error": "JSON expected"}, status=415)
 
         if not self._rate.allow(
-            f"feedback|{client_ip(request)}", FEEDBACK_ATTEMPTS, FEEDBACK_WINDOW_SECONDS
+            f"feedback|{client_ip(request)}",
+            self._settings.feedback_per_hour(),
+            FEEDBACK_WINDOW_SECONDS,
         ):
             return web.json_response({"error": "Too many requests"}, status=429)
 
@@ -1047,7 +1054,11 @@ class WebServer:
         # than starting the next window from the typos' count.
         self._rate.clear(_rate_key(request, "login", username))
 
-        token = self._sessions.create(user.id, Config.SESSION_TTL_DAYS * DAY_SECONDS)
+        token = self._sessions.create(
+            user.id,
+            Config.SESSION_TTL_DAYS * DAY_SECONDS,
+            agent=visit_details.describe(request.headers.get("User-Agent", "")),
+        )
 
         response = _redirect("/")
         set_session_cookie(response, token)
@@ -1097,7 +1108,7 @@ class WebServer:
         # 404 rather than 403: with registration closed this deployment has no
         # sign-up page, and the path should behave like any other that does not
         # exist.
-        if not signup_enabled():
+        if not self._settings.signup_open():
             return web.Response(status=404)
 
         if self._identity(request) is not None:
@@ -1106,7 +1117,7 @@ class WebServer:
         return self._render_signup(request)
 
     async def _signup_submit(self, request: web.Request) -> web.Response:
-        if not signup_enabled():
+        if not self._settings.signup_open():
             return web.Response(status=404)
 
         # Same as the GET: an existing session must not be quietly swapped for
@@ -1168,7 +1179,9 @@ class WebServer:
         # after registering would only be an extra round trip for a form they
         # have just proved they can fill in.
         token = self._sessions.create(
-            user.id, Config.SESSION_TTL_DAYS * DAY_SECONDS
+            user.id,
+            Config.SESSION_TTL_DAYS * DAY_SECONDS,
+            agent=visit_details.describe(request.headers.get("User-Agent", "")),
         )
 
         response = _redirect("/")
@@ -1203,7 +1216,7 @@ class WebServer:
             {
                 "__ERROR_BLOCK__": _error_block(error),
                 "__USERNAME__": html.escape(username),
-                "__SIGNUP_BLOCK__": _signup_link(),
+                "__SIGNUP_BLOCK__": _signup_link(self._settings.signup_open()),
                 "__CSRF__": token,
             },
             status=status,
@@ -1348,6 +1361,39 @@ class WebServer:
         return response
 
     @web.middleware
+    async def _maintenance(self, request: web.Request, handler):
+        """While maintenance is on, everybody but an administrator gets a
+        holding page.
+
+        A 503 with `Retry-After`, which a search engine reads as "come back"
+        rather than "gone". The sign-in form, the admin area and the assets
+        they need stay open, or nobody could switch the mode off again.
+        """
+        if not self._settings.maintenance() or _open_in_maintenance(request.path):
+            return await handler(request)
+
+        user = self._current_user(request)
+
+        if user is not None and user.is_admin:
+            return await handler(request)
+
+        headers = {"Retry-After": str(MAINTENANCE_RETRY_SECONDS)}
+
+        if request.path.startswith(("/api/", "/demo/api/")) or request.method != "GET":
+            return web.json_response(
+                {"error": "Сервис на обслуживании. Попробуйте чуть позже."},
+                status=503,
+                headers=headers,
+            )
+
+        return web.Response(
+            text=_render_maintenance(),
+            content_type="text/html",
+            status=503,
+            headers=headers,
+        )
+
+    @web.middleware
     async def _authenticate(self, request: web.Request, handler):
         denied = verify_access(request)
 
@@ -1373,7 +1419,12 @@ class WebServer:
 
     def build_app(self) -> web.Application:
         app = web.Application(
-            middlewares=[self._nonce, self._authenticate, self._record_visit]
+            middlewares=[
+                self._nonce,
+                self._maintenance,
+                self._authenticate,
+                self._record_visit,
+            ]
         )
         # A response_prepare hook runs for every response aiohttp sends, even
         # the one an exception turns into a 500 — middleware, running before
@@ -1429,6 +1480,9 @@ class WebServer:
         AdminArea(
             self._users, self._sessions, self._visits, self._database, self._nav,
             self._csrf,
+            settings=self._settings,
+            manager=self._manager,
+            notifier=self._notifier,
         ).install(app)
 
         return app
@@ -1953,13 +2007,36 @@ def _error_block(message: str) -> str:
     return f'<p class="error">{html.escape(message)}</p>'
 
 
-def _signup_link() -> str:
+#: What a visitor is told to wait during maintenance.
+MAINTENANCE_RETRY_SECONDS = 600
+
+
+def _open_in_maintenance(path: str) -> bool:
+    """The paths that keep working in maintenance: the way in, the admin area,
+    the health check and the assets the pages need."""
+    return (
+        path in ("/login", "/logout", "/health", "/favicon.ico", "/favicon.svg")
+        or path == "/admin"
+        or path.startswith(("/admin/", "/fonts/"))
+    )
+
+
+def _render_maintenance() -> str:
+    source = (TEMPLATES_DIR / "maintenance.html").read_text(encoding="utf-8")
+
+    return source.replace(
+        "__PAGE_STYLES__",
+        (TEMPLATES_DIR / "_page_styles.html").read_text(encoding="utf-8"),
+    )
+
+
+def _signup_link(open_: bool) -> str:
     """Offer registration exactly where it works.
 
     With registration closed there is no sign-up page either — it answers 404 —
     so showing the link would send people to a dead end.
     """
-    if not signup_enabled():
+    if not open_:
         return ""
 
     return '<p class="alt">Нет аккаунта? <a href="/signup">Регистрация</a></p>'

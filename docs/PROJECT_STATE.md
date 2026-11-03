@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.74.2
+v0.75.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -681,6 +681,15 @@ deployment that never sets it records everything as before.
 
 ## Current limitations
 
+* Since v0.75.0 the admin area changes and reads what used to need SSH:
+  `/admin/settings` (maintenance, open registration, plugins on or off, the
+  feedback and demo limits), `/admin/errors` (the application's ERROR
+  records), `/admin/broadcast` (a message to every linked active account),
+  task buttons and a demo block on `/admin/status`, and live sign-ins with an
+  end button on `/admin/users`. Switching a plugin off does not refresh the
+  Telegram "/" command menu until the next restart.
+* Guests' rows in `tasks` were never cleaned up: the table was missing from the
+  demo cleanup list. Fixed in v0.75.0.
 * Since v0.74.0 a visit carries a daily visitor hash, a device label, a bot
   flag and a `?from=` tag, and `/admin/sessions` reads the log as sessions.
   The hash changes every day by design, so a returning visitor is a new one

@@ -108,13 +108,3 @@ def set_session_cookie(response: web.Response, token: str) -> None:
 
 def clear_session_cookie(response: web.Response) -> None:
     response.del_cookie(SESSION_COOKIE, path="/")
-
-
-def signup_enabled() -> bool:
-    """Whether this deployment has a sign-up page at all.
-
-    One flag, read once: it governs both the page and the submission, so the
-    two cannot disagree and present a form that then rejects every filled-in
-    account.
-    """
-    return Config.SIGNUP_OPEN

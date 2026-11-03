@@ -1,0 +1,13 @@
+<h1>Рассылка</h1>
+
+__FLASH__
+
+<p class="legend">Сообщение уйдёт в Telegram всем активным аккаунтам с
+привязанным чатом: сейчас их <b>__COUNT__</b>. Обычный текст, без разметки.</p>
+
+<form class="settings" method="post" action="/admin/broadcast">
+  <input type="hidden" name="__CSRF_FIELD__" value="__CSRF__">
+  <textarea name="text" rows="6" maxlength="__MAX__" required
+            aria-label="Текст объявления"></textarea>
+  <button type="submit">Отправить всем</button>
+</form>

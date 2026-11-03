@@ -26,6 +26,7 @@
      screen they use. */
   .tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
     margin: 0 0 1.25rem;
     border-bottom: 1px solid var(--border);
@@ -53,6 +54,44 @@
   td.name { font-weight: 500; }
   td.when, td.mark { color: var(--muted); font-size: 0.9rem; }
   td.feedback-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+  td details { margin-top: 0.35rem; }
+  td pre {
+    margin: 0.35rem 0 0;
+    padding: 0.6rem;
+    max-height: 18rem;
+    overflow: auto;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    white-space: pre;
+  }
+
+  .flash {
+    padding: 0.6rem 0.8rem;
+    margin: 0 0 1rem;
+    border: 1px solid rgba(88, 201, 138, 0.4);
+    border-radius: 6px;
+    color: var(--ok);
+  }
+  .flash.error { border-color: rgba(255, 107, 107, 0.4); color: var(--error); }
+  .task-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1.5rem; }
+  form.settings { display: grid; gap: 0.6rem; max-width: 40rem; }
+  form.settings h2 { margin: 1rem 0 0.25rem; }
+  form.settings .legend { margin: 0; }
+  form.settings textarea, form.settings input[type=number] {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem;
+    font: inherit;
+  }
+  form.settings input[type=number] { width: 7rem; margin-left: 0.5rem; }
+  form.settings button { justify-self: start; margin-top: 0.75rem; }
+  label.toggle { display: flex; gap: 0.5rem; align-items: baseline; }
+  label.toggle input { accent-color: var(--accent); }
+  label.toggle .mark { color: var(--muted); font-size: 0.85rem; }
 
   .badge {
     display: inline-block;

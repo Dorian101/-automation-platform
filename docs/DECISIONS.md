@@ -2396,3 +2396,31 @@ readers. The owner wants to see what a recruiter from hh actually read.
 Rows from before v0.74.0 carry none of this and appear only in the plain log.
 A visitor coming back the next day is a new hash, which is the privacy
 property, not a bug.
+
+## 2026-11-03
+
+### Decision
+Move runtime switches into a `settings` table managed from the admin area, and
+keep the application's errors in its own table
+
+### Reason
+Turning registration on, changing a limit or pausing the site meant SSH, an
+edit to `.env` and a restart. The owner wants these from the browser. The
+errors were only in the journal, which the service user cannot read by design.
+
+### How it is done
+
+- A key missing from `settings` means the default, so an empty table behaves
+  as before and `.env` keeps working as the starting value.
+- The settings are cached in memory and survive an unreadable database by
+  keeping the last values, so a database outage does not also switch every
+  plugin back on or drop maintenance.
+- Errors go to `app_errors` through a logging handler capped at 500 rows,
+  instead of giving the service user journal access.
+- Maintenance leaves the sign-in and the admin area open, or nobody could
+  switch it off.
+
+### Result
+The Telegram "/" menu is set once at start, so it still lists a plugin that
+was switched off until the next restart; the command itself answers that it
+is off. Announcements reach linked web accounts only.

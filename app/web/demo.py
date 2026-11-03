@@ -32,12 +32,14 @@ is what fills it.
 import logging
 import secrets
 from collections.abc import Mapping
+from datetime import UTC, datetime
 
 from aiohttp import web
 
 from app.core.config import Config
 from app.core.identity import Identity, guest
 from app.core.results import CommandError
+from app.db.settings_repo import SettingsRepository
 
 from .pages import nav, render_demo_landing, render_not_found, render_plugin_page
 from .ratelimit import RateLimiter, client_ip
@@ -59,6 +61,14 @@ VISITOR = "demo_visitor"
 TOKEN_BYTES = 16
 
 DEMO_PREFIX = "/demo"
+
+#: Every table a demonstration guest can write to. A demo plugin whose table
+#: is not here keeps its guests' rows for ever — `tasks` was missing until
+#: v0.75.0 for exactly that reason.
+DEMO_TABLES = ("expenses", "expense_categories", "job_applications", "tasks")
+
+#: The settings key holding when the guests were last removed, in UTC.
+PRUNED_AT = "demo.pruned_at"
 
 
 def read_guest(request: web.Request) -> tuple[Identity, str]:
@@ -120,9 +130,12 @@ class DemoService:
     """Serves the demonstration: the landing page, the plugin pages, the
     actions, and the cleanup that keeps the namespaces from accumulating."""
 
-    def __init__(self, manager, database):
+    def __init__(self, manager, database, settings=None):
         self._manager = manager
         self._database = database
+        # Where the per-address limit can be changed from the admin area;
+        # without it the limit is the one in `.env`.
+        self._settings = settings
         self._rate = RateLimiter()
 
     # -- the limit ----------------------------------------------------------
@@ -141,7 +154,11 @@ class DemoService:
         """
         allowed = self._rate.allow(
             f"demo|{client_ip(request)}",
-            Config.DEMO_ATTEMPTS_PER_WINDOW,
+            (
+                self._settings.demo_per_hour()
+                if self._settings
+                else Config.DEMO_ATTEMPTS_PER_WINDOW
+            ),
             Config.DEMO_WINDOW_SECONDS,
         )
 
@@ -365,16 +382,19 @@ class DemoService:
 
         with self._database.connect() as conn:
             with conn.cursor() as cur:
-                for table in (
-                    "expenses",
-                    "expense_categories",
-                    "job_applications",
-                ):
+                for table in DEMO_TABLES:
                     cur.execute(
                         f"DELETE FROM {table} WHERE user_id LIKE %s",
                         (pattern,),
                     )
                     removed[table] = cur.rowcount
             conn.commit()
+
+        # When the cleanup last ran, for the admin area's demo block. Stored
+        # with the switches because it is the one piece of state about the
+        # demo that is not in the plugin tables.
+        (self._settings or SettingsRepository(self._database)).put(
+            PRUNED_AT, datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
+        )
 
         return removed

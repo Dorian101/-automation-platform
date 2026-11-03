@@ -5,7 +5,8 @@ from aiohttp import CookieJar
 from aiohttp.test_utils import TestClient, TestServer
 
 from app.core.config import Config
-from app.web.auth import AUTH_HEADER, SESSION_COOKIE, signup_enabled
+from app.db.settings_repo import SettingsRepository
+from app.web.auth import AUTH_HEADER, SESSION_COOKIE
 from app.web.csrf import CsrfSigner
 from app.web.ratelimit import MAX_KEYS, RateLimiter
 from app.web.server import WebServer
@@ -631,16 +632,25 @@ class TestSignup:
         # Only the account the client fixture signed in as.
         assert users.count() == 1
 
-    def test_flag_off_means_closed(self, monkeypatch):
+    def test_flag_off_means_closed(self, monkeypatch, database_with_schema):
         """The default (and any non-truthy value) keeps the door shut."""
         monkeypatch.setattr(Config, "SIGNUP_OPEN", False)
 
-        assert signup_enabled() is False
+        assert SettingsRepository(database_with_schema).signup_open() is False
 
-    def test_flag_on_means_open(self, monkeypatch):
+    def test_flag_on_means_open(self, monkeypatch, database_with_schema):
         monkeypatch.setattr(Config, "SIGNUP_OPEN", True)
 
-        assert signup_enabled() is True
+        assert SettingsRepository(database_with_schema).signup_open() is True
+
+    def test_the_admin_setting_wins_over_the_flag(
+        self, monkeypatch, database_with_schema
+    ):
+        monkeypatch.setattr(Config, "SIGNUP_OPEN", False)
+        settings = SettingsRepository(database_with_schema)
+        settings.put("signup.open", "1")
+
+        assert settings.signup_open() is True
 
 
 class TestUsernameValidation:

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from app.bot.bot import create_bot, create_dispatcher
 from app.bot.error_handler import register_error_handler
@@ -7,6 +8,7 @@ from app.core.logger import setup_logger
 from app.core.person import PersonResolver
 from app.db.backup import BackupManager
 from app.db.database import Database
+from app.db.errors_repo import ErrorLogHandler, ErrorsRepository
 from app.db.links_repo import TelegramLinksRepository
 from app.db.migrations import MigrationRunner
 from app.db.users_repo import UsersRepository
@@ -48,6 +50,10 @@ async def main() -> None:
     # dump before it does. The management commands apply migrations too, but
     # by hand, on a host an operator is sitting in front of.
     MigrationRunner(database, backup=BackupManager()).run()
+
+    # After the migrations, so the table exists. Errors from here on are also
+    # readable on /admin/errors, which the journal is not to this user.
+    logging.getLogger().addHandler(ErrorLogHandler(ErrorsRepository(database)))
 
     register_error_handler(dp)
 

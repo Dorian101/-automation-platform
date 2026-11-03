@@ -15,6 +15,10 @@ class PluginManager:
     def __init__(self, logger):
         self._plugins: list[BasePlugin] = []
         self.logger = logger
+        # What the administrator switched: plugins turned off and maintenance.
+        # An object with `disabled_plugins()` and `maintenance()`, handed in by
+        # whoever owns the settings; None means nothing is ever switched.
+        self.switches = None
 
     def register(self, plugin: BasePlugin) -> None:
         self._plugins.append(plugin)
@@ -25,10 +29,16 @@ class PluginManager:
         )
 
     def get_plugins(self) -> Sequence[BasePlugin]:
+        """Every registered plugin, switched off or not."""
         return self._plugins.copy()
 
+    def _enabled(self) -> list[BasePlugin]:
+        disabled = self.switches.disabled_plugins() if self.switches else set()
+
+        return [plugin for plugin in self._plugins if plugin.name not in disabled]
+
     def find(self, command: str) -> BasePlugin | None:
-        for plugin in self._plugins:
+        for plugin in self._enabled():
             if command in plugin.commands:
                 return plugin
 
@@ -40,7 +50,7 @@ class PluginManager:
         Matched on the declared path rather than looked up by name, so a route
         is only reachable through the plugin that asked for it.
         """
-        for plugin in self._plugins:
+        for plugin in self._enabled():
             if plugin.page == page:
                 return plugin
 
@@ -69,7 +79,7 @@ class PluginManager:
                 "description": plugin.description,
                 "demo": plugin.demo,
             }
-            for plugin in self._plugins
+            for plugin in self._enabled()
             if plugin.page
         ]
 
@@ -110,9 +120,15 @@ class PluginManager:
         args: str,
         identity: Identity,
     ) -> CommandResult:
+        if self.switches and self.switches.maintenance():
+            raise CommandError("Сервис на обслуживании. Попробуйте чуть позже.")
+
         plugin = self.find(command)
 
         if plugin is None:
+            if any(command in known.commands for known in self._plugins):
+                raise CommandError("Эта команда временно отключена.")
+
             raise CommandError(f"Unknown command: {command}")
 
         if plugin.web_only and identity.kind != WEB:

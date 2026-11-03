@@ -302,8 +302,9 @@ class TestTheUserList:
         create_user(username="hr", password=TEST_PASSWORD)
 
         body = await (await admin_client.get(f"{USERS_PATH}?q=%25")).text()
-        # Past the attic, which carries the reader's own name everywhere.
-        page = body[body.index("<h1>") :]
+        # Past the attic, which carries the reader's own name everywhere, and
+        # before the live sign-ins, which name the reader's session.
+        page = body[body.index("<h1>") : body.index("Активные входы")]
 
         assert "Ничего не найдено" in page
         assert TEST_USERNAME not in page

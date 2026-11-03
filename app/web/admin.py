@@ -21,6 +21,7 @@ covers them: a page nobody should be able to reach should not be a search
 result if it is ever reached.
 """
 
+import asyncio
 import html
 import logging
 from collections.abc import Callable
@@ -33,13 +34,27 @@ from zoneinfo import ZoneInfo
 from aiohttp import web
 
 from app.core.config import Config
+from app.core.identity import Identity
+from app.db.backup import BackupManager
 from app.db.database import Database
+from app.db.errors_repo import AppError, ErrorsRepository
 from app.db.feedback_repo import Feedback, FeedbackRepository
-from app.db.sessions_repo import SessionsRepository
+from app.db.links_repo import TelegramLinksRepository
+from app.db.sessions_repo import ActiveSession, SessionsRepository, digest
+from app.db.settings_repo import (
+    ALWAYS_ON,
+    DEMO_PER_HOUR,
+    DISABLED_PLUGINS,
+    FEEDBACK_PER_HOUR,
+    MAINTENANCE,
+    SIGNUP_OPEN,
+    SettingsRepository,
+)
 from app.db.users_repo import User, UsersRepository
 from app.db.visits_repo import DEFAULT_LIMIT, Visit, VisitsRepository
 from app.web.auth import SESSION_COOKIE, resolve_user
 from app.web.csrf import CSRF_FIELD, CsrfSigner
+from app.web.demo import DEMO_TABLES, PRUNED_AT, DemoService
 from app.web.pages import menu_styles, render_not_found
 from app.web.responses import redirect, token_rejected
 from app.web.system import cores, disk, load, memory
@@ -49,6 +64,11 @@ logger = logging.getLogger(__name__)
 ADMIN_PREFIX = "/admin"
 USERS_PATH = ADMIN_PREFIX + "/users"
 STATUS_PATH = ADMIN_PREFIX + "/status"
+SETTINGS_PATH = ADMIN_PREFIX + "/settings"
+BROADCAST_PATH = ADMIN_PREFIX + "/broadcast"
+
+#: The longest announcement: one Telegram message.
+BROADCAST_LIMIT = 4096
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
@@ -107,12 +127,22 @@ class AdminArea:
         database: Database,
         nav_for: Callable[[web.Request], str],
         csrf: CsrfSigner,
+        settings: SettingsRepository | None = None,
+        manager=None,
+        notifier=None,
     ) -> None:
         self._users = users
         self._sessions = sessions
         self._visits = visits
         self._database = database
         self._feedback = FeedbackRepository(database)
+        self._errors = ErrorsRepository(database)
+        self._links = TelegramLinksRepository(database)
+        # The same switches the web server and the bot read, so a change here
+        # applies at once rather than after the cache runs out.
+        self._settings = settings or SettingsRepository(database)
+        self._manager = manager
+        self._notifier = notifier
         # The same signer as the rest of the web layer. A second one with its
         # own secret would refuse every token the other half produced, and the
         # failure would look like a forgery rather than a wiring mistake.
@@ -144,6 +174,13 @@ class AdminArea:
         sub.router.add_get("/visits", self.visits_page)
         sub.router.add_get("/sessions", self.sessions_page)
         sub.router.add_get("/feedback", self.feedback_page)
+        sub.router.add_get("/errors", self.errors_page)
+        sub.router.add_get("/broadcast", self.broadcast_page)
+        sub.router.add_post("/broadcast", self.broadcast_send)
+        sub.router.add_get("/settings", self.settings_page)
+        sub.router.add_post("/settings", self.settings_save)
+        sub.router.add_post("/tasks/{task:backup|guests|visits}", self.run_task)
+        sub.router.add_post("/logins/{session_id:\\d+}/end", self.end_login)
         sub.router.add_get("/status", self.status_page)
         sub.router.add_get("/status/data", self.status_data)
         sub.router.add_post("/users/{user_id:\\d+}/disable", self.disable)
@@ -179,6 +216,11 @@ class AdminArea:
             "__QUERY__": html.escape(query, quote=True),
             "__ROWS__": _user_rows(found, token, actor),
         })
+        body += _login_rows(
+            self._sessions.active(),
+            token,
+            digest(request.cookies.get(SESSION_COOKIE, "")),
+        )
 
         return self._page("users", body, request)
 
@@ -270,6 +312,184 @@ class AdminArea:
 
         return self._page("sessions", body, request)
 
+    def _token_ok(self, request: web.Request, form) -> bool:
+        return self._csrf.accepts(
+            request.cookies.get(SESSION_COOKIE, ""), _form_value(form, CSRF_FIELD)
+        )
+
+    def _token(self, request: web.Request) -> str:
+        return html.escape(
+            self._csrf.session_token(request.cookies.get(SESSION_COOKIE, ""))
+        )
+
+    async def settings_page(self, request: web.Request) -> web.Response:
+        """The switches: maintenance, registration, plugins and form limits."""
+        plugins = self._manager.get_plugins() if self._manager else []
+        disabled = self._settings.disabled_plugins()
+        boxes = "".join(
+            '<label class="toggle">'
+            f'<input type="checkbox" name="plugin" '
+            f'value="{html.escape(plugin.name, quote=True)}"'
+            f'{"" if plugin.name in disabled else " checked"}> '
+            f"{html.escape(plugin.description or plugin.name)} "
+            f'<span class="mark">{html.escape(plugin.name)}</span></label>'
+            for plugin in plugins
+            if plugin.name not in ALWAYS_ON
+        )
+
+        body = _fragment("admin_settings.html", {
+            "__FLASH__": (
+                '<p class="flash">Сохранено.</p>'
+                if request.query.get("saved") == "1" else ""
+            ),
+            "__CSRF_FIELD__": CSRF_FIELD,
+            "__CSRF__": self._token(request),
+            "__MAINTENANCE__": " checked" if self._settings.maintenance() else "",
+            "__SIGNUP__": " checked" if self._settings.signup_open() else "",
+            "__PLUGINS__": boxes or '<p class="none">Плагинов нет.</p>',
+            "__FEEDBACK__": str(self._settings.feedback_per_hour()),
+            "__DEMO__": str(self._settings.demo_per_hour()),
+        })
+
+        return self._page("settings", body, request)
+
+    async def settings_save(self, request: web.Request) -> web.Response:
+        """Store the form. A number out of range keeps the value it replaces."""
+        form = await request.post()
+
+        if not self._token_ok(request, form):
+            return token_rejected(request, SETTINGS_PATH)
+
+        self._settings.put(MAINTENANCE, "1" if form.get("maintenance") else "0")
+        self._settings.put(SIGNUP_OPEN, "1" if form.get("signup") else "0")
+
+        if self._manager is not None:
+            kept = set(form.getall("plugin", []))
+            off = sorted(
+                plugin.name
+                for plugin in self._manager.get_plugins()
+                if plugin.name not in kept and plugin.name not in ALWAYS_ON
+            )
+            self._settings.put(DISABLED_PLUGINS, ",".join(off) or None)
+
+        for key, field_name, low, high in (
+            (FEEDBACK_PER_HOUR, "feedback_per_hour", 1, 100),
+            (DEMO_PER_HOUR, "demo_per_hour", 10, 10000),
+        ):
+            raw = _form_value(form, field_name).strip()
+            if raw.isdigit() and low <= int(raw) <= high:
+                self._settings.put(key, raw)
+
+        actor = resolve_user(request, request.app[USERS], request.app[SESSIONS])
+        logger.info(
+            "Settings changed by %r", actor.username if actor else None
+        )
+
+        return redirect(SETTINGS_PATH + "?saved=1")
+
+    async def errors_page(self, request: web.Request) -> web.Response:
+        """The application's recent ERROR records, newest first."""
+        return self._page("errors", _error_rows(self._errors.recent()), request)
+
+    def _broadcast_chats(self) -> list[int]:
+        chats = []
+
+        for link in self._links.list_all():
+            account = self._users.get_by_id(link.user_id)
+            if account is not None and account.is_active:
+                chats.append(link.telegram_id)
+
+        return chats
+
+    async def broadcast_page(self, request: web.Request) -> web.Response:
+        flash = ""
+        sent, of = request.query.get("sent", ""), request.query.get("of", "")
+
+        if sent.isdigit() and of.isdigit():
+            flash = f'<p class="flash">Отправлено: <b>{sent}</b> из <b>{of}</b>.</p>'
+
+        body = _fragment("admin_broadcast.html", {
+            "__FLASH__": flash,
+            "__COUNT__": str(len(self._broadcast_chats())),
+            "__CSRF_FIELD__": CSRF_FIELD,
+            "__CSRF__": self._token(request),
+            "__MAX__": str(BROADCAST_LIMIT),
+        })
+
+        return self._page("broadcast", body, request)
+
+    async def broadcast_send(self, request: web.Request) -> web.Response:
+        """Send the text to every linked active account, one chat at a time.
+
+        A short pause between chats keeps well under Telegram's limit of
+        thirty messages a second; a failed chat is counted and skipped.
+        """
+        form = await request.post()
+
+        if not self._token_ok(request, form):
+            return token_rejected(request, BROADCAST_PATH)
+
+        text = _form_value(form, "text").strip()[:BROADCAST_LIMIT]
+        chats = self._broadcast_chats()
+        sent = 0
+
+        if text and self._notifier is not None:
+            for chat in chats:
+                try:
+                    if await self._notifier.deliver(
+                        Identity("telegram", str(chat)), text
+                    ):
+                        sent += 1
+                except Exception:
+                    logger.exception("Announcement to %s failed", chat)
+                await asyncio.sleep(0.05)
+
+        logger.info("Announcement sent to %s of %s chat(s)", sent, len(chats))
+
+        return redirect(f"{BROADCAST_PATH}?sent={sent}&of={len(chats)}")
+
+    async def run_task(self, request: web.Request) -> web.Response:
+        """Run one of the scheduled jobs now: a backup or a cleanup."""
+        form = await request.post()
+
+        if not self._token_ok(request, form):
+            return token_rejected(request, STATUS_PATH)
+
+        task = request.match_info["task"]
+        count = 0
+
+        try:
+            if task == "backup":
+                await asyncio.to_thread(BackupManager().create_backup, "manual")
+            elif task == "guests":
+                removed = await asyncio.to_thread(
+                    DemoService(
+                        self._manager, self._database, settings=self._settings
+                    ).prune
+                )
+                count = sum(removed.values())
+            else:
+                count = await asyncio.to_thread(self._visits.prune)
+        except Exception:
+            logger.exception("Task %s failed from the admin area", task)
+            return redirect(f"{STATUS_PATH}?failed={task}")
+
+        logger.info("Task %s run from the admin area", task)
+
+        return redirect(f"{STATUS_PATH}?done={task}&n={count}")
+
+    async def end_login(self, request: web.Request) -> web.Response:
+        """Sign one session out. Ending your own signs you out here too."""
+        form = await request.post()
+
+        if not self._token_ok(request, form):
+            return token_rejected(request, USERS_PATH)
+
+        if self._sessions.delete_by_id(int(request.match_info["session_id"])):
+            logger.info("Session ended from the admin area")
+
+        return redirect(USERS_PATH)
+
     async def feedback_page(self, request: web.Request) -> web.Response:
         """What readers left in the guest book on the public pages."""
         return self._page("feedback", _feedback_rows(self._feedback.recent()), request)
@@ -282,7 +502,15 @@ class AdminArea:
         have to be reloaded to see the disk tick. The placeholder text is all
         an administrator sees for the moment before the first fetch lands.
         """
-        body = _fragment("admin_status.html", {})
+        token = html.escape(
+            self._csrf.session_token(request.cookies.get(SESSION_COOKIE, ""))
+        )
+        body = (
+            _task_flash(request.query)
+            + _fragment("admin_status.html", {})
+            + _task_buttons(token)
+            + _demo_block(self._database, self._settings.get(PRUNED_AT))
+        )
         return self._page("status", body, request)
 
     async def status_data(self, request: web.Request) -> web.Response:
@@ -357,7 +585,10 @@ class AdminArea:
         source = source.replace("__BODY__", body)
         source = source.replace("__TITLE__", _section_title(section))
 
-        for name in ("status", "users", "visits", "sessions", "feedback"):
+        for name in (
+            "status", "users", "visits", "sessions", "feedback", "errors",
+            "broadcast", "settings",
+        ):
             mark = " aria-current='page'" if name == section else ""
             source = source.replace(f"__ACTIVE_{name.upper()}__", mark)
 
@@ -371,6 +602,9 @@ def _section_title(section: str) -> str:
         "visits": "Визиты",
         "sessions": "Сессии",
         "feedback": "Отзывы",
+        "errors": "Ошибки",
+        "broadcast": "Рассылка",
+        "settings": "Настройки",
     }[section]
 
 
@@ -864,3 +1098,151 @@ def _sessions_pager(page: int, pages: int, arguments: dict[str, str]) -> str:
         parts.append(f'<a class="pagerlink" href="{url(page + 1)}">старше &rarr;</a>')
 
     return '<nav class="pager">' + " ".join(parts) + "</nav>"
+
+
+_TASK_DONE = {
+    "backup": "Бэкап записан.",
+    "guests": "Гости демо удалены, строк: {n}.",
+    "visits": "Старые визиты удалены, строк: {n}.",
+}
+
+
+def _task_flash(query) -> str:
+    """The line above the status page after a task button was pressed."""
+    done, failed = query.get("done", ""), query.get("failed", "")
+    count = query.get("n", "0")
+
+    if done in _TASK_DONE:
+        text = _TASK_DONE[done].format(n=int(count) if count.isdigit() else 0)
+        return f'<p class="flash">{text}</p>'
+
+    if failed in _TASK_DONE:
+        return (
+            '<p class="flash error">Задача не выполнилась, '
+            "подробности в «Ошибках».</p>"
+        )
+
+    return ""
+
+
+def _task_buttons(token: str) -> str:
+    buttons = "".join(
+        f'<form method="post" action="{STATUS_PATH.rsplit("/", 1)[0]}/tasks/{task}">'
+        f'<input type="hidden" name="{CSRF_FIELD}" value="{token}">'
+        f'<button type="submit">{label}</button></form>'
+        for task, label in (
+            ("backup", "Сделать бэкап сейчас"),
+            ("guests", "Удалить гостей демо"),
+            ("visits", "Удалить визиты старше 90 дней"),
+        )
+    )
+
+    return f'<h2>Служебные задачи</h2><div class="task-buttons">{buttons}</div>'
+
+
+def _demo_block(database: Database, pruned_at: str | None) -> str:
+    """How much the demo holds now: guests and their rows per table."""
+    pattern = "web:guest:%"
+    counts = []
+
+    with database.connect() as conn:
+        with conn.cursor() as cur:
+            for table in DEMO_TABLES:
+                cur.execute(
+                    f"SELECT count(*) FROM {table} WHERE user_id LIKE %s",
+                    (pattern,),
+                )
+                counts.append((table, cur.fetchone()[0]))
+
+            union = " UNION ".join(
+                f"SELECT user_id FROM {table} WHERE user_id LIKE %s"
+                for table in DEMO_TABLES
+            )
+            cur.execute(
+                f"SELECT count(*) FROM ({union}) AS guests",
+                (pattern,) * len(DEMO_TABLES),
+            )
+            guests = cur.fetchone()[0]
+
+    items = "".join(
+        f"<li><span>{html.escape(table)}</span><b>{count}</b></li>"
+        for table, count in counts
+    )
+    when = (
+        f"{html.escape(pruned_at)} UTC" if pruned_at
+        else "ещё не было с момента обновления"
+    )
+
+    return (
+        "<h2>Демо</h2>"
+        f'<p class="legend">Гостей сейчас: <b>{guests}</b>. Очистка — '
+        f"каждый день в 05:23 UTC, последняя: {when}.</p>"
+        f'<ul class="count-list">{items}</ul>'
+    )
+
+
+def _login_rows(found: list[ActiveSession], token: str, mine: str) -> str:
+    """Live sign-ins with a button to end each one."""
+    if not found:
+        return '<h2>Активные входы</h2><p class="none">Никто не вошёл.</p>'
+
+    zone = ZoneInfo(Config.DISPLAY_TIMEZONE)
+    body = []
+
+    for session in found:
+        started = session.created_at.replace(tzinfo=UTC).astimezone(zone)
+        you = (
+            ' <span class="badge on">это вы</span>'
+            if session.token_hash == mine else ""
+        )
+        body.append(
+            "<tr>"
+            f'<td class="name">{html.escape(session.username)}{you}</td>'
+            f"<td>{html.escape(session.agent or '—')}</td>"
+            f'<td class="when">{started.strftime("%d.%m.%Y %H:%M")}</td>'
+            f'<td class="when">{_when(session.expires_at)}</td>'
+            f'<td><form method="post" action="{ADMIN_PREFIX}/logins/{session.id}/end">'
+            f'<input type="hidden" name="{CSRF_FIELD}" value="{token}">'
+            '<button type="submit" class="danger">Завершить</button></form></td>'
+            "</tr>"
+        )
+
+    return (
+        "<h2>Активные входы</h2><table><thead><tr>"
+        "<th>Аккаунт</th><th>Устройство</th>"
+        f"<th>Вход, {html.escape(datetime.now(zone).tzname() or '')}</th>"
+        "<th>До</th><th></th>"
+        "</tr></thead><tbody>" + "".join(body) + "</tbody></table>"
+    )
+
+
+def _error_rows(found: list[AppError]) -> str:
+    if not found:
+        return '<h1>Ошибки</h1><p class="none">Ошибок не было.</p>'
+
+    zone = ZoneInfo(Config.DISPLAY_TIMEZONE)
+    body = []
+
+    for error in found:
+        at = error.at.replace(tzinfo=UTC).astimezone(zone)
+        details = (
+            f"<details><summary>трассировка</summary>"
+            f"<pre>{html.escape(error.details)}</pre></details>"
+            if error.details else ""
+        )
+        body.append(
+            "<tr>"
+            f'<td class="when">{at.strftime("%d.%m.%Y %H:%M:%S")}</td>'
+            f'<td class="when">{html.escape(error.logger)}</td>'
+            f'<td class="feedback-text">{html.escape(error.message)}{details}</td>'
+            "</tr>"
+        )
+
+    return (
+        "<h1>Ошибки</h1>"
+        '<p class="legend">Последние записи уровня ERROR из журнала приложения, '
+        "до 500 штук.</p><table><thead><tr>"
+        f"<th>Когда, {html.escape(datetime.now(zone).tzname() or '')}</th>"
+        "<th>Где</th><th>Что</th>"
+        "</tr></thead><tbody>" + "".join(body) + "</tbody></table>"
+    )
