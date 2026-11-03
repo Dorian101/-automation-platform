@@ -9,6 +9,14 @@ from .database import Database
 # column comfortably.
 TOKEN_BYTES = 32
 
+#: How often a session's `last_seen` is written. Short enough for the admin
+#: area's "in use now" window, long enough that a page of requests is one
+#: write, not one each.
+TOUCH_SECONDS = 300
+
+#: A session used within this window counts as in use on /admin/users.
+ACTIVE_MINUTES = 30
+
 
 @dataclass(frozen=True)
 class ActiveSession:
@@ -18,6 +26,7 @@ class ActiveSession:
     expires_at: datetime
     agent: str | None
     token_hash: str
+    last_seen: datetime
 
 
 class SessionsRepository:
@@ -73,6 +82,20 @@ class SessionsRepository:
                 )
                 row = cur.fetchone()
 
+                if row is not None:
+                    # Marks the session as in use, at most every few minutes:
+                    # the condition makes the other lookups a no-op update.
+                    cur.execute(
+                        """
+                        UPDATE sessions SET last_seen = CURRENT_TIMESTAMP
+                        WHERE token_hash = %s
+                          AND (last_seen IS NULL OR last_seen
+                               < CURRENT_TIMESTAMP - make_interval(secs => %s))
+                        """,
+                        (_digest(token), TOUCH_SECONDS),
+                    )
+            conn.commit()
+
         return row[0] if row else None
 
     def delete(self, token: str) -> None:
@@ -105,18 +128,25 @@ class SessionsRepository:
 
         return deleted
 
-    def active(self) -> list[ActiveSession]:
-        """Every live session with its account, newest first."""
+    def active(self, minutes: int = ACTIVE_MINUTES) -> list[ActiveSession]:
+        """Sessions used within the last `minutes`, most recently used first.
+
+        Not every unexpired session: a cookie lives for weeks after its tab is
+        closed, and listing those would show sign-ins nobody is using.
+        """
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
                     SELECT s.id, u.username, s.created_at, s.expires_at, s.agent,
-                           s.token_hash
+                           s.token_hash, COALESCE(s.last_seen, s.created_at) AS seen
                     FROM sessions s JOIN users u ON u.id = s.user_id
                     WHERE s.expires_at > CURRENT_TIMESTAMP
-                    ORDER BY s.created_at DESC
-                    """
+                      AND COALESCE(s.last_seen, s.created_at)
+                          > CURRENT_TIMESTAMP - make_interval(mins => %s)
+                    ORDER BY seen DESC
+                    """,
+                    (minutes,),
                 )
                 rows = cur.fetchall()
 

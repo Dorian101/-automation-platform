@@ -250,3 +250,35 @@ def test_a_database_outage_pauses_the_error_log(monkeypatch):
     handler.emit(record)
 
     assert len(calls) == 1
+
+
+class TestActiveMeansInUse:
+    def _age(self, database, session_id, minutes):
+        with database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE sessions SET created_at = CURRENT_TIMESTAMP - "
+                    "make_interval(mins => %s), last_seen = NULL WHERE id = %s",
+                    (minutes, session_id),
+                )
+            conn.commit()
+
+    def test_an_idle_sign_in_is_not_listed(
+        self, users, create_user, database_with_schema
+    ):
+        sessions = SessionsRepository(database_with_schema)
+        account = users.get_by_username(TEST_USERNAME)
+        sessions.create(account.id, 86400, agent="old")
+        old = sessions.active()[0]
+        self._age(database_with_schema, old.id, 120)
+
+        assert sessions.active() == []
+
+    def test_using_it_brings_it_back(self, users, create_user, database_with_schema):
+        sessions = SessionsRepository(database_with_schema)
+        account = users.get_by_username(TEST_USERNAME)
+        token = sessions.create(account.id, 86400)
+        self._age(database_with_schema, sessions.active()[0].id, 120)
+
+        assert sessions.get_user_id(token) == account.id
+        assert len(sessions.active()) == 1

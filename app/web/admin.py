@@ -40,7 +40,12 @@ from app.db.database import Database
 from app.db.errors_repo import AppError, ErrorsRepository
 from app.db.feedback_repo import Feedback, FeedbackRepository
 from app.db.links_repo import TelegramLinksRepository
-from app.db.sessions_repo import ActiveSession, SessionsRepository, digest
+from app.db.sessions_repo import (
+    ACTIVE_MINUTES,
+    ActiveSession,
+    SessionsRepository,
+    digest,
+)
 from app.db.settings_repo import (
     ALWAYS_ON,
     DEMO_PER_HOUR,
@@ -1182,14 +1187,24 @@ def _demo_block(database: Database, pruned_at: str | None) -> str:
 
 
 def _login_rows(found: list[ActiveSession], token: str, mine: str) -> str:
-    """Live sign-ins with a button to end each one."""
+    """Sign-ins in use now, with a button to end each one."""
+    legend = (
+        f'<p class="legend">Входы, которыми пользовались за последние '
+        f"{ACTIVE_MINUTES} минут. Закрытая вкладка пропадает отсюда через "
+        "полчаса, хотя сам вход действует до конца срока cookie.</p>"
+    )
+
     if not found:
-        return '<h2>Активные входы</h2><p class="none">Никто не вошёл.</p>'
+        return (
+            "<h2>Активные входы</h2>" + legend
+            + '<p class="none">Сейчас никто не активен.</p>'
+        )
 
     zone = ZoneInfo(Config.DISPLAY_TIMEZONE)
     body = []
 
     for session in found:
+        seen = session.last_seen.replace(tzinfo=UTC).astimezone(zone)
         started = session.created_at.replace(tzinfo=UTC).astimezone(zone)
         you = (
             ' <span class="badge on">это вы</span>'
@@ -1200,7 +1215,7 @@ def _login_rows(found: list[ActiveSession], token: str, mine: str) -> str:
             f'<td class="name">{html.escape(session.username)}{you}</td>'
             f"<td>{html.escape(session.agent or '—')}</td>"
             f'<td class="when">{started.strftime("%d.%m.%Y %H:%M")}</td>'
-            f'<td class="when">{_when(session.expires_at)}</td>'
+            f'<td class="when">{seen.strftime("%H:%M")}</td>'
             f'<td><form method="post" action="{ADMIN_PREFIX}/logins/{session.id}/end">'
             f'<input type="hidden" name="{CSRF_FIELD}" value="{token}">'
             '<button type="submit" class="danger">Завершить</button></form></td>'
@@ -1208,10 +1223,10 @@ def _login_rows(found: list[ActiveSession], token: str, mine: str) -> str:
         )
 
     return (
-        "<h2>Активные входы</h2><table><thead><tr>"
+        "<h2>Активные входы</h2>" + legend + "<table><thead><tr>"
         "<th>Аккаунт</th><th>Устройство</th>"
         f"<th>Вход, {html.escape(datetime.now(zone).tzname() or '')}</th>"
-        "<th>До</th><th></th>"
+        "<th>Последняя активность</th><th></th>"
         "</tr></thead><tbody>" + "".join(body) + "</tbody></table>"
     )
 

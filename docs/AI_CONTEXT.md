@@ -779,8 +779,10 @@ of `/about`, `/project` and `/demo` (`app/web/feedback.js`).
   cleanup and the visit pruning in a thread. The demo cleanup records its
   time under `demo.pruned_at`, which the demo block shows with guest counts
   per table in `DEMO_TABLES`.
-- `sessions` carries an `id` and the device label of the sign-in;
-  `/admin/users` lists live sessions with a button that deletes one.
+- `sessions` carries an `id`, the device label of the sign-in and
+  `last_seen`, which the session lookup writes at most every five minutes.
+  `/admin/users` lists only sessions used in the last 30 minutes, with a
+  button that deletes one; an unexpired but idle cookie is not "active".
 
 **Not here on purpose:** creating accounts and resetting passwords. A person
 signs up, or resets their own password, through the ordinary forms. The CLI

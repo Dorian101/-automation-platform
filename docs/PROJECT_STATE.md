@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.75.0
+v0.75.1
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -685,8 +685,9 @@ deployment that never sets it records everything as before.
   `/admin/settings` (maintenance, open registration, plugins on or off, the
   feedback and demo limits), `/admin/errors` (the application's ERROR
   records), `/admin/broadcast` (a message to every linked active account),
-  task buttons and a demo block on `/admin/status`, and live sign-ins with an
-  end button on `/admin/users`. Switching a plugin off does not refresh the
+  task buttons and a demo block on `/admin/status`, and the sign-ins used in
+  the last 30 minutes with an end button on `/admin/users` (v0.75.1: only
+  those in use, not every unexpired cookie). Switching a plugin off does not refresh the
   Telegram "/" command menu until the next restart.
 * Guests' rows in `tasks` were never cleaned up: the table was missing from the
   demo cleanup list. Fixed in v0.75.0.
