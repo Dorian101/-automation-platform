@@ -464,7 +464,9 @@ It exists for host jobs that must run as root, such as the morning SSH digest
 (`scripts/ssh-digest.sh`): the root side collects, the `automation` side sends,
 and the application never gains root's access. The digest script is copied to
 `/usr/local/sbin` by hand rather than run from the checkout, which
-`automation` can rewrite.
+`automation` can rewrite. Shell pipelines in it avoid `head`: systemd
+ignores SIGPIPE in services, so an early-closed pipe is an error there, not a
+quiet exit.
 
 `MigrationRunner` takes an optional backup manager. `app/main.py` passes one,
 so a deploy carrying a migration dumps the database first; nothing is dumped
