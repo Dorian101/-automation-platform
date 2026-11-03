@@ -557,11 +557,16 @@ duties are TLS and attaching the transport secret.
 
 ```
 <domain> {
+	encode zstd gzip
 	reverse_proxy 127.0.0.1:8080 {
 		header_up X-Platform-Auth "<WEB_ACCESS_TOKEN value>"
 	}
 }
 ```
+
+`encode` compresses the text responses (HTML, scripts, CSS) for clients that
+ask for it: `/about` goes from about 63 KB to 20 KB. Fonts are already
+compressed and pass through as they are.
 
 One block per domain you serve. The name `Caddy` issues a certificate for has
 to be the one a reader types, which is the whole reason the domain is written

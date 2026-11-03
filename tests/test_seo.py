@@ -136,6 +136,16 @@ class TestReachableFromSomewhere:
 
         assert ico == svg
 
+    async def test_fonts_are_cached_for_a_year(self, crawler):
+        """A day made a returning reader download every font again."""
+        for path in ("/fonts/fonts.css", "/fonts/manrope-normal-latin.woff2"):
+            response = await crawler.get(path)
+
+            assert response.status == 200, path
+            assert response.headers["Cache-Control"] == (
+                "public, max-age=31536000, immutable"
+            ), path
+
     async def test_the_icon_is_not_a_visit(self, crawler, database_with_schema):
         """It is a file, not a page somebody looked at.
 

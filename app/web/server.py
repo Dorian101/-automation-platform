@@ -800,6 +800,10 @@ class WebServer:
         The name is taken from the URL and matched against the directory, so a
         path that is not a file in there answers 404 rather than reading an
         arbitrary file.
+
+        Cached for a year, because the files never change in place: a changed
+        font or stylesheet is published under a new name. Edited in place, it
+        would reach a returning reader a year late.
         """
         name = request.match_info.get("name", "")
         path = (FONTS_DIR / name).resolve()
@@ -816,7 +820,7 @@ class WebServer:
         return web.Response(
             body=path.read_bytes(),
             content_type=content_type,
-            headers={"Cache-Control": "public, max-age=86400"},
+            headers={"Cache-Control": "public, max-age=31536000, immutable"},
         )
 
     async def _trace(self, request: web.Request) -> web.Response:

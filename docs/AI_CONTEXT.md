@@ -388,6 +388,11 @@ Each point is one ticket of an invented SLA report; the counts are in the script
 and the page labels them as an example. It runs once on load, whatever
 `prefers-reduced-motion` says, and a replay button stays under it.
 
+Page scripts are served `no-cache`, so a page and its script always match.
+`/fonts/*` is cached for a year as `immutable`: never edit a font or
+`fonts.css` in place, publish it under a new name. Compression is Caddy's
+`encode`, not the app's.
+
 ## Navigation
 
 One navigation, rendered into every page by `pages.nav()`, built from what the
