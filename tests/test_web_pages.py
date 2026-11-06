@@ -49,7 +49,7 @@ class TestPageRoute:
         view = _view(body)
 
         assert view["title"] == "Расходы"
-        assert "chart" in view
+        assert "totals" in view
         assert "forms" in view
 
     async def test_page_is_protected_from_a_guest(self, guest):
@@ -208,13 +208,19 @@ class TestPageAction:
         response = await self._act(
             client,
             "spend",
-            {"category_id": category_id, "amount": "320", "spent_at": today},
+            {
+                "category_id": category_id,
+                "amount": "320",
+                "spent_at": today,
+                "month": "2026-05",
+                "screen": "analytics",
+            },
         )
 
         assert response.status == 200
         view = (await response.json())["view"]
         assert view["title"] == "Расходы"
-        assert view["list"]["rows"][0]["amount"] == "320"
+        assert view["list"][0]["rows"][0]["amount"] == "320"
 
     async def test_a_plugin_error_comes_back_as_400(self, client):
         response = await self._act(client, "catadd", {"name": ""})
@@ -413,7 +419,9 @@ class TestIsolation:
             )
 
             first_view = (await act(first, "month", {"month": month}))["view"]
-            second_view = (await act(second, "month", {"month": month}))["view"]
+            second_view = (
+                await act(second, "month", {"month": month, "screen": "analytics"})
+            )["view"]
 
         assert first_view["totals"]["items"][0]["value"] == "500"
         assert second_view["totals"]["items"][0]["value"] == "0"

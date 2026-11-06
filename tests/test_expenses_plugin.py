@@ -114,13 +114,14 @@ class TestView:
     async def test_empty_month_reports_nothing_rather_than_failing(
         self, plugin, web_identity
     ):
-        view = await plugin.page_view(web_identity)
+        view = await plugin.page_action(web_identity, "month", {"screen": "analytics"})
 
         assert view["chart"]["items"] == []
         assert _total(view, 0) == "0"
-        # Only one figure: there is no previous month to compare against, so
-        # a second cell and an empty delta would both be saying nothing.
-        assert len(view["totals"]["items"]) == 1
+        # No previous month to compare against, so no cell for it and no
+        # delta: both would be saying nothing.
+        captions = [item["caption"] for item in view["totals"]["items"]]
+        assert "За прошлый месяц" not in captions
         assert view["totals"]["delta"] is None
 
     async def test_chart_orders_and_shares_match_the_table(
@@ -131,7 +132,7 @@ class TestView:
         plugin.repo.add(web_identity, rent, Decimal("300"), date(2026, 5, 1))
 
         view = await plugin.page_action(
-            web_identity, "month", {"month": "2026-05"}
+            web_identity, "month", {"month": "2026-05", "screen": "analytics"}
         )
 
         labels = [item["label"] for item in view["chart"]["items"]]
@@ -185,7 +186,9 @@ class TestView:
     ):
         plugin.repo.add(web_identity, food, Decimal("500"), date(2026, 5, 1))
 
-        view = await plugin.page_action(OTHER, "month", {"month": "2026-05"})
+        view = await plugin.page_action(
+            OTHER, "month", {"month": "2026-05", "screen": "analytics"}
+        )
 
         assert _total(view, 0) == "0"
         assert view["chart"]["items"] == []
@@ -301,7 +304,7 @@ class TestCategoryActions:
         assert view["forms"][0]["id"] == "catadd"
 
     async def test_an_empty_month_says_so_once(self, plugin, web_identity):
-        view = await plugin.page_action(web_identity, "month", {})
+        view = await plugin.page_action(web_identity, "month", {"screen": "analytics"})
 
         assert "empty" not in view["table"]
 
@@ -404,3 +407,294 @@ class TestDateFollowsTheMonth:
         )
 
         assert "sticky" not in amount
+
+
+def _caption(view, caption: str) -> str:
+    return next(
+        item["value"] for item in view["totals"]["items"] if item["caption"] == caption
+    )
+
+
+class TestCategoriesOnThePage:
+    async def test_a_removed_category_leaves_the_form_but_keeps_its_spending(
+        self, plugin, web_identity, food
+    ):
+        plugin.repo.add(web_identity, food, Decimal("100"), date(2026, 5, 3))
+
+        view = await plugin.page_action(
+            web_identity, "catarchive", {"category_id": str(food), "month": "2026-05"}
+        )
+
+        spend = next(form for form in view["forms"] if form["id"] == "spend")
+        assert spend["fields"][0]["options"] == []
+        assert view["list"][0]["rows"] == []
+        assert _total(view, 0) == "100"
+
+    async def test_rename(self, plugin, web_identity, food):
+        view = await plugin.page_action(
+            web_identity, "catrename", {"category_id": str(food)}
+        )
+        form = view["forms"][0]
+        assert form["fields"][0]["value"] == "Еда"
+
+        view = await plugin.page_action(
+            web_identity, "catsave", {"category_id": str(food), "name": "Продукты"}
+        )
+
+        assert [row["name"] for row in view["list"][0]["rows"]] == ["Продукты"]
+
+    async def test_a_taken_name_is_refused(self, plugin, web_identity, food):
+        plugin.repo.add_category(web_identity, "Кафе")
+
+        with pytest.raises(CommandError, match="уже есть"):
+            await plugin.page_action(
+                web_identity, "catsave", {"category_id": str(food), "name": "Кафе"}
+            )
+
+    async def test_another_accounts_category_cannot_be_renamed(self, plugin, food):
+        with pytest.raises(CommandError, match="не найдена"):
+            await plugin.page_action(
+                OTHER, "catsave", {"category_id": str(food), "name": "Чужое"}
+            )
+
+
+class TestEditingAnExpense:
+    async def test_the_form_opens_filled_and_saves(self, plugin, web_identity, food):
+        plugin.repo.add(web_identity, food, Decimal("320"), date(2026, 5, 3), "кофе")
+        expense_id = str(plugin.repo.recent(web_identity)[0]["id"])
+
+        view = await plugin.page_action(
+            web_identity, "edit", {"expense_id": expense_id, "month": "2026-05"}
+        )
+        [form] = view["forms"]
+        values = {field["name"]: field.get("value") for field in form["fields"]}
+        assert values["amount"] == "320.00"
+        assert values["spent_at"] == "2026-05-03"
+        assert values["expense_id"] == expense_id
+
+        await plugin.page_action(
+            web_identity,
+            "spendsave",
+            {**values, "amount": "350", "note": "кофе и булка"},
+        )
+
+        saved = plugin.repo.recent(web_identity)[0]
+        assert (saved["amount"], saved["note"]) == (Decimal("350"), "кофе и булка")
+
+    async def test_another_accounts_expense_is_not_changed(
+        self, plugin, web_identity, food
+    ):
+        plugin.repo.add(web_identity, food, Decimal("320"), date(2026, 5, 3))
+        expense_id = str(plugin.repo.recent(web_identity)[0]["id"])
+
+        with pytest.raises(CommandError, match="не найдена"):
+            await plugin.page_action(OTHER, "edit", {"expense_id": expense_id})
+        with pytest.raises(CommandError, match="не найдена"):
+            await plugin.page_action(
+                OTHER,
+                "spendsave",
+                {"expense_id": expense_id, "category_id": str(food), "amount": "1"},
+            )
+
+        assert plugin.repo.recent(web_identity)[0]["amount"] == Decimal("320")
+
+    async def test_an_infinite_amount_is_refused(self, plugin, web_identity, food):
+        with pytest.raises(CommandError, match="больше нуля"):
+            await plugin.page_action(
+                web_identity, "spend", {"category_id": str(food), "amount": "Infinity"}
+            )
+
+
+class TestIncomes:
+    async def test_two_results_tell_salary_from_help(self, plugin, web_identity, food):
+        plugin.repo.add(web_identity, food, Decimal("30000"), date(2026, 5, 3))
+        await plugin.page_action(
+            web_identity,
+            "income",
+            {"kind": "salary", "amount": "25 000", "received_at": "2026-05-05"},
+        )
+        view = await plugin.page_action(
+            web_identity,
+            "income",
+            {
+                "kind": "other",
+                "amount": "10000",
+                "received_at": "2026-05-10",
+                "month": "2026-05",
+                "screen": "analytics",
+            },
+        )
+
+        assert _caption(view, "Зарплата − траты") == "−5 000"
+        assert _caption(view, "Все пополнения − траты") == "5 000"
+        amounts = [row["amount"] for row in view["list"][0]["rows"]]
+        assert amounts == ["+10 000", "+25 000", "30 000"]
+
+    async def test_an_unknown_kind_is_refused(self, plugin, web_identity):
+        with pytest.raises(CommandError, match="тип"):
+            await plugin.page_action(
+                web_identity, "income", {"kind": "gift", "amount": "1"}
+            )
+
+    async def test_edit_and_delete(self, plugin, web_identity):
+        plugin.repo.add_income(web_identity, "other", Decimal("100"), date(2026, 5, 1))
+        income_id = str(plugin.repo.incomes(web_identity, "2026-05")[0]["id"])
+
+        [form] = (
+            await plugin.page_action(
+                web_identity, "incomeedit", {"income_id": income_id}
+            )
+        )["forms"]
+        values = {field["name"]: field.get("value") for field in form["fields"]}
+        await plugin.page_action(
+            web_identity, "incomesave", {**values, "kind": "salary"}
+        )
+        assert plugin.repo.incomes(web_identity, "2026-05")[0]["kind"] == "salary"
+
+        await plugin.page_action(
+            web_identity, "incomedelete", {"income_id": income_id}
+        )
+        assert plugin.repo.incomes(web_identity, "2026-05") == []
+
+    async def test_another_accounts_income_is_kept(self, plugin, web_identity):
+        plugin.repo.add_income(web_identity, "other", Decimal("100"), date(2026, 5, 1))
+        income_id = str(plugin.repo.incomes(web_identity, "2026-05")[0]["id"])
+
+        await plugin.page_action(OTHER, "incomedelete", {"income_id": income_id})
+
+        assert len(plugin.repo.incomes(web_identity, "2026-05")) == 1
+
+    async def test_a_guest_is_capped(self, plugin, monkeypatch):
+        from app.core.identity import guest
+
+        monkeypatch.setattr("app.plugins.expenses.GUEST_INCOME_LIMIT", 1)
+        visitor = guest("cap")
+        await plugin.page_action(visitor, "income", {"kind": "other", "amount": "1"})
+
+        with pytest.raises(CommandError, match="Демо ограничено"):
+            await plugin.page_action(
+                visitor, "income", {"kind": "other", "amount": "1"}
+            )
+
+
+class TestMonthList:
+    async def test_holds_the_month_only_and_filters_by_category(
+        self, plugin, web_identity, food
+    ):
+        cafe = plugin.repo.add_category(web_identity, "Кафе")
+        plugin.repo.add(web_identity, food, Decimal("100"), date(2026, 5, 3))
+        plugin.repo.add(web_identity, cafe, Decimal("200"), date(2026, 5, 4))
+        plugin.repo.add(web_identity, food, Decimal("300"), date(2026, 4, 30))
+
+        view = await plugin.page_action(
+            web_identity, "month", {"month": "2026-05", "screen": "analytics"}
+        )
+        assert [row["amount"] for row in view["list"][0]["rows"]] == ["200", "100"]
+
+        view = await plugin.page_action(
+            web_identity,
+            "filter",
+            {"category_id": str(food), "month": "2026-05", "screen": "analytics"},
+        )
+        listed = view["list"][0]
+        assert [row["amount"] for row in listed["rows"]] == ["100"]
+        assert listed["title"] == "Траты: Еда, май 2026"
+        assert listed["tools"][0]["action"] == "month"
+
+
+class TestScreens:
+    async def test_entry_holds_totals_forms_and_categories(self, plugin, web_identity):
+        view = await plugin.page_view(web_identity)
+
+        assert view["totals"]["items"]
+        assert "chart" not in view and "table" not in view
+        assert view["list"][0]["title"] == "Категории"
+        assert view["keep"]["screen"] == "entry"
+
+    async def test_analytics_holds_totals_chart_and_operations(
+        self, plugin, web_identity
+    ):
+        view = await plugin.page_action(
+            web_identity, "month", {"screen": "analytics"}
+        )
+
+        assert view["totals"]["items"]
+        assert view["chart"] and view["table"]
+        assert view["list"][0]["title"].startswith("Операции за")
+        assert view["forms"] == []
+        assert view["tools"][0]["params"]["screen"] == "entry"
+
+    async def test_an_edit_from_the_list_stays_on_analytics(
+        self, plugin, web_identity, food
+    ):
+        plugin.repo.add(web_identity, food, Decimal("320"), date(2026, 5, 3))
+        expense_id = str(plugin.repo.recent(web_identity)[0]["id"])
+
+        view = await plugin.page_action(
+            web_identity,
+            "edit",
+            {"expense_id": expense_id, "month": "2026-05", "screen": "analytics"},
+        )
+
+        assert view["keep"]["screen"] == "analytics"
+        assert view["forms"][0]["id"] == "spendsave"
+        assert "chart" in view
+
+    async def test_an_unknown_screen_falls_back_to_entry(self, plugin, web_identity):
+        view = await plugin.page_action(web_identity, "month", {"screen": "x"})
+
+        assert view["keep"]["screen"] == "entry"
+
+
+class TestReviewFixes:
+    @pytest.mark.parametrize(
+        "amount, message",
+        [("0,004", "двух знаков"), ("10000000000", "Слишком большая")],
+    )
+    async def test_an_amount_the_column_cannot_hold_is_refused(
+        self, plugin, web_identity, food, amount, message
+    ):
+        with pytest.raises(CommandError, match=message):
+            await plugin.page_action(
+                web_identity, "spend", {"category_id": str(food), "amount": amount}
+            )
+
+    async def test_a_note_must_be_text(self, plugin, web_identity):
+        with pytest.raises(CommandError, match="текстом"):
+            await plugin.page_action(
+                web_identity, "income", {"kind": "other", "amount": "1", "note": 5}
+            )
+
+    async def test_the_filter_survives_a_delete(self, plugin, web_identity, food):
+        cafe = plugin.repo.add_category(web_identity, "Кафе")
+        plugin.repo.add(web_identity, food, Decimal("100"), date(2026, 5, 3))
+        plugin.repo.add(web_identity, food, Decimal("150"), date(2026, 5, 4))
+        plugin.repo.add(web_identity, cafe, Decimal("200"), date(2026, 5, 4))
+        view = await plugin.page_action(
+            web_identity,
+            "filter",
+            {"category_id": str(food), "month": "2026-05", "screen": "analytics"},
+        )
+        first = view["list"][0]["rows"][0]["actions"][1]["params"]
+
+        view = await plugin.page_action(
+            web_identity, "delete", {**view["keep"], **first}
+        )
+
+        assert [row["amount"] for row in view["list"][0]["rows"]] == ["100"]
+        show_all = view["list"][0]["tools"][0]["params"]
+        view = await plugin.page_action(
+            web_identity, "month", {**view["keep"], **show_all}
+        )
+        assert len(view["list"][0]["rows"]) == 2
+
+    async def test_adding_a_removed_name_brings_it_back(
+        self, plugin, web_identity, food
+    ):
+        plugin.repo.add(web_identity, food, Decimal("100"), date(2026, 5, 3))
+        await plugin.page_action(web_identity, "catarchive", {"category_id": str(food)})
+
+        await plugin.page_action(web_identity, "catadd", {"name": "Еда"})
+
+        [category] = plugin.repo.categories(web_identity)
+        assert (category["id"], category["expenses_count"]) == (food, 1)

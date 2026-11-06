@@ -65,7 +65,9 @@ DEMO_PREFIX = "/demo"
 #: Every table a demonstration guest can write to. A demo plugin whose table
 #: is not here keeps its guests' rows for ever — `tasks` was missing until
 #: v0.75.0 for exactly that reason.
-DEMO_TABLES = ("expenses", "expense_categories", "job_applications", "tasks")
+DEMO_TABLES = (
+    "expenses", "expense_categories", "incomes", "job_applications", "tasks"
+)
 
 #: The settings key holding when the guests were last removed, in UTC.
 PRUNED_AT = "demo.pruned_at"

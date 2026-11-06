@@ -174,6 +174,13 @@ browser paints it, so the first load and every redraw after an action go
 through one renderer. Everything reaching the page goes through `textContent`,
 so user text is never markup.
 
+Optional parts of a description: `layout` (the order of sections), `tools`
+(page-level buttons), `keep` (values the page sends back with every action,
+such as which screen is open), `list` as an array of tables, a table's `tools`
+(buttons under its title), a `hidden` field, and a form's `cancel` button and
+`focus` flag (scrolled to and focused on draw). A form sends the month on
+screen when the page has one.
+
 Why this and not a vocabulary in the core: the core already carries a rule
 that business logic stays transport-independent. Adding a form-and-chart
 vocabulary to the core would make every plugin depend on the platform for
@@ -198,7 +205,8 @@ renderer calls `showPicker()` to make the whole field behave the same.
 - Notes: /add, /notes, /del, /clear
 - Reminders: /remind, /reminders, /cancel; delivers through notification channels
 - Clipboard: /copy, /paste
-- Expenses: page at /expenses, web-only
+- Expenses: page at /expenses, web-only; spending by category plus incomes
+  (`salary` or `other`), edited in place, categories renamed or archived
 - Applications: page at /applications, web-only, statuses are a state machine
 - Tasks: page at /todo, web-only, a kanban board with deadline notifications
 - System: /plugins, /help, /status

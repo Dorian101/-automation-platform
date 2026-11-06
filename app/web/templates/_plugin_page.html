@@ -119,6 +119,7 @@ __STYLES__
     cursor: pointer;
   }
   .btn:disabled { opacity: 0.5; cursor: default; }
+  .tools { margin: 0 0 1.5rem; }
   .btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); }
   .btn.ghost:hover { border-color: var(--accent); color: var(--text); }
   table.data { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
@@ -408,6 +409,7 @@ __MENU_STYLES__
     ['list', drawList],
     ['kanban', drawKanban],
     ['forms', drawForms],
+    ['tools', drawTools],
   ];
 
   function el(tag, className, text) {
@@ -435,8 +437,22 @@ __MENU_STYLES__
       monthLabel.value = view.month.label;
     }
 
-    for (const [key, painter] of SECTIONS) {
+    // A plugin may name its own order; the default suits the rest.
+    const order = view.layout
+      ? view.layout.map((key) => SECTIONS.find(([name]) => name === key)).filter(Boolean)
+      : SECTIONS;
+
+    for (const [key, painter] of order) {
       if (view[key] != null) painter(view[key]);
+    }
+
+    const focused = (view.forms || []).find((f) => f.focus && !f.dialog);
+    if (focused) {
+      const first = document.getElementById(focused.id + '-' + focused.fields[0].name);
+      if (first) {
+        first.scrollIntoView({ block: 'center' });
+        first.focus();
+      }
     }
   }
 
@@ -560,6 +576,12 @@ __MENU_STYLES__
 
     if (title) root.appendChild(el('h2', null, title));
 
+    for (const tool of table.tools || []) {
+      const button = el('button', 'btn ghost', tool.label);
+      button.addEventListener('click', () => send(tool.action, tool.params || {}, button));
+      root.appendChild(button);
+    }
+
     const t = el('table', 'data');
     const thead = el('thead');
     const hrow = el('tr');
@@ -639,8 +661,20 @@ __MENU_STYLES__
     return el('td', col.num ? 'num' : '', value);
   }
 
+  // Page-level buttons, such as a switch between a plugin's screens.
+  function drawTools(tools) {
+    if (!tools.length) return;
+    const bar = el('div', 'tools');
+    for (const tool of tools) {
+      const button = el('button', 'btn ghost', tool.label);
+      button.addEventListener('click', () => send(tool.action, tool.params || {}, button));
+      bar.appendChild(button);
+    }
+    root.appendChild(bar);
+  }
+
   function drawList(list) {
-    drawTable(list, list.title);
+    for (const one of Array.isArray(list) ? list : [list]) drawTable(one, one.title);
   }
 
   // The kanban board. Three columns from the description, each with cards that
@@ -894,6 +928,10 @@ __MENU_STYLES__
     const inputs = {};
 
     for (const field of form.fields) {
+      if (field.type === 'hidden') {
+        inputs[field.name] = { value: field.value };
+        continue;
+      }
       const wrap = el('div', 'field');
       const label = el('label', null, field.label);
       const input = document.createElement(field.type === 'select' ? 'select' : 'input');
@@ -915,6 +953,7 @@ __MENU_STYLES__
           option.textContent = opt.label;
           input.appendChild(option);
         }
+        if (field.value != null) input.value = field.value;
       }
 
       const id = form.id + '-' + field.name;
@@ -941,10 +980,20 @@ __MENU_STYLES__
     }
     row.appendChild(submit);
 
+    if (form.cancel) {
+      const cancel = el('button', 'btn ghost', form.cancel.label);
+      cancel.addEventListener('click', () => {
+        send(form.cancel.action, form.cancel.params || {}, cancel);
+      });
+      row.appendChild(cancel);
+    }
+
     const doSubmit = () => {
       if (submit.disabled) return;
       const payload = {};
       for (const [name, input] of Object.entries(inputs)) payload[name] = input.value;
+      // The month on screen goes along, so the answer stays on it.
+      if (view.month && payload.month == null) payload.month = view.month.value;
       closeDialog();
       send(form.id, payload, submit);
     };
@@ -968,6 +1017,9 @@ __MENU_STYLES__
   // -- talking to the plugin ---------------------------------------------
 
   async function send(action, payload, button) {
+    // What the plugin asked to have back with every action, such as which of
+    // its screens is open; an action that names the value itself wins.
+    payload = { ...(view.keep || {}), ...payload };
     if (button) button.disabled = true;
     showMessage('', true);
     try {

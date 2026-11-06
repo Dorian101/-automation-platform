@@ -18,6 +18,7 @@ allowed to reinterpret it as a float on the way through.
 """
 
 import re
+from contextlib import contextmanager
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -33,8 +34,23 @@ from .base import BasePlugin
 # personal tool and the limit exists for exposure, not for tidiness.
 GUEST_CATEGORY_LIMIT = 12
 GUEST_EXPENSE_LIMIT = 100
+GUEST_INCOME_LIMIT = 30
+
+#: What an income can be. Salary is told apart because the month ends with two
+#: results: salary less spending, and everything received less spending.
+INCOME_KINDS = {"salary": "Зарплата", "other": "Пополнение"}
+
+#: Two screens of one page: entering and editing, and the month's analytics
+#: with its list of operations. Each has its own order of sections.
+LAYOUTS = {
+    "entry": ["totals", "tools", "forms", "list"],
+    "analytics": ["totals", "tools", "forms", "chart", "table", "list"],
+}
 
 MAX_CATEGORY_NAME = 40
+
+#: The first amount NUMERIC(12, 2) cannot store.
+MAX_AMOUNT = Decimal("10000000000")
 
 # A month reaches the plugin as a string in a request body. `YYYY-MM` is the
 # only shape accepted, and it is checked before the value reaches the query
@@ -93,6 +109,83 @@ def _shift_month(month: str, delta: int) -> str:
     return f"{total // 12:04d}-{total % 12 + 1:02d}"
 
 
+def _id(payload: dict, key: str, missing: str) -> int:
+    """A row id from the page, refused unless it is a plain number."""
+    value = payload.get(key, "")
+
+    if not isinstance(value, str) or not value.isdigit():
+        raise CommandError(missing)
+
+    return int(value)
+
+
+def _amount(text) -> Decimal:
+    """A positive amount as typed: spaces and a decimal comma allowed."""
+    try:
+        value = Decimal(text.replace(" ", "").replace(",", "."))
+    except (InvalidOperation, AttributeError):
+        raise CommandError("Сумма должна быть числом.") from None
+
+    if not value.is_finite() or value <= 0:
+        raise CommandError("Сумма должна быть больше нуля.")
+
+    # What NUMERIC(12, 2) holds: a third decimal would be rounded away, to
+    # zero for "0,004", and twelve digits overflow the column.
+    if value != value.quantize(Decimal("0.01")):
+        raise CommandError("Не больше двух знаков после запятой.")
+
+    if value >= MAX_AMOUNT:
+        raise CommandError("Слишком большая сумма.")
+
+    return value
+
+
+def _note(payload: dict) -> str:
+    note = payload.get("note") or ""
+
+    if not isinstance(note, str):
+        raise CommandError("Заметка должна быть текстом.")
+
+    return note
+
+
+def _day(text) -> date:
+    """A date as the form sends it; today when left blank."""
+    try:
+        return date.fromisoformat(text) if text else date.today()
+    except (ValueError, TypeError):
+        raise CommandError("Дата должна быть в формате ГГГГ-ММ-ДД.") from None
+
+
+def _category_name(payload: dict) -> str:
+    name = payload.get("name", "")
+    name = name.strip() if isinstance(name, str) else ""
+
+    if not name:
+        raise CommandError("Название категории не может быть пустым.")
+
+    if len(name) > MAX_CATEGORY_NAME:
+        raise CommandError(f"Название длиннее {MAX_CATEGORY_NAME} символов.")
+
+    return name
+
+
+@contextmanager
+def _taken_name(name: str):
+    """Word the unique index's refusal of an active category name.
+
+    The partial unique index is the rule, not the plugin: any other writer has
+    to obey it too. Its own message names a constraint in a form nobody can
+    act on, so the wording is ours.
+    """
+    try:
+        yield
+    except Exception as error:
+        if "idx_expense_categories_active" in str(error):
+            raise CommandError(f"Категория «{name}» уже есть.") from None
+        raise
+
+
 def _money(value: Decimal) -> str:
     """Format an amount for the page.
 
@@ -101,7 +194,7 @@ def _money(value: Decimal) -> str:
     only: nothing stored has been rounded, so the monthly totals still add up
     to what was actually spent.
     """
-    return f"{value.quantize(Decimal('1')):,.0f}".replace(",", " ")
+    return f"{value.quantize(Decimal('1')):,.0f}".replace(",", " ").replace("-", "−")
 
 
 #: How a month's total splits into separate purchases in the demonstration, in
@@ -111,6 +204,10 @@ DEMO_PURCHASES = {
     "Кафе и рестораны": (52, 29, 19),
     "Транспорт": (40, 35, 25),
 }
+
+
+#: The demonstration's monthly salary, a little under what the months spend.
+DEMO_SALARY = 110_000
 
 
 def _purchases(total: int, shares: tuple[int, ...]) -> list[int]:
@@ -178,14 +275,41 @@ class ExpensesPlugin(BasePlugin):
             # message somebody can act on.
             raise CommandError("Некорректный месяц.")
 
+        payload = {**payload, "month": month}
+
+        # An edit form or a category filter is part of what the next view
+        # shows, not something stored: the page asks for it each time.
+        editing = None
+        category = None
+
         if action == "spend":
             self._spend(identity, payload)
+        elif action == "spendsave":
+            self._save_spend(identity, payload)
+        elif action == "income":
+            self._add_income(identity, payload)
+        elif action == "incomesave":
+            self._save_income(identity, payload)
         elif action == "catadd":
             self._add_category(identity, payload)
         elif action == "catarchive":
             self._archive_category(identity, payload)
+        elif action == "catsave":
+            self._rename_category(identity, payload)
         elif action == "delete":
             self._delete(identity, payload)
+        elif action == "incomedelete":
+            self.repo.delete_income(
+                identity, _id(payload, "income_id", "Пополнение не найдено.")
+            )
+        elif action == "edit":
+            editing = self._editing_spend(identity, payload)
+        elif action == "incomeedit":
+            editing = self._editing_income(identity, payload)
+        elif action == "catrename":
+            editing = self._editing_category(identity, payload)
+        elif action == "filter":
+            category = _id(payload, "category_id", "Категория не найдена.")
         elif action == "month":
             # Changes nothing in storage, only which month the page is
             # reporting. Declared as an action rather than hidden in the page
@@ -194,16 +318,41 @@ class ExpensesPlugin(BasePlugin):
         else:
             raise CommandError(f"Неизвестное действие: {action}")
 
-        return self._view(identity, month)
+        screen = payload.get("screen")
+
+        if screen not in LAYOUTS:
+            screen = "entry"
+
+        # A filter set earlier comes back through `keep`, so editing or
+        # deleting a row of a filtered list does not drop the filter.
+        kept = payload.get("category")
+
+        if category is None and isinstance(kept, str) and kept.isdigit():
+            category = int(kept)
+
+        return self._view(identity, month, editing, category, screen)
 
     # -- what the page draws ------------------------------------------------
 
-    def _view(self, identity: Identity, month: str) -> dict:
+    def _view(
+        self,
+        identity: Identity,
+        month: str,
+        editing: dict | None = None,
+        category: int | None = None,
+        screen: str = "entry",
+    ) -> dict:
         """Assemble everything the page shows for one month.
 
         The shape below is the vocabulary: the web layer knows how to paint a
         chart, a form and a table, and knows nothing about spending. Adding a
         section here needs no change anywhere else.
+
+        ``editing`` is a ready edit form that takes the place of the others;
+        ``category`` narrows the month's list to one category. ``screen`` is
+        ``entry`` (totals, forms, categories) or ``analytics`` (totals, chart,
+        table, the month's operations); ``keep`` makes the page send it back
+        with every action, so the month arrows do not leave the screen.
         """
         readable = self._readable_as(identity)
 
@@ -212,10 +361,33 @@ class ExpensesPlugin(BasePlugin):
         previous_month = _shift_month(month, -1)
         previous = self.repo.monthly_total(readable, previous_month)
 
+        incomes = self.repo.incomes(readable, month)
+        salary = sum(
+            (one["amount"] for one in incomes if one["kind"] == "salary"),
+            Decimal("0"),
+        )
+        received = sum((one["amount"] for one in incomes), Decimal("0"))
+
         categories = self.repo.categories(readable)
 
-        return {
+        analytics = screen == "analytics"
+        view = {
             "title": "Расходы",
+            "layout": LAYOUTS[screen],
+            "keep": {
+                "screen": screen,
+                "category": str(category) if category and analytics else "",
+            },
+            "tools": [
+                {
+                    "action": "month",
+                    "label": "← К вводу" if analytics else "Аналитика и операции →",
+                    "params": {
+                        "month": month,
+                        "screen": "entry" if analytics else "analytics",
+                    },
+                }
+            ],
             "month": {
                 "value": month,
                 "label": _month_label(month),
@@ -249,14 +421,33 @@ class ExpensesPlugin(BasePlugin):
                         if previous > 0
                         else []
                     ),
+                    # Two results, so a month that ends in the black only
+                    # because somebody sent money does not read as saving.
+                    {
+                        "value": _money(salary - total),
+                        "caption": "Зарплата − траты",
+                    },
+                    {
+                        "value": _money(received - total),
+                        "caption": "Все пополнения − траты",
+                    },
                 ],
                 "delta": self._change(total, previous),
             },
-            "chart": self._chart(rows, total),
-            "table": self._table(rows, total),
-            "list": self._recent(readable, month),
-            "forms": self._forms(categories, month),
         }
+
+        if analytics:
+            view["chart"] = self._chart(rows, total)
+            view["table"] = self._table(rows, total, month)
+            view["list"] = [
+                self._operations(readable, month, incomes, categories, category)
+            ]
+            view["forms"] = [editing] if editing else []
+        else:
+            view["list"] = [self._categories(categories, month)]
+            view["forms"] = [editing] if editing else self._forms(categories, month)
+
+        return view
 
     def _change(self, total: Decimal, previous: Decimal) -> dict | None:
         """How this month compares with the last one.
@@ -309,7 +500,7 @@ class ExpensesPlugin(BasePlugin):
             ],
         }
 
-    def _table(self, rows: list[dict], total: Decimal) -> dict:
+    def _table(self, rows: list[dict], total: Decimal, month: str) -> dict:
         """The same numbers in figures, under the chart.
 
         A bar shows the shape of a month; it cannot be read to the last digit.
@@ -328,9 +519,21 @@ class ExpensesPlugin(BasePlugin):
                     "count": row["count"],
                     "total": _money(row["total"]),
                     "share": f"{row['total'] / total * 100:.1f}%" if total > 0 else "—",
+                    "actions": [
+                        {
+                            "action": "filter",
+                            "label": "Траты",
+                            "kind": "ghost",
+                            "params": {
+                                "category_id": str(row["category_id"]),
+                                "month": month,
+                            },
+                        }
+                    ],
                 }
                 for row in rows
             ],
+            "actions": "actions",
         }
 
     def _forms(self, categories: list[dict], month: str) -> list[dict]:
@@ -391,6 +594,12 @@ class ExpensesPlugin(BasePlugin):
                 ],
             },
             {
+                "id": "income",
+                "title": "Добавить пополнение",
+                "submit": "Добавить",
+                "fields": self._income_fields(month),
+            },
+            {
                 "id": "catadd",
                 "title": "Новая категория",
                 "submit": "Добавить",
@@ -408,9 +617,52 @@ class ExpensesPlugin(BasePlugin):
 
         # A first visit has nothing to spend against, so the form that fixes
         # that comes first rather than under one that cannot be submitted.
-        return forms if options else forms[::-1]
+        return forms if options else [forms[-1], *forms[:-1]]
 
-    def _check_guest_room(self, identity: Identity, expenses: bool = False) -> None:
+    def _income_fields(self, month: str, income: dict | None = None) -> list[dict]:
+        """The income form's fields, filled from ``income`` when editing."""
+        return [
+            {
+                "name": "kind",
+                "label": "Тип",
+                "type": "select",
+                "options": [
+                    {"value": key, "label": label}
+                    for key, label in INCOME_KINDS.items()
+                ],
+                "value": income["kind"] if income else "salary",
+            },
+            {
+                "name": "amount",
+                "label": "Сумма",
+                "type": "text",
+                "placeholder": "50000",
+                "required": True,
+                **({"value": str(income["amount"])} if income else {}),
+            },
+            {
+                "name": "received_at",
+                "label": "Дата",
+                "type": "date",
+                "value": (
+                    income["received_at"].isoformat()
+                    if income
+                    else self._default_date(month)
+                ),
+                "sticky": income is None,
+            },
+            {
+                "name": "note",
+                "label": "Заметка",
+                "type": "text",
+                "placeholder": "От кого или за что",
+                **({"value": income["note"] or ""} if income else {}),
+            },
+        ]
+
+    def _check_guest_room(
+        self, identity: Identity, expenses: bool = False, incomes: bool = False
+    ) -> None:
         """Refuse a write that would take a guest past its cap.
 
         Capped because the demonstration page is on the open internet and its
@@ -428,6 +680,10 @@ class ExpensesPlugin(BasePlugin):
             written = self.repo.count(identity)
             limit = GUEST_EXPENSE_LIMIT
             what = "трат"
+        elif incomes:
+            written = self.repo.income_count(identity)
+            limit = GUEST_INCOME_LIMIT
+            what = "пополнений"
         else:
             written = len(self.repo.categories(self._readable_as(identity)))
             limit = GUEST_CATEGORY_LIMIT
@@ -454,99 +710,346 @@ class ExpensesPlugin(BasePlugin):
 
         return f"{month}-01"
 
-    def _recent(self, readable, month: str) -> dict:
-        """The last entries, as a table the page can draw and act on.
+    def _operations(
+        self,
+        readable,
+        month: str,
+        incomes: list[dict],
+        categories: list[dict],
+        category: int | None,
+    ) -> dict:
+        """The month's spending and incomes in one list, newest first.
 
-        Deleting is a row action rather than a button the page invents: the
-        page would have to know what a removable row is, and every other
-        plugin with a removable row would then need the same special case.
+        Narrowed to one category, it holds that category's spending only, and
+        a button brings the whole month back.
         """
-        entries = self.repo.recent(readable, limit=10)
+        expenses = self.repo.recent(
+            readable, limit=None, month=month, category_id=category
+        )
+        label = _month_label(month)
+        rows = [
+            {
+                "date": entry["spent_at"],
+                "id": entry["id"],
+                "spent_at": entry["spent_at"].isoformat(),
+                "category": entry["category"],
+                "note": entry["note"] or "",
+                "amount": _money(entry["amount"]),
+                "actions": self._row_actions(
+                    "edit", "delete", "expense_id", entry["id"], month
+                ),
+            }
+            for entry in expenses
+        ]
+
+        if category is None:
+            rows += [
+                {
+                    "date": income["received_at"],
+                    "id": income["id"],
+                    "spent_at": income["received_at"].isoformat(),
+                    "category": INCOME_KINDS[income["kind"]],
+                    "note": income["note"] or "",
+                    "amount": "+" + _money(income["amount"]),
+                    "actions": self._row_actions(
+                        "incomeedit", "incomedelete", "income_id", income["id"], month
+                    ),
+                }
+                for income in incomes
+            ]
+            title = f"Операции за {label}"
+            tools = []
+        else:
+            name = next(
+                (one["name"] for one in categories if one["id"] == category),
+                "архивная категория",
+            )
+            title = f"Траты: {name}, {label}"
+            tools = [
+                {
+                    "action": "month",
+                    "label": "Показать все",
+                    "params": {"month": month, "category": ""},
+                }
+            ]
+
+        rows.sort(key=lambda row: (row["date"], row["id"]), reverse=True)
+
+        for row in rows:
+            del row["date"], row["id"]
 
         return {
-            "title": "Последние траты",
+            "title": title,
+            "tools": tools,
+            "empty": "В этом месяце операций нет",
             "columns": [
                 {"key": "spent_at", "label": "Дата"},
                 {"key": "category", "label": "Категория"},
                 {"key": "note", "label": "Заметка"},
                 {"key": "amount", "label": "Сумма", "num": True},
             ],
+            "rows": rows,
+            "actions": "actions",
+        }
+
+    def _row_actions(
+        self, edit: str, delete: str, key: str, row_id: int, month: str
+    ) -> list[dict]:
+        """Edit and delete for one row of the month's list."""
+        params = {key: str(row_id), "month": month}
+
+        return [
+            {"action": edit, "label": "Изменить", "kind": "ghost", "params": params},
+            {"action": delete, "label": "Удалить", "kind": "ghost", "params": params},
+        ]
+
+    def _categories(self, categories: list[dict], month: str) -> dict:
+        """The active categories, to rename or to retire.
+
+        Retiring hides a category from the form and keeps what was spent in
+        it, so the months already recorded do not change.
+        """
+        return {
+            "title": "Категории",
+            "columns": [
+                {"key": "name", "label": "Название"},
+                {"key": "count", "label": "Трат всего", "num": True},
+            ],
             "rows": [
                 {
-                    "spent_at": entry["spent_at"].isoformat(),
-                    "category": entry["category"],
-                    "note": entry["note"] or "",
-                    "amount": _money(entry["amount"]),
+                    "name": category["name"],
+                    "count": category["expenses_count"],
                     "actions": [
                         {
-                            "action": "delete",
+                            "action": "catrename",
+                            "label": "Переименовать",
+                            "kind": "ghost",
+                            "params": params,
+                        },
+                        {
+                            "action": "catarchive",
                             "label": "Удалить",
                             "kind": "ghost",
-                            "params": {"expense_id": str(entry["id"]), "month": month},
-                        }
+                            "params": params,
+                        },
                     ],
                 }
-                for entry in entries
+                for category in categories
+                for params in [{"category_id": str(category["id"]), "month": month}]
             ],
             "actions": "actions",
         }
 
+    # -- edit forms ---------------------------------------------------------
+
+    def _edit_form(
+        self, form_id: str, title: str, fields: list[dict], hidden: dict, month: str
+    ) -> dict:
+        """A form that changes one row, with a way back to the month."""
+        return {
+            "id": form_id,
+            "title": title,
+            "submit": "Сохранить",
+            "focus": True,
+            "fields": [
+                *fields,
+                *(
+                    {"name": name, "type": "hidden", "value": value}
+                    for name, value in {**hidden, "month": month}.items()
+                ),
+            ],
+            "cancel": {
+                "label": "Отмена",
+                "action": "month",
+                "params": {"month": month},
+            },
+        }
+
+    def _editing_spend(self, identity: Identity, payload: dict) -> dict:
+        expense = self.repo.get(
+            identity, _id(payload, "expense_id", "Трата не найдена.")
+        )
+
+        if expense is None:
+            raise CommandError("Трата не найдена.")
+
+        options = [
+            {"value": str(one["id"]), "label": one["name"]}
+            for one in self.repo.categories(self._readable_as(identity))
+        ]
+
+        # A retired category stays selectable for the entry already in it, or
+        # saving any other change would quietly move the entry elsewhere.
+        if str(expense["category_id"]) not in [one["value"] for one in options]:
+            options.append(
+                {"value": str(expense["category_id"]), "label": expense["category"]}
+            )
+
+        return self._edit_form(
+            "spendsave",
+            "Изменить трату",
+            [
+                {
+                    "name": "category_id",
+                    "label": "Категория",
+                    "type": "select",
+                    "options": options,
+                    "value": str(expense["category_id"]),
+                    "required": True,
+                },
+                {
+                    "name": "amount",
+                    "label": "Сумма",
+                    "type": "text",
+                    "value": str(expense["amount"]),
+                    "required": True,
+                },
+                {
+                    "name": "spent_at",
+                    "label": "Дата",
+                    "type": "date",
+                    "value": expense["spent_at"].isoformat(),
+                },
+                {
+                    "name": "note",
+                    "label": "Заметка",
+                    "type": "text",
+                    "value": expense["note"] or "",
+                },
+            ],
+            {"expense_id": str(expense["id"])},
+            payload.get("month", ""),
+        )
+
+    def _editing_income(self, identity: Identity, payload: dict) -> dict:
+        income = self.repo.get_income(
+            identity, _id(payload, "income_id", "Пополнение не найдено.")
+        )
+
+        if income is None:
+            raise CommandError("Пополнение не найдено.")
+
+        return self._edit_form(
+            "incomesave",
+            "Изменить пополнение",
+            self._income_fields(payload.get("month", ""), income),
+            {"income_id": str(income["id"])},
+            payload.get("month", ""),
+        )
+
+    def _editing_category(self, identity: Identity, payload: dict) -> dict:
+        category_id = _id(payload, "category_id", "Категория не найдена.")
+        category = next(
+            (
+                one
+                for one in self.repo.categories(self._readable_as(identity))
+                if one["id"] == category_id
+            ),
+            None,
+        )
+
+        if category is None:
+            raise CommandError("Категория не найдена.")
+
+        return self._edit_form(
+            "catsave",
+            "Переименовать категорию",
+            [
+                {
+                    "name": "name",
+                    "label": "Название",
+                    "type": "text",
+                    "value": category["name"],
+                    "required": True,
+                }
+            ],
+            {"category_id": str(category_id)},
+            payload.get("month", ""),
+        )
+
     # -- actions ------------------------------------------------------------
 
     def _spend(self, identity: Identity, payload: dict) -> None:
-        category_id = payload.get("category_id", "")
-        amount = payload.get("amount", "")
-        spent_at = payload.get("spent_at", "")
-        note = payload.get("note", "")
-
         self._check_guest_room(identity, expenses=True)
 
-        if not category_id:
-            raise CommandError("Выберите категорию.")
-
         try:
-            value = Decimal(amount.replace(" ", "").replace(",", "."))
-        except (InvalidOperation, AttributeError):
-            raise CommandError("Сумма должна быть числом.") from None
-
-        if value <= 0:
-            raise CommandError("Сумма должна быть больше нуля.")
-
-        try:
-            day = date.fromisoformat(spent_at) if spent_at else date.today()
-        except ValueError:
-            raise CommandError("Дата должна быть в формате ГГГГ-ММ-ДД.") from None
-
-        try:
-            self.repo.add(identity, int(category_id), value, day, note)
+            self.repo.add(identity, *self._expense_fields(payload))
         except ValueError:
             # The repository refuses a category that is not this account's —
             # the id is a global sequence. Its message is about storage; the
             # person on the page only needs to know the category is not theirs.
             raise CommandError("Категория не найдена.") from None
 
+    def _save_spend(self, identity: Identity, payload: dict) -> None:
+        expense_id = _id(payload, "expense_id", "Трата не найдена.")
+
+        if not self.repo.update(identity, expense_id, *self._expense_fields(payload)):
+            raise CommandError("Трата или категория не найдена.")
+
+    def _expense_fields(self, payload: dict) -> tuple:
+        """Category, amount, date and note of a spending form, checked."""
+        category_id = payload.get("category_id", "")
+
+        if not category_id:
+            raise CommandError("Выберите категорию.")
+
+        if not isinstance(category_id, str) or not category_id.isdigit():
+            raise CommandError("Категория не найдена.")
+
+        return (
+            int(category_id),
+            _amount(payload.get("amount", "")),
+            _day(payload.get("spent_at", "")),
+            _note(payload),
+        )
+
+    def _add_income(self, identity: Identity, payload: dict) -> None:
+        self._check_guest_room(identity, incomes=True)
+        self.repo.add_income(identity, *self._income_values(payload))
+
+    def _save_income(self, identity: Identity, payload: dict) -> None:
+        income_id = _id(payload, "income_id", "Пополнение не найдено.")
+
+        if not self.repo.update_income(
+            identity, income_id, *self._income_values(payload)
+        ):
+            raise CommandError("Пополнение не найдено.")
+
+    def _income_values(self, payload: dict) -> tuple:
+        """Kind, amount, date and note of an income form, checked."""
+        kind = payload.get("kind", "")
+
+        if kind not in INCOME_KINDS:
+            raise CommandError("Выберите тип пополнения.")
+
+        return (
+            kind,
+            _amount(payload.get("amount", "")),
+            _day(payload.get("received_at", "")),
+            _note(payload),
+        )
+
     def _add_category(self, identity: Identity, payload: dict) -> None:
-        name = payload.get("name", "").strip()
-
-        if not name:
-            raise CommandError("Название категории не может быть пустым.")
-
+        name = _category_name(payload)
         self._check_guest_room(identity)
 
-        if len(name) > MAX_CATEGORY_NAME:
-            raise CommandError(
-                f"Название длиннее {MAX_CATEGORY_NAME} символов.",
+        # A category removed by mistake comes back with its spending when its
+        # name is added again, instead of a second one splitting the reports.
+        with _taken_name(name):
+            if not self.repo.restore_category(self._readable_as(identity), name):
+                self.repo.add_category(self._readable_as(identity), name)
+
+    def _rename_category(self, identity: Identity, payload: dict) -> None:
+        category_id = _id(payload, "category_id", "Категория не найдена.")
+        name = _category_name(payload)
+
+        with _taken_name(name):
+            renamed = self.repo.rename_category(
+                self._readable_as(identity), category_id, name
             )
 
-        try:
-            self.repo.add_category(self._readable_as(identity), name)
-        except Exception as error:
-            # The partial unique index is the rule, not the plugin: any other
-            # writer has to obey it too. Its own message names a constraint in
-            # a form nobody can act on, so the wording is ours.
-            if "idx_expense_categories_active" in str(error):
-                raise CommandError(f"Категория «{name}» уже есть.") from None
-            raise
+        if not renamed:
+            raise CommandError("Категория не найдена.")
 
     def _archive_category(self, identity: Identity, payload: dict) -> None:
         category_id = payload.get("category_id", "")
@@ -607,6 +1110,24 @@ class ExpensesPlugin(BasePlugin):
                         Decimal(amount),
                         date(int(year), int(number), max(1, day - index * 3)),
                     )
+
+            # Salary that covers most of a month, and once a month in three
+            # money from home, so the two results on the page differ.
+            self.repo.add_income(
+                identity,
+                "salary",
+                Decimal(DEMO_SALARY),
+                date(int(year), int(number), min(day, 5)),
+            )
+
+            if back == 1:
+                self.repo.add_income(
+                    identity,
+                    "other",
+                    Decimal(15_000),
+                    date(int(year), int(number), day),
+                    "Помощь от родителей",
+                )
 
     def _category_id(self, identity: Identity, name: str) -> int:
         """Find the demo category, creating it the first time.

@@ -49,7 +49,7 @@ class TestSpendingSeed:
     async def test_fills_an_empty_namespace(self, expenses, visitor):
         await expenses.seed_demo(visitor)
 
-        view = await expenses.page_view(visitor)
+        view = await expenses.page_action(visitor, "month", {"screen": "analytics"})
 
         assert view["totals"]["items"][0]["value"] != "0"
         assert view["chart"]["items"]
@@ -67,7 +67,9 @@ class TestSpendingSeed:
         """An expense dated ahead would count days that have not happened."""
         await expenses.seed_demo(visitor)
 
-        for row in (await expenses.page_view(visitor))["list"]["rows"]:
+        view = await expenses.page_action(visitor, "month", {"screen": "analytics"})
+
+        for row in view["list"][0]["rows"]:
             assert date.fromisoformat(row["spent_at"]) <= date.today()
 
     async def test_the_amounts_are_not_all_round(self, expenses, visitor):
@@ -193,3 +195,22 @@ class TestTasksSeed:
         ]
 
         assert all(card["text"] for card in cards)
+
+
+class TestIncomesSeed:
+    async def test_the_two_results_differ(self, expenses, visitor):
+        """Help from home in one month shows why the page has two results."""
+        from app.plugins.expenses import _shift_month
+
+        await expenses.seed_demo(visitor)
+        month = _shift_month(date.today().strftime("%Y-%m"), -1)
+
+        view = await expenses.page_action(visitor, "month", {"month": month})
+        totals = {item["caption"]: item["value"] for item in view["totals"]["items"]}
+
+        assert totals["Зарплата − траты"] != totals["Все пополнения − траты"]
+
+    def test_guests_incomes_are_cleaned_up(self):
+        from app.web.demo import DEMO_TABLES
+
+        assert "incomes" in DEMO_TABLES

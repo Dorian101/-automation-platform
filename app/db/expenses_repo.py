@@ -130,6 +130,68 @@ class ExpensesRepository:
 
         return archived > 0
 
+    def restore_category(
+        self,
+        identity: Identity | Iterable[Identity],
+        name: str,
+    ) -> bool:
+        """Bring back the latest archived category of this name, if any.
+
+        A name taken by an active category makes the unique index refuse,
+        which the caller words.
+        """
+        identities = _as_tuple(identity)
+
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE expense_categories
+                    SET is_archived = FALSE
+                    WHERE id = (
+                        SELECT id FROM expense_categories
+                        WHERE user_id = ANY(%s) AND name = %s AND is_archived
+                        ORDER BY id DESC
+                        LIMIT 1
+                    )
+                    """,
+                    ([str(one) for one in identities], name),
+                )
+                restored = cur.rowcount
+            conn.commit()
+
+        return restored > 0
+
+    def rename_category(
+        self,
+        identity: Identity | Iterable[Identity],
+        category_id: int,
+        name: str,
+    ) -> bool:
+        """Give an active category a new name, keeping everything filed under it.
+
+        The unique index on active names refuses a name already taken, and the
+        caller words that. Returns whether the category was there.
+        """
+        identities = _as_tuple(identity)
+
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE expense_categories
+                    SET name = %s
+                    WHERE id = %s
+                        AND user_id = ANY(%s)
+                        AND NOT is_archived
+                    """,
+                    (name, category_id, [str(one) for one in identities]),
+                )
+                renamed = cur.rowcount
+            conn.commit()
+
+        return renamed > 0
+
     # -- expenses -----------------------------------------------------------
 
     def add(
@@ -174,13 +236,13 @@ class ExpensesRepository:
     def recent(
         self,
         identity: Identity | Iterable[Identity],
-        limit: int = 50,
+        limit: int | None = 50,
+        month: str | None = None,
+        category_id: int | None = None,
     ) -> list[dict]:
-        """The most recently spent entries, newest first.
+        """Entries newest first, optionally one month's or one category's.
 
-        Bounded because this feeds a list on a page: the analytics read is the
-        aggregation below, and a month of expenses should not be a query whose
-        result grows without limit.
+        ``limit=None`` is every row: a month is bounded by the month itself.
         """
         identities = _as_tuple(identity)
 
@@ -188,14 +250,24 @@ class ExpensesRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT e.id, e.amount, e.spent_at, e.note, c.name
+                    SELECT e.id, e.amount, e.spent_at, e.note, c.name, c.id
                     FROM expenses e
                     JOIN expense_categories c ON c.id = e.category_id
                     WHERE e.user_id = ANY(%s)
+                        AND (%s::text IS NULL OR date_trunc('month', e.spent_at)
+                             = to_date(%s || '-01', 'YYYY-MM-DD'))
+                        AND (%s::bigint IS NULL OR c.id = %s)
                     ORDER BY e.spent_at DESC, e.id DESC
                     LIMIT %s
                     """,
-                    ([str(one) for one in identities], limit),
+                    (
+                        [str(one) for one in identities],
+                        month,
+                        month,
+                        category_id,
+                        category_id,
+                        limit,
+                    ),
                 )
 
                 return [
@@ -205,9 +277,80 @@ class ExpensesRepository:
                         "spent_at": row[2],
                         "note": row[3],
                         "category": row[4],
+                        "category_id": row[5],
                     }
                     for row in cur.fetchall()
                 ]
+
+    def get(self, identity: Identity, expense_id: int) -> dict | None:
+        """One entry of this account's, for the edit form."""
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT e.id, e.amount, e.spent_at, e.note, c.name, c.id
+                    FROM expenses e
+                    JOIN expense_categories c ON c.id = e.category_id
+                    WHERE e.id = %s AND e.user_id = %s
+                    """,
+                    (expense_id, str(identity)),
+                )
+                row = cur.fetchone()
+
+        if row is None:
+            return None
+
+        return {
+            "id": row[0],
+            "amount": Decimal(row[1]),
+            "spent_at": row[2],
+            "note": row[3],
+            "category": row[4],
+            "category_id": row[5],
+        }
+
+    def update(
+        self,
+        identity: Identity,
+        expense_id: int,
+        category_id: int,
+        amount: Decimal,
+        spent_at: date,
+        note: str = "",
+    ) -> bool:
+        """Change one entry of this account's, under a category of its own.
+
+        Scoped on both ids for the reason `add` is. Returns whether a row
+        changed: false when either id is not this account's.
+        """
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE expenses
+                    SET category_id = %s, amount = %s, spent_at = %s, note = %s
+                    WHERE id = %s
+                        AND user_id = %s
+                        AND EXISTS (
+                            SELECT 1 FROM expense_categories
+                            WHERE id = %s AND user_id = %s
+                        )
+                    """,
+                    (
+                        category_id,
+                        amount,
+                        spent_at,
+                        note,
+                        expense_id,
+                        str(identity),
+                        category_id,
+                        str(identity),
+                    ),
+                )
+                updated = cur.rowcount
+            conn.commit()
+
+        return updated > 0
 
     def delete(self, identity: Identity, expense_id: int) -> bool:
         """Remove one entry, reporting whether it was there."""
@@ -263,7 +406,7 @@ class ExpensesRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT c.name, SUM(e.amount) AS total, count(e.id) AS count
+                    SELECT c.name, SUM(e.amount) AS total, count(e.id) AS count, c.id
                     FROM expenses e
                     JOIN expense_categories c ON c.id = e.category_id
                     WHERE e.user_id = ANY(%s)
@@ -276,7 +419,12 @@ class ExpensesRepository:
                 )
 
                 return [
-                    {"category": row[0], "total": Decimal(row[1]), "count": row[2]}
+                    {
+                        "category": row[0],
+                        "total": Decimal(row[1]),
+                        "count": row[2],
+                        "category_id": row[3],
+                    }
                     for row in cur.fetchall()
                 ]
 
@@ -307,7 +455,7 @@ class ExpensesRepository:
         self,
         identity: Identity | Iterable[Identity],
     ) -> list[str]:
-        """Months that hold at least one expense, newest first.
+        """Months that hold at least one expense or income, newest first.
 
         The dropdown is built from what is actually there, so it cannot offer a
         month with nothing in it and cannot omit one that has data.
@@ -318,12 +466,144 @@ class ExpensesRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT DISTINCT to_char(spent_at, 'YYYY-MM')
-                    FROM expenses
+                    SELECT to_char(spent_at, 'YYYY-MM') FROM expenses
+                    WHERE user_id = ANY(%s)
+                    UNION
+                    SELECT to_char(received_at, 'YYYY-MM') FROM incomes
                     WHERE user_id = ANY(%s)
                     ORDER BY 1 DESC
                     """,
-                    ([str(one) for one in identities],),
+                    ([str(one) for one in identities],) * 2,
                 )
 
                 return [row[0] for row in cur.fetchall()]
+
+    # -- incomes ------------------------------------------------------------
+
+    def add_income(
+        self,
+        identity: Identity,
+        kind: str,
+        amount: Decimal,
+        received_at: date,
+        note: str = "",
+    ) -> None:
+        """Record money received: ``kind`` is ``salary`` or ``other``."""
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO incomes (user_id, kind, amount, received_at, note)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (str(identity), kind, amount, received_at, note),
+                )
+            conn.commit()
+
+    def incomes(
+        self,
+        identity: Identity | Iterable[Identity],
+        month: str,
+    ) -> list[dict]:
+        """One month's incomes, newest first."""
+        identities = _as_tuple(identity)
+
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, kind, amount, received_at, note
+                    FROM incomes
+                    WHERE user_id = ANY(%s)
+                        AND date_trunc('month', received_at)
+                            = to_date(%s || '-01', 'YYYY-MM-DD')
+                    ORDER BY received_at DESC, id DESC
+                    """,
+                    ([str(one) for one in identities], month),
+                )
+
+                return [
+                    {
+                        "id": row[0],
+                        "kind": row[1],
+                        "amount": Decimal(row[2]),
+                        "received_at": row[3],
+                        "note": row[4],
+                    }
+                    for row in cur.fetchall()
+                ]
+
+    def get_income(self, identity: Identity, income_id: int) -> dict | None:
+        """One income of this account's, for the edit form."""
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, kind, amount, received_at, note
+                    FROM incomes WHERE id = %s AND user_id = %s
+                    """,
+                    (income_id, str(identity)),
+                )
+                row = cur.fetchone()
+
+        if row is None:
+            return None
+
+        return {
+            "id": row[0],
+            "kind": row[1],
+            "amount": Decimal(row[2]),
+            "received_at": row[3],
+            "note": row[4],
+        }
+
+    def update_income(
+        self,
+        identity: Identity,
+        income_id: int,
+        kind: str,
+        amount: Decimal,
+        received_at: date,
+        note: str = "",
+    ) -> bool:
+        """Change one income of this account's, reporting whether it was there."""
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE incomes
+                    SET kind = %s, amount = %s, received_at = %s, note = %s
+                    WHERE id = %s AND user_id = %s
+                    """,
+                    (kind, amount, received_at, note, income_id, str(identity)),
+                )
+                updated = cur.rowcount
+            conn.commit()
+
+        return updated > 0
+
+    def delete_income(self, identity: Identity, income_id: int) -> bool:
+        """Remove one income, reporting whether it was there."""
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM incomes WHERE id = %s AND user_id = %s",
+                    (income_id, str(identity)),
+                )
+                deleted = cur.rowcount
+            conn.commit()
+
+        return deleted > 0
+
+    def income_count(self, identity: Identity | Iterable[Identity]) -> int:
+        """How many incomes this read would see, for the guest cap."""
+        identities = _as_tuple(identity)
+
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT count(*) FROM incomes WHERE user_id = ANY(%s)",
+                    ([str(one) for one in identities],),
+                )
+
+                return cur.fetchone()[0]

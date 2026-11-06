@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.75.2
+v0.76.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -297,6 +297,18 @@ Implemented:
   typed by hand
 * web-only: the router refuses the command in a chat
 * reads widen across a linked pair; writes do not
+* since v0.76.0: categories are renamed and removed (archived) from a list on
+  the page; an entry or an income opens in an edit form; the month's list
+  holds every expense and income of that month and narrows to one category;
+  incomes are `salary` or `other` (table `incomes`), and the totals add two
+  results, salary less spending and all incomes less spending
+* two screens of one page: entry (totals, forms, categories) and analytics
+  (totals, chart, table, the month's operations), switched by a button; an
+  edit opened from the operations stays on analytics
+* a form sends the month on screen, so adding to another month stays on it
+* adding the name of a removed category restores it with its spending; an
+  amount is refused past two decimals or NUMERIC(12, 2), a note must be text;
+  the category filter survives an edit or a delete
 
 ⸻
 
@@ -734,7 +746,8 @@ deployment that never sets it records everything as before.
   at 05:23, and the visit log by another at 05:47. This is a place where the
   repository and the machine can disagree, and it did — see the note below
   about what the docs miss.
-* Guest writes are capped (12 categories, 100 expenses, 25 applications), and
+* Guest writes are capped (12 categories, 100 expenses, 30 incomes, 25
+  applications), and
   the whole demonstration is rate limited to 200 requests an hour per address.
   Neither is a wall: a visitor with proxy addresses gets past the limit, and
   the caps are per namespace, so a determined attacker can still add rows.
