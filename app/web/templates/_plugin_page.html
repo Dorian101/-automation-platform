@@ -120,6 +120,7 @@ __STYLES__
   }
   .btn:disabled { opacity: 0.5; cursor: default; }
   .tools { margin: 0 0 1.5rem; }
+  .tablewrap { overflow-x: auto; }
   .textedit textarea, .textedit input { width: 100%; box-sizing: border-box; }
   .textedit textarea { resize: vertical; }
   .textedit { margin-bottom: 0.6rem; }
@@ -632,7 +633,9 @@ __MENU_STYLES__
     }
 
     t.appendChild(tbody);
-    root.appendChild(t);
+    const scroller = el('div', 'tablewrap');
+    scroller.appendChild(t);
+    root.appendChild(scroller);
   }
 
   // A cell is either text or a link, decided by the column rather than by

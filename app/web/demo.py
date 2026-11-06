@@ -66,7 +66,13 @@ DEMO_PREFIX = "/demo"
 #: is not here keeps its guests' rows for ever — `tasks` was missing until
 #: v0.75.0 for exactly that reason.
 DEMO_TABLES = (
-    "expenses", "expense_categories", "incomes", "job_applications", "tasks"
+    "expenses",
+    "expense_categories",
+    "incomes",
+    "job_applications",
+    "tasks",
+    "rule_runs",
+    "rules",
 )
 
 #: The settings key holding when the guests were last removed, in UTC.

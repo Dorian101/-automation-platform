@@ -174,6 +174,13 @@ browser paints it, so the first load and every redraw after an action go
 through one renderer. Everything reaching the page goes through `textContent`,
 so user text is never markup.
 
+Plugins talk to the automation engine through `manager.events`, an
+`EventBus` in `app/core/events.py`. A plugin declares `automation_events`
+(name → label, data keys) and `automation_actions` (name → label, fields),
+publishes with `self.publish(...)` after a change, and runs an action in
+`automation(identity, action, params, chain)`. The core knows no plugin's
+events; the automation plugin reads the declarations through the manager.
+
 Optional parts of a description: `layout` (the order of sections), `tools`
 (page-level buttons), `keep` (values the page sends back with every action,
 such as which screen is open), `list` as an array of tables, a table's `tools`
@@ -211,6 +218,7 @@ renderer calls `showPicker()` to make the whole field behave the same.
 - Tasks: page at /todo, web-only, a kanban board with deadline notifications,
   descriptions, repeats and an archive of tasks done over a week ago
   (a changed deadline clears `notified_at`, so it is reminded again)
+- Automation: page at /automation, web-only, rules between plugins
 - System: /plugins, /help, /status
 
 ## Statuses as a state machine

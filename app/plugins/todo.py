@@ -92,6 +92,17 @@ class TodoPlugin(BasePlugin):
         "/tasks": "List tasks (web console)",
     }
 
+    automation_events = {
+        "task.created": ("Задача создана", ["text"]),
+        "task.done": ("Задача закрыта", ["text"]),
+    }
+    automation_actions = {
+        "task.create": (
+            "Создать задачу",
+            [("text", "Текст задачи"), ("due_days", "Срок через N дней")],
+        ),
+    }
+
     def __init__(
         self,
         notifier: Notifier,
@@ -245,9 +256,12 @@ class TodoPlugin(BasePlugin):
             screen = "board"
 
         if action == "add":
-            self._add(identity, payload)
+            text = self._add(identity, payload)
+            await self.publish("task.created", identity, {"text": text})
         elif action == "move":
-            self._move(identity, payload)
+            task = self._move(identity, payload)
+            if payload.get("status") == "done":
+                await self.publish("task.done", identity, {"text": task["text"]})
         elif action == "priority":
             self._set_priority(identity, payload)
         elif action == "due":
@@ -267,7 +281,30 @@ class TodoPlugin(BasePlugin):
 
     # -- actions ------------------------------------------------------------
 
-    def _add(self, identity: Identity, payload: dict) -> None:
+    async def automation(
+        self, identity: Identity, action: str, params: dict, chain: tuple
+    ) -> str:
+        if action != "task.create":
+            return await super().automation(identity, action, params, chain)
+
+        text, _ = _text_and_description({"text": params.get("text", "")})
+        days = str(params.get("due_days", "")).strip()
+
+        if days and not days.isdigit():
+            raise CommandError("Срок — число дней.")
+
+        due_at = None
+
+        if days:
+            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            due_at = today + timedelta(days=int(days))
+
+        self.repo.add(identity, text, due_at=due_at)
+        await self.publish("task.created", identity, {"text": text}, chain)
+
+        return f"Создана задача «{text}»"
+
+    def _add(self, identity: Identity, payload: dict) -> str:
         text, description = _text_and_description(payload)
         priority = self._parse_priority(payload.get("priority", ""))
         due_at = self._parse_due(payload.get("due_at", ""))
@@ -281,7 +318,9 @@ class TodoPlugin(BasePlugin):
             repeat=_parse_repeat(payload.get("repeat", "")),
         )
 
-    def _move(self, identity: Identity, payload: dict) -> None:
+        return text
+
+    def _move(self, identity: Identity, payload: dict) -> dict:
         task_id = self._task_id(payload)
         target = payload.get("status", "")
 
@@ -303,6 +342,8 @@ class TodoPlugin(BasePlugin):
 
         if target == "done":
             self._next_of(identity, task)
+
+        return task
 
     def _next_of(self, identity: Identity, task: dict) -> None:
         """Put the next one of a repeating task on the board, once.

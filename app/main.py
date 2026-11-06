@@ -19,6 +19,7 @@ from app.notifications import (
     WebChannel,
 )
 from app.plugins.applications import ApplicationsPlugin
+from app.plugins.automation import AutomationPlugin
 from app.plugins.clipboard import ClipboardPlugin
 from app.plugins.expenses import ExpensesPlugin
 from app.plugins.manager import PluginManager
@@ -77,6 +78,7 @@ async def main() -> None:
     manager.register(ClipboardPlugin(database, persons=persons))
     manager.register(ExpensesPlugin(database, persons=persons))
     manager.register(ApplicationsPlugin(database, persons=persons))
+    manager.register(AutomationPlugin(manager, notifier, database, persons=persons))
     manager.register(
         SystemPlugin(manager, users=users, links=links)
     )

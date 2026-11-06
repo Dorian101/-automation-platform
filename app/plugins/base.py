@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 from aiogram import Router
 
+from app.core.events import Event
 from app.core.identity import Identity
 from app.core.results import CommandError, CommandResult
 
@@ -44,6 +45,21 @@ class BasePlugin(ABC):
     # screen has nothing to say in a chat message, and the router refuses
     # rather than the plugin checking the transport itself.
     web_only: bool = False
+
+    automation_events: dict[str, tuple[str, list[str]]] = {}
+    automation_actions: dict[str, tuple[str, list[tuple[str, str]]]] = {}
+    events = None
+
+    async def publish(
+        self, name: str, identity: Identity, data: dict, chain: tuple = ()
+    ) -> None:
+        if self.events is not None:
+            await self.events.publish(Event(name, identity, data, chain))
+
+    async def automation(
+        self, identity: Identity, action: str, params: dict, chain: tuple
+    ) -> str:
+        raise CommandError(f"{self.name}: unknown automation: {action!r}")
 
     @abstractmethod
     async def execute(

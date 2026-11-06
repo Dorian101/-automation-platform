@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.77.1
+v0.78.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -367,6 +367,31 @@ Implemented:
   never in the past
 * since v0.77.1 a changed deadline is reminded again: moving `due_at` clears
   `notified_at`; saving the same date does not
+
+⸻
+
+Automation
+
+Purpose:
+
+* rules "when — if — do" between plugins, assembled on a page, no code
+
+Implemented (v0.78.0):
+
+* a page at /automation in two steps: name, when and what; then the
+  condition and the action's fields, with `{текст}`, `{сумма}`, `{категория}`
+  filled from the event
+* when: a task created, a task done, an expense added, or a schedule (daily,
+  weekly on a weekday, monthly on a day, from an hour in DISPLAY_TIMEZONE,
+  once a day, checked every five minutes)
+* if: the text contains a word; the amount is above a number
+* do: create a task (with a deadline in N days), add an expense to a
+  category by name, send a Telegram message to the linked chat
+* every run is logged with its result on a journal screen (the newest 200
+  per account); a rule can be switched off or deleted
+* a rule never runs twice in one chain and a chain stops at three rules
+* the demonstration seeds three rules, one chain among them; guests are
+  capped at 10 rules, and their Telegram action reports no linked chat
 
 ⸻
 

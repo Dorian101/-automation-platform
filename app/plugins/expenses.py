@@ -234,6 +234,16 @@ class ExpensesPlugin(BasePlugin):
         "/spending": "Show the spending breakdown (web console)",
     }
 
+    automation_events = {
+        "expense.added": ("Трата внесена", ["text", "amount", "category"]),
+    }
+    automation_actions = {
+        "expense.add": (
+            "Внести трату",
+            [("category", "Категория"), ("amount", "Сумма"), ("note", "Заметка")],
+        ),
+    }
+
     def __init__(self, database: Database | None = None, persons=None):
         self.repo = ExpensesRepository(database)
         self._persons = persons
@@ -283,7 +293,7 @@ class ExpensesPlugin(BasePlugin):
         category = None
 
         if action == "spend":
-            self._spend(identity, payload)
+            await self._announce(identity, self._spend(identity, payload), ())
         elif action == "spendsave":
             self._save_spend(identity, payload)
         elif action == "income":
@@ -969,16 +979,67 @@ class ExpensesPlugin(BasePlugin):
 
     # -- actions ------------------------------------------------------------
 
-    def _spend(self, identity: Identity, payload: dict) -> None:
+    async def automation(
+        self, identity: Identity, action: str, params: dict, chain: tuple
+    ) -> str:
+        if action != "expense.add":
+            return await super().automation(identity, action, params, chain)
+
+        wanted = str(params.get("category", "")).strip().lower()
+        category = next(
+            (
+                one
+                for one in self.repo.categories(self._readable_as(identity))
+                if one["name"].lower() == wanted
+            ),
+            None,
+        )
+
+        if category is None:
+            raise CommandError(f"Категория «{params.get('category', '')}» не найдена.")
+
+        fields = (
+            category["id"],
+            _amount(str(params.get("amount", ""))),
+            date.today(),
+            str(params.get("note", "")),
+        )
         self._check_guest_room(identity, expenses=True)
+        self.repo.add(identity, *fields)
+        await self._announce(identity, fields, chain)
+
+        return f"Внесена трата {_money(fields[1])} в «{category['name']}»"
+
+    async def _announce(self, identity: Identity, fields: tuple, chain: tuple) -> None:
+        category_id, amount, _, note = fields
+        name = next(
+            (
+                one["name"]
+                for one in self.repo.categories(self._readable_as(identity))
+                if one["id"] == category_id
+            ),
+            "",
+        )
+        await self.publish(
+            "expense.added",
+            identity,
+            {"text": note, "amount": amount, "category": name},
+            chain,
+        )
+
+    def _spend(self, identity: Identity, payload: dict) -> tuple:
+        self._check_guest_room(identity, expenses=True)
+        fields = self._expense_fields(payload)
 
         try:
-            self.repo.add(identity, *self._expense_fields(payload))
+            self.repo.add(identity, *fields)
         except ValueError:
             # The repository refuses a category that is not this account's —
             # the id is a global sequence. Its message is about storage; the
             # person on the page only needs to know the category is not theirs.
             raise CommandError("Категория не найдена.") from None
+
+        return fields
 
     def _save_spend(self, identity: Identity, payload: dict) -> None:
         expense_id = _id(payload, "expense_id", "Трата не найдена.")

@@ -2478,3 +2478,31 @@ with nothing written down to settle a mixed or doubtful case.
 
 ### Result
 The release's version step follows this rule.
+
+## 2026-11-06
+
+### Decision
+Add an event bus to the core and a rules plugin on top of it
+
+### Reason
+The owner wants automations a user assembles without code, so the platform's
+name means something. Plugins had no way to learn what another one did.
+
+### How it is done
+
+- The core gains `EventBus`; the manager hands it to every plugin. Plugins
+  declare their events and actions and publish after a change; the core
+  knows none of them.
+- Rules are rows in `rules`, not code. A new block is a declaration in a
+  plugin.
+- Actions go through the plugin's own checks and guest caps, the same ones
+  its page uses.
+- Each action carries the chain of rules that led to it: a rule already in
+  the chain is skipped and a chain stops at three, so two rules cannot feed
+  each other for ever.
+- Handlers run inside the request that raised the event, so the page shows
+  what a rule made; a failing handler is logged and does not fail the page.
+
+### Result
+Four events and three actions in the first version. A Telegram message
+waits on the network inside the request that triggered it.

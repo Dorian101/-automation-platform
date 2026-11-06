@@ -5,6 +5,7 @@ from aiogram.types import BotCommand, Message
 
 from app.bot.menu import build_menu_router
 from app.core.commands import parse_command
+from app.core.events import EventBus
 from app.core.identity import WEB, Identity, telegram
 from app.core.results import CommandError, CommandResult
 
@@ -19,8 +20,10 @@ class PluginManager:
         # An object with `disabled_plugins()` and `maintenance()`, handed in by
         # whoever owns the settings; None means nothing is ever switched.
         self.switches = None
+        self.events = EventBus()
 
     def register(self, plugin: BasePlugin) -> None:
+        plugin.events = self.events
         self._plugins.append(plugin)
 
         self.logger.info(
@@ -43,6 +46,29 @@ class PluginManager:
                 return plugin
 
         return None
+
+    def find_action(self, action: str) -> BasePlugin | None:
+        for plugin in self._enabled():
+            if action in plugin.automation_actions:
+                return plugin
+
+        return None
+
+    def automation_events(self) -> dict[str, tuple[str, list[str]]]:
+        found = {}
+
+        for plugin in self._enabled():
+            found.update(plugin.automation_events)
+
+        return found
+
+    def automation_actions(self) -> dict[str, tuple[str, list[tuple[str, str]]]]:
+        found = {}
+
+        for plugin in self._enabled():
+            found.update(plugin.automation_actions)
+
+        return found
 
     def find_by_page(self, page: str) -> BasePlugin | None:
         """The plugin that owns a web page, if one does.
