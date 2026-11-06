@@ -4,16 +4,16 @@ import pytest
 
 from app.core.identity import telegram
 from app.core.results import CommandError
-from app.plugins.clipboard import ClipboardPlugin
 from app.plugins.manager import PluginManager
 from app.plugins.notes import NotesPlugin
+from app.plugins.snippets import SnippetsPlugin
 
 
 @pytest.fixture
 def manager(database_with_schema):
     mgr = PluginManager(logging.getLogger("test"))
     mgr.register(NotesPlugin(database_with_schema))
-    mgr.register(ClipboardPlugin(database_with_schema))
+    mgr.register(SnippetsPlugin(database_with_schema))
     return mgr
 
 
@@ -27,7 +27,7 @@ class TestFind:
     def test_registered_order_decides_ownership(self, database_with_schema):
         mgr = PluginManager(logging.getLogger("test"))
         first = NotesPlugin(database_with_schema)
-        second = ClipboardPlugin(database_with_schema)
+        second = SnippetsPlugin(database_with_schema)
 
         mgr.register(first)
         mgr.register(second)
@@ -85,10 +85,17 @@ class TestPages:
     def test_only_plugins_with_a_page_are_listed(self, expenses_manager):
         pages = expenses_manager.pages()
 
-        assert [page["page"] for page in pages] == ["/expenses", "/applications"]
+        assert [page["page"] for page in pages] == [
+            "/snippets",
+            "/expenses",
+            "/applications",
+        ]
 
-    def test_a_manager_without_pages_lists_nothing(self, manager):
-        assert manager.pages() == []
+    def test_a_manager_without_pages_lists_nothing(self, database_with_schema):
+        bare = PluginManager(logging.getLogger("test"))
+        bare.register(NotesPlugin(database_with_schema))
+
+        assert bare.pages() == []
 
 
 class TestGetPlugins:
@@ -99,7 +106,7 @@ class TestGetPlugins:
         assert len(manager.get_plugins()) == 2
 
     def test_preserves_registration_order(self, manager):
-        assert [p.name for p in manager.get_plugins()] == ["notes", "clipboard"]
+        assert [p.name for p in manager.get_plugins()] == ["notes", "snippets"]
 
 
 class TestBuildRouter:
@@ -127,7 +134,7 @@ class TestBuildRouter:
         from aiogram import Router
         from aiogram.types import Message
 
-        plugin = ClipboardPlugin()
+        plugin = SnippetsPlugin()
         extra = Router(name="extra")
 
         @extra.message(lambda m: m.text == "/custom")
@@ -171,8 +178,8 @@ class TestBotCommands:
             "/notes",
             "/del",
             "/clear",
-            "/copy",
-            "/paste",
+            "/snippets",
+            "/snippet_get",
         ]
 
     def test_skips_web_only_plugins(self, expenses_manager):

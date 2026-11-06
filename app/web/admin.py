@@ -619,7 +619,7 @@ def _section_title(section: str) -> str:
 _STATUS_TABLES = [
     ("notes", "Заметки"),
     ("reminders", "Напоминания"),
-    ("clipboard", "Буфер"),
+    ("snippets", "Сниппеты"),
     ("expenses", "Расходы"),
     ("job_applications", "Заявки"),
     ("users", "Аккаунты"),

@@ -32,6 +32,8 @@ class CommandResult:
 
     text: str
     data: dict | None = None
+    preformatted: bool = False
+    file: tuple[str, bytes] | None = None
 
 
 def reply(text: str, data: dict | None = None) -> CommandResult:

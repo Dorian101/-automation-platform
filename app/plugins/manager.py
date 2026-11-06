@@ -1,7 +1,8 @@
+from io import BytesIO
 from typing import Sequence
 
 from aiogram import Router
-from aiogram.types import BotCommand, Message
+from aiogram.types import BotCommand, BufferedInputFile, Message, MessageEntity
 
 from app.bot.menu import build_menu_router
 from app.core.commands import parse_command
@@ -198,6 +199,16 @@ class PluginManager:
 
         @commands_router.message()
         async def dispatch(message: Message) -> None:
+            if message.document is not None:
+                try:
+                    result = await self.receive_file(message)
+                except CommandError as error:
+                    await message.answer(str(error))
+                    return
+
+                await send_result(message, result)
+                return
+
             if not message.text:
                 return
 
@@ -209,12 +220,39 @@ class PluginManager:
                 await message.answer(str(error))
                 return
 
-            if result.text:
-                await message.answer(result.text)
+            await send_result(message, result)
 
         router.include_router(commands_router)
 
         return router
+
+    async def receive_file(self, message: Message) -> CommandResult:
+        if self.switches and self.switches.maintenance():
+            raise CommandError("Сервис на обслуживании. Попробуйте чуть позже.")
+
+        plugin = next(
+            (one for one in self._enabled() if one.accepts_files), None
+        )
+
+        if plugin is None:
+            raise CommandError("Файлы сейчас не принимаются.")
+
+        document = message.document
+        limit = plugin.max_file_bytes
+
+        if document.file_size is None or document.file_size > limit:
+            raise CommandError(f"Файл больше {limit // 1000} КБ.")
+
+        buffer = BytesIO()
+        await message.bot.download(document, destination=buffer)
+        data = buffer.getvalue()
+
+        if len(data) > limit:
+            raise CommandError(f"Файл больше {limit // 1000} КБ.")
+
+        return await plugin.receive_file(
+            telegram(message.chat.id), document.file_name or "", data
+        )
 
     async def startup(self) -> None:
         for plugin in self._plugins:
@@ -233,3 +271,34 @@ class PluginManager:
                 "Stopped plugin: %s",
                 plugin.name,
             )
+
+
+TELEGRAM_LIMIT = 4096
+
+
+def _utf16(text: str) -> int:
+    return len(text.encode("utf-16-le")) // 2
+
+
+async def send_result(message: Message, result: CommandResult) -> None:
+    if result.file is not None:
+        name, data = result.file
+        await message.answer_document(
+            BufferedInputFile(data, filename=name),
+            caption=result.text[:1000] or None,
+        )
+        return
+
+    if not result.text:
+        return
+
+    if result.preformatted and _utf16(result.text) <= TELEGRAM_LIMIT:
+        await message.answer(
+            result.text,
+            entities=[
+                MessageEntity(type="pre", offset=0, length=_utf16(result.text))
+            ],
+        )
+        return
+
+    await message.answer(result.text[:TELEGRAM_LIMIT])

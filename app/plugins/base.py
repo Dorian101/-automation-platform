@@ -46,6 +46,14 @@ class BasePlugin(ABC):
     # rather than the plugin checking the transport itself.
     web_only: bool = False
 
+    accepts_files: bool = False
+    max_file_bytes: int = 0
+
+    async def receive_file(
+        self, identity: Identity, filename: str, data: bytes
+    ) -> CommandResult:
+        raise CommandError(f"{self.name}: files are not accepted")
+
     automation_events: dict[str, tuple[str, list[str]]] = {}
     automation_actions: dict[str, tuple[str, list[tuple[str, str]]]] = {}
     events = None

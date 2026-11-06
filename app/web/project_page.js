@@ -90,7 +90,7 @@
     postgres: [[380, 400], [380, 488]],
     notify: [[380, 410], [638, 410], [638, 488]],
   };
-  ["system", "notes", "reminders", "clipboard", "expenses", "applications", "todo"].forEach(
+  ["system", "notes", "reminders", "snippets", "expenses", "applications", "todo"].forEach(
     (name, index) => {
       PATH[`plugin-${name}`] = [[79 + index * 100, 364]];
     },

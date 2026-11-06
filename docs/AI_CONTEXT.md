@@ -48,9 +48,8 @@ Reads, deletes and clears are widened across the pair, in both directions, so a
 note written in the bot is visible in the console and removable from it. Writes
 are **not** widened: a row is stored under the identity that wrote it, so the
 history records where each note came from and unlinking is a single delete
-rather than a row-by-row move back. The clipboard is deliberately different — it
-is one buffer, not a history, so `/paste` reads across the pair and the last
-write wins whoever made it.
+rather than a row-by-row move back. Snippets read the same way: a linked pair
+shares one list.
 
 A note is addressed by its position in the numbered list, never by its row id:
 the id is a global sequence, so it would leak how many notes other people have
@@ -124,7 +123,7 @@ the pool removes the per-connection cost, not the per-row one.
 Repositories:
 - notes_repo.py
 - reminders_repo.py
-- clipboard_repo.py
+- snippets_repo.py
 - links_repo.py
 - users_repo.py
 - sessions_repo.py
@@ -181,6 +180,11 @@ publishes with `self.publish(...)` after a change, and runs an action in
 `automation(identity, action, params, chain)`. The core knows no plugin's
 events; the automation plugin reads the declarations through the manager.
 
+A `CommandResult` can carry `preformatted=True` (sent in Telegram as a `pre`
+entity, never through a parse mode) or `file=(name, bytes)` (sent as a
+document). A document sent to the bot goes to the one enabled plugin with
+`accepts_files`, after the size in `max_file_bytes` is checked.
+
 Optional parts of a description: `layout` (the order of sections), `tools`
 (page-level buttons), `keep` (values the page sends back with every action,
 such as which screen is open), `list` as an array of tables, a table's `tools`
@@ -211,7 +215,8 @@ renderer calls `showPicker()` to make the whole field behave the same.
 
 - Notes: /add, /notes, /del, /clear
 - Reminders: /remind, /reminders, /cancel; delivers through notification channels
-- Clipboard: /copy, /paste
+- Snippets: page at /snippets, /snippets, /snippet_get N, text files sent to
+  the bot
 - Expenses: page at /expenses, web-only; spending by category plus incomes
   (`salary` or `other`), edited in place, categories renamed or archived
 - Applications: page at /applications, web-only, statuses are a state machine

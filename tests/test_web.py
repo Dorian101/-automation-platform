@@ -56,7 +56,7 @@ class TestCommandsEndpoint:
         payload = await response.json()
         names = {plugin["name"] for plugin in payload["plugins"]}
 
-        assert names == {"notes", "clipboard"}
+        assert names == {"notes", "snippets"}
 
     async def test_includes_command_metadata(self, client):
         response = await client.get("/api/commands")

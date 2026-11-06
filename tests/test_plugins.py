@@ -5,9 +5,9 @@ import pytest
 from app.core.identity import TELEGRAM, WEB, Identity, telegram
 from app.core.person import PersonResolver
 from app.core.results import CommandError
-from app.plugins.clipboard import ClipboardPlugin
 from app.plugins.notes import NotesPlugin
 from app.plugins.reminders import MAX_DROPPED_ATTEMPTS, RemindersPlugin
+from app.plugins.snippets import SnippetsPlugin
 from app.plugins.system import SystemPlugin
 from tests.conftest import TEST_USERNAME
 
@@ -67,38 +67,6 @@ class TestNotesPlugin:
         assert (
             await plugin.execute("/notes", "", tg_user)
         ).text == "1. telegram note"
-
-
-class TestClipboardPlugin:
-    async def test_copy_then_paste(self, database_with_schema, web_identity):
-        plugin = ClipboardPlugin(database_with_schema)
-
-        await plugin.execute("/copy", "copied text", web_identity)
-        result = await plugin.execute("/paste", "", web_identity)
-
-        assert result.text == "copied text"
-
-    async def test_empty_clipboard(self, database_with_schema, web_identity):
-        plugin = ClipboardPlugin(database_with_schema)
-
-        result = await plugin.execute("/paste", "", web_identity)
-
-        assert result.text == "Clipboard is empty"
-
-    async def test_empty_args_rejected(self, database_with_schema, web_identity):
-        plugin = ClipboardPlugin(database_with_schema)
-
-        with pytest.raises(CommandError, match="Usage"):
-            await plugin.execute("/copy", "", web_identity)
-
-    async def test_paste_isolated_by_transport(self, database_with_schema):
-        plugin = ClipboardPlugin(database_with_schema)
-        web_user = Identity(kind=WEB, id="default")
-
-        await plugin.execute("/copy", "web clipboard", web_user)
-        result = await plugin.execute("/paste", "", telegram(777))
-
-        assert result.text == "Clipboard is empty"
 
 
 class TestRemindersPlugin:
@@ -335,7 +303,7 @@ class TestSystemPlugin:
         result = await plugin.execute("/help", "", web_identity)
 
         assert "/add" in result.text
-        assert "/copy" in result.text
+        assert "/snippets" in result.text
 
     async def test_plugins_lists_registered(self, manager, web_identity):
         plugin = SystemPlugin(manager)
@@ -617,8 +585,8 @@ class TestSharedDataThroughThePlugins:
     def _notes(self, database, persons):
         return NotesPlugin(database, persons=persons)
 
-    def _clipboard(self, database, persons):
-        return ClipboardPlugin(database, persons=persons)
+    def _snippets(self, database, persons):
+        return SnippetsPlugin(database, persons=persons)
 
     @pytest.fixture
     def users(self, database_with_schema):
@@ -696,42 +664,30 @@ class TestSharedDataThroughThePlugins:
 
         assert "solo" in result.text
 
-    async def test_copied_text_pastes_in_the_bot(
+    async def test_a_snippet_saved_on_the_web_reaches_the_bot(
         self,
         database_with_schema,
         linked,
     ):
-        """The clipboard is what makes pairing immediately useful."""
-        plugin = self._clipboard(database_with_schema, linked)
+        """Moving text between devices is what makes pairing immediately useful."""
+        plugin = self._snippets(database_with_schema, linked)
         web = Identity(kind=WEB, id=TEST_USERNAME)
 
-        await plugin.execute("/copy", "a link to read", web)
-        result = await plugin.execute("/paste", "", telegram(4242))
+        await plugin.page_action(web, "save", {"body": "a link to read"})
+        result = await plugin.execute("/snippet_get", "1", telegram(4242))
 
         assert result.text == "a link to read"
 
-    async def test_the_last_write_wins_across_both(
+    async def test_snippets_do_not_leak_between_people(
         self,
         database_with_schema,
         linked,
     ):
-        plugin = self._clipboard(database_with_schema, linked)
-        web = Identity(kind=WEB, id=TEST_USERNAME)
+        plugin = self._snippets(database_with_schema, linked)
 
-        await plugin.execute("/copy", "from the web", web)
-        await plugin.execute("/copy", "from the bot", telegram(4242))
-        result = await plugin.execute("/paste", "", web)
+        await plugin.page_action(
+            Identity(kind=WEB, id=TEST_USERNAME), "save", {"body": "mine"}
+        )
+        result = await plugin.execute("/snippets", "", telegram(9999))
 
-        assert result.text == "from the bot"
-
-    async def test_copied_text_does_not_leak_between_people(
-        self,
-        database_with_schema,
-        linked,
-    ):
-        plugin = self._clipboard(database_with_schema, linked)
-
-        await plugin.execute("/copy", "mine", Identity(kind=WEB, id=TEST_USERNAME))
-        result = await plugin.execute("/paste", "", telegram(9999))
-
-        assert result.text == "Clipboard is empty"
+        assert result.text.startswith("Сниппетов нет")

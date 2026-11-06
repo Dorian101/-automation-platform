@@ -1,7 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
 from app.core.identity import WEB, Identity, telegram
-from app.db.clipboard_repo import ClipboardRepository
 from app.db.notes_repo import NotesRepository
 from app.db.reminders_repo import RemindersRepository
 
@@ -148,28 +147,3 @@ class TestRemindersRepository:
         # The id still exists but the row is sent, so /cancel must not remove it.
         sent_id = repo.entries(identity)
         assert sent_id == []
-
-
-class TestClipboardRepository:
-    def test_get_last_returns_newest(self, database_with_schema):
-        repo = ClipboardRepository(database_with_schema)
-        identity = Identity(kind=WEB, id="default")
-
-        repo.save(identity, "first", _iso(timedelta(0)))
-        repo.save(identity, "second", _iso(timedelta(0)))
-
-        assert repo.get_last(identity) == "second"
-
-    def test_get_last_empty(self, database_with_schema):
-        repo = ClipboardRepository(database_with_schema)
-
-        assert repo.get_last(Identity(kind=WEB, id="nobody")) is None
-
-    def test_isolated_by_identity(self, database_with_schema):
-        repo = ClipboardRepository(database_with_schema)
-
-        repo.save(telegram(111), "for A", _iso(timedelta(0)))
-        repo.save(telegram(222), "for B", _iso(timedelta(0)))
-
-        assert repo.get_last(telegram(111)) == "for A"
-        assert repo.get_last(telegram(222)) == "for B"

@@ -278,7 +278,7 @@ class TestInterfaceLanguage:
         """
         for module in (
             "app.plugins.notes",
-            "app.plugins.clipboard",
+            "app.plugins.snippets",
             "app.plugins.reminders",
             "app.plugins.system",
             "app.plugins.expenses",
@@ -470,17 +470,17 @@ class TestTheProjectPage:
         matter — a plugin renamed in code and not here is the same defect.
         """
         from app.plugins.applications import ApplicationsPlugin
-        from app.plugins.clipboard import ClipboardPlugin
         from app.plugins.expenses import ExpensesPlugin
         from app.plugins.notes import NotesPlugin
         from app.plugins.reminders import RemindersPlugin
+        from app.plugins.snippets import SnippetsPlugin
         from app.plugins.system import SystemPlugin
         from app.plugins.todo import TodoPlugin
 
         shipped = {
             NotesPlugin.name,
             RemindersPlugin.name,
-            ClipboardPlugin.name,
+            SnippetsPlugin.name,
             ExpensesPlugin.name,
             ApplicationsPlugin.name,
             SystemPlugin.name,

@@ -121,6 +121,24 @@ __STYLES__
   .btn:disabled { opacity: 0.5; cursor: default; }
   .tools { margin: 0 0 1.5rem; }
   .tablewrap { overflow-x: auto; }
+  .field.wide { flex: 1 1 100%; }
+  textarea.mono {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.85rem;
+    white-space: pre;
+    tab-size: 4;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  textarea.viewer {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem;
+    margin-bottom: 0.6rem;
+    resize: vertical;
+  }
   .textedit textarea, .textedit input { width: 100%; box-sizing: border-box; }
   .textedit textarea { resize: vertical; }
   .textedit { margin-bottom: 0.6rem; }
@@ -414,6 +432,7 @@ __MENU_STYLES__
     ['kanban', drawKanban],
     ['forms', drawForms],
     ['tools', drawTools],
+    ['panel', drawPanel],
   ];
 
   function el(tag, className, text) {
@@ -665,6 +684,46 @@ __MENU_STYLES__
     }
 
     return el('td', col.num ? 'num' : '', value);
+  }
+
+  function drawPanel(panel) {
+    root.appendChild(el('h2', null, panel.title));
+    const area = document.createElement('textarea');
+    area.className = 'mono viewer';
+    area.readOnly = true;
+    area.rows = 18;
+    area.value = panel.text;
+    root.appendChild(area);
+    const bar = el('div', 'tools');
+    const copy = el('button', 'btn', 'Скопировать');
+    copy.addEventListener('click', () => copyText(panel.text, area));
+    const close = el('button', 'btn ghost', 'Закрыть');
+    close.addEventListener('click', () => send('view', {}, close));
+    bar.appendChild(copy);
+    bar.appendChild(close);
+    root.appendChild(bar);
+    if (panel.copy) copyText(panel.text, area);
+  }
+
+  function copyText(text, area) {
+    const bySelection = () => {
+      area.focus();
+      area.select();
+      let done = false;
+      try { done = document.execCommand('copy'); } catch (e) { done = false; }
+      showMessage(
+        done ? 'Скопировано.' : 'Текст выделен: нажмите Ctrl+C или Cmd+C.',
+        false,
+      );
+    };
+    if (!navigator.clipboard) {
+      bySelection();
+      return;
+    }
+    navigator.clipboard.writeText(text).then(
+      () => showMessage('Скопировано.', false),
+      bySelection,
+    );
   }
 
   // Page-level buttons, such as a switch between a plugin's screens.
@@ -967,8 +1026,15 @@ __MENU_STYLES__
       }
       const wrap = el('div', 'field');
       const label = el('label', null, field.label);
-      const input = document.createElement(field.type === 'select' ? 'select' : 'input');
-      if (field.type !== 'select') input.type = field.type || 'text';
+      const tag = field.type === 'select' || field.type === 'textarea' ? field.type : 'input';
+      const input = document.createElement(tag);
+      if (tag === 'input') input.type = field.type || 'text';
+      if (tag === 'textarea') {
+        input.rows = 12;
+        input.className = 'mono';
+        input.spellcheck = false;
+        wrap.classList.add('wide');
+      }
       if (field.type !== 'select' && field.placeholder) input.placeholder = field.placeholder;
       if (field.value != null) input.value = field.value;
 
@@ -1039,7 +1105,7 @@ __MENU_STYLES__
     row.addEventListener('keydown', (ev) => {
       if (ev.key !== 'Enter') return;
       const t = ev.target;
-      if (t && t.tagName === 'SELECT') return; // Enter picks a select option here
+      if (t && (t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return; // Enter picks a select option here
       ev.preventDefault();
       doSubmit();
     });

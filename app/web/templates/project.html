@@ -113,7 +113,7 @@ __MENU_STYLES__
         командой в боте или в браузере. Напоминание придёт в Telegram, поэтому
         в браузере его можно поставить, когда Telegram связан с аккаунтом.</p>
         <p class="lens-deep">Команды <code>/notes</code>, <code>/remind</code> и
-        <code>/copy</code> используют общий разбор и набор плагинов. Напоминания
+        <code>/snippets</code> используют общий разбор и набор плагинов. Напоминания
         лежат в базе, а фоновый воркер доставляет их через слой уведомлений.</p>
       </article>
       <article class="project lime">
@@ -224,8 +224,8 @@ __MENU_STYLES__
       <text class="cell" x="179" y="364" text-anchor="middle" dominant-baseline="middle">notes</text>
       <rect class="box process" data-step="plugin-reminders" x="232" y="344" width="94" height="40" rx="8" />
       <text class="cell" x="279" y="364" text-anchor="middle" dominant-baseline="middle">reminders</text>
-      <rect class="box process" data-step="plugin-clipboard" x="332" y="344" width="94" height="40" rx="8" />
-      <text class="cell" x="379" y="364" text-anchor="middle" dominant-baseline="middle">clipboard</text>
+      <rect class="box process" data-step="plugin-snippets" x="332" y="344" width="94" height="40" rx="8" />
+      <text class="cell" x="379" y="364" text-anchor="middle" dominant-baseline="middle">snippets</text>
       <rect class="box process" data-step="plugin-expenses" x="432" y="344" width="94" height="40" rx="8" />
       <text class="cell" x="479" y="364" text-anchor="middle" dominant-baseline="middle">expenses</text>
       <rect class="box process" data-step="plugin-applications" x="532" y="344" width="94" height="40" rx="8" />
@@ -261,7 +261,7 @@ __MENU_STYLES__
       <li data-step="web telegram"><b>Транспорт</b>Telegram-бот на aiogram и веб-консоль на aiohttp</li>
       <li data-step="identity"><b>Identity</b>kind:id, PersonResolver связывает каналы</li>
       <li data-step="dispatcher"><b>PluginManager</b>parse_command → execute → CommandResult</li>
-      <li data-step="plugin-system plugin-notes plugin-reminders plugin-clipboard plugin-expenses plugin-applications plugin-todo"><b>Плагины</b>system · notes · reminders · clipboard · expenses · applications · todo</li>
+      <li data-step="plugin-system plugin-notes plugin-reminders plugin-snippets plugin-expenses plugin-applications plugin-todo"><b>Плагины</b>system · notes · reminders · snippets · expenses · applications · todo</li>
       <li data-step="postgres notify"><b>Хранение и доставка</b>PostgreSQL и уведомления в чат Telegram</li>
     </ol>
     <figcaption>

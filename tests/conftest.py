@@ -30,11 +30,11 @@ from app.db.migrations import MigrationRunner
 from app.db.users_repo import UsersRepository
 from app.notifications import Notifier, TelegramChannel, WebChannel
 from app.plugins.applications import ApplicationsPlugin
-from app.plugins.clipboard import ClipboardPlugin
 from app.plugins.expenses import ExpensesPlugin
 from app.plugins.manager import PluginManager
 from app.plugins.notes import NotesPlugin
 from app.plugins.reminders import RemindersPlugin
+from app.plugins.snippets import SnippetsPlugin
 from app.web.auth import AUTH_HEADER
 from app.web.server import WebServer
 
@@ -253,7 +253,7 @@ def web_server_factory():
 def manager(database_with_schema):
     mgr = PluginManager(logging.getLogger("test"))
     mgr.register(NotesPlugin(database_with_schema))
-    mgr.register(ClipboardPlugin(database_with_schema))
+    mgr.register(SnippetsPlugin(database_with_schema))
     return mgr
 
 

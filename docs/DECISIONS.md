@@ -2506,3 +2506,28 @@ name means something. Plugins had no way to learn what another one did.
 ### Result
 Four events and three actions in the first version. A Telegram message
 waits on the network inside the request that triggered it.
+
+## 2026-11-07
+
+### Decision
+Replace the clipboard with snippets that travel as files and code blocks
+
+### Reason
+The owner moves SQL between devices through the bot. Telegram cuts a message
+at 4,096 characters, and its client turns `||`, `**` and `~~` into formatting
+before the bot sees the text, so a query arrived broken. The clipboard was
+not used otherwise.
+
+### How it is done
+
+- Text goes in through a web form or a file sent to the bot, and comes out
+  through the page, a code block or a file. Nothing passes through a
+  Telegram parse mode: the code block is a `pre` entity.
+- A file is refused on its declared size before it is downloaded and on its
+  real size after; NUL bytes and anything that is not UTF-8 are refused, and
+  a file name is cut to its base name and to safe characters on the way out.
+- The `clipboard` table is kept: dropping data cannot be undone.
+
+### Result
+`/copy` and `/paste` are gone from the bot and the help.
+

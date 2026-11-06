@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.78.0
+v0.79.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -262,18 +262,23 @@ Implemented:
 
 ⸻
 
-Clipboard
+Snippets (since v0.79.0, replacing the clipboard plugin)
 
 Purpose:
 
-* personal temporary text storage
+* moving code and long text between devices without Telegram's 4096-character
+  limit and its markdown eating `||`, `**`, `~~`
 
 Implemented:
 
-* /copy <text>
-* /paste
-* PostgreSQL repository
-* one buffer across a linked pair — copy on the web, paste in the bot
+* a page at /snippets: save a title and a text of up to 200 KB, kept byte for
+  byte; open one, copy it to the device's clipboard, delete it
+* the bot saves any UTF-8 text file sent to it (size checked before the
+  download, binary and non-UTF-8 refused, the name stripped to its base);
+  /snippets lists the last ten, /snippet_get N sends one back as a code block
+  (entities, no markdown) or, past 3,500 characters, as a file
+* the newest 100 per account; a linked pair shares the list
+* /copy and /paste are gone; the `clipboard` table stays in the database
 
 ⸻
 

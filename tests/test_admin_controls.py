@@ -59,7 +59,7 @@ async def _token(client, path="/admin/settings") -> str:
 
 async def _save(client, **fields):
     data = {"csrf": await _token(client), "feedback_per_hour": "3",
-            "demo_per_hour": "200", "plugin": ["notes", "clipboard"]}
+            "demo_per_hour": "200", "plugin": ["notes", "snippets"]}
     data.update(fields)
     form = []
     for key, value in data.items():
@@ -79,8 +79,8 @@ class TestSettings:
 
         assert response.headers["Location"] == "/admin/settings?saved=1"
         with pytest.raises(CommandError, match="временно отключена"):
-            await manager.execute("/paste", "", Identity("web", TEST_USERNAME))
-        assert "clipboard" not in [entry["name"] for entry in manager.pages()]
+            await manager.execute("/snippets", "", Identity("web", TEST_USERNAME))
+        assert "snippets" not in [entry["name"] for entry in manager.pages()]
 
     async def test_a_forged_form_changes_nothing(self, admin, database_with_schema):
         await admin.post(
