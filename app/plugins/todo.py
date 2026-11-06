@@ -11,13 +11,14 @@ is simply not reminded, and the task stays in the pile.
 """
 
 import asyncio
+import calendar
 import logging
 from datetime import UTC, datetime, timedelta
 
 from app.core.identity import Identity
 from app.core.results import CommandError, CommandResult, reply
 from app.db.database import Database
-from app.db.tasks_repo import STATUSES, VALID_PRIORITIES, TasksRepository
+from app.db.tasks_repo import REPEATS, STATUSES, VALID_PRIORITIES, TasksRepository
 from app.notifications import Notifier
 
 from .base import BasePlugin
@@ -43,9 +44,25 @@ TRANSITIONS = {
     "done": ("doing",),
 }
 
-# The single forward step from each status, the one the card's arrow offers.
-# A terminal status has none.
+# The steps a card offers: one forward and one back, both within TRANSITIONS.
 NEXT_STATUS = {"todo": "doing", "doing": "done", "done": None}
+PREVIOUS_STATUS = {"todo": None, "doing": "todo", "done": "doing"}
+
+# How a repeat reads on the page.
+REPEAT_LABELS = {
+    "daily": "Каждый день",
+    "weekly": "Каждую неделю",
+    "monthly": "Каждый месяц",
+}
+
+# How long a finished task stays on the board before it goes to the archive.
+DONE_ON_BOARD = timedelta(days=7)
+
+MAX_TEXT = 200
+MAX_DESCRIPTION = 2000
+
+# The board and the archive of finished tasks, two screens of one page.
+LAYOUTS = {"board": ["tools", "kanban", "forms"], "archive": ["tools", "list"]}
 
 # How one column is named on the page, and how a status reads inside a card.
 STATUS_LABELS = {
@@ -191,6 +208,23 @@ class TodoPlugin(BasePlugin):
                 identity, text, priority=priority, due_at=due_at, status=status
             )
 
+        # A card with details, a repeating one, and finished work old enough
+        # for the archive, so each feature has something to show.
+        self.repo.add(
+            identity,
+            "Оплатить коммунальные",
+            priority=2,
+            due_at=in_two_days,
+            description="Свет, вода, интернет. Квитанции в почте.",
+            repeat="monthly",
+        )
+        self.repo.add(
+            identity,
+            "Сдать показания счётчиков",
+            status="done",
+            done_at=now - timedelta(days=12),
+        )
+
     async def page_view(self, identity: Identity) -> dict:
         return self._view(identity, "priority")
 
@@ -205,6 +239,11 @@ class TodoPlugin(BasePlugin):
         if order not in ("created", "priority", "due"):
             raise CommandError("Некорректная сортировка.")
 
+        screen = payload.get("screen")
+
+        if screen not in LAYOUTS:
+            screen = "board"
+
         if action == "add":
             self._add(identity, payload)
         elif action == "move":
@@ -213,6 +252,10 @@ class TodoPlugin(BasePlugin):
             self._set_priority(identity, payload)
         elif action == "due":
             self._set_due(identity, payload)
+        elif action == "text":
+            self._set_text(identity, payload)
+        elif action == "repeat":
+            self._set_repeat(identity, payload)
         elif action == "delete":
             self._delete(identity, payload)
         elif action == "view":
@@ -220,20 +263,23 @@ class TodoPlugin(BasePlugin):
         else:
             raise CommandError(f"Неизвестное действие: {action}")
 
-        return self._view(identity, order)
+        return self._view(identity, order, screen)
 
     # -- actions ------------------------------------------------------------
 
     def _add(self, identity: Identity, payload: dict) -> None:
-        text = payload.get("text", "").strip()
-
-        if not text:
-            raise CommandError("Текст задачи не может быть пустым.")
-
+        text, description = _text_and_description(payload)
         priority = self._parse_priority(payload.get("priority", ""))
         due_at = self._parse_due(payload.get("due_at", ""))
 
-        self.repo.add(identity, text, priority=priority, due_at=due_at)
+        self.repo.add(
+            identity,
+            text,
+            priority=priority,
+            due_at=due_at,
+            description=description,
+            repeat=_parse_repeat(payload.get("repeat", "")),
+        )
 
     def _move(self, identity: Identity, payload: dict) -> None:
         task_id = self._task_id(payload)
@@ -255,6 +301,35 @@ class TodoPlugin(BasePlugin):
 
         self.repo.set_status(identity, task_id, target)
 
+        if target == "done":
+            self._next_of(identity, task)
+
+    def _next_of(self, identity: Identity, task: dict) -> None:
+        """Put the next one of a repeating task on the board, once.
+
+        Due one period after this one, or after today for a task with no
+        deadline, and never in the past: a weekly task finished a fortnight
+        late comes back next week, not two weeks ago.
+        """
+        if not task["repeat"] or task["repeated"]:
+            return
+
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        due = _after(task["due_at"] or today, task["repeat"])
+
+        while due < today:
+            due = _after(due, task["repeat"])
+
+        self.repo.add(
+            identity,
+            task["text"],
+            priority=task["priority"],
+            due_at=due,
+            description=task["description"],
+            repeat=task["repeat"],
+        )
+        self.repo.mark_repeated(task["id"])
+
     def _set_priority(self, identity: Identity, payload: dict) -> None:
         task_id = self._task_id(payload)
         priority = self._parse_priority(payload.get("priority", ""))
@@ -267,6 +342,27 @@ class TodoPlugin(BasePlugin):
         due_at = self._parse_due(payload.get("due_at", ""))
 
         if not self.repo.set_due(identity, task_id, due_at):
+            raise CommandError("Задача не найдена.")
+
+    def _set_text(self, identity: Identity, payload: dict) -> None:
+        task_id = self._task_id(payload)
+        text, description = _text_and_description(payload)
+        # The card saves its deadline with the text, under one button; checked
+        # first, so a bad date saves nothing.
+        has_due = "due_at" in payload
+        due_at = self._parse_due(payload.get("due_at", "")) if has_due else None
+
+        if not self.repo.set_text(identity, task_id, text, description):
+            raise CommandError("Задача не найдена.")
+
+        if has_due:
+            self.repo.set_due(identity, task_id, due_at)
+
+    def _set_repeat(self, identity: Identity, payload: dict) -> None:
+        task_id = self._task_id(payload)
+        repeat = _parse_repeat(payload.get("repeat", ""))
+
+        if not self.repo.set_repeat(identity, task_id, repeat):
             raise CommandError("Задача не найдена.")
 
     def _delete(self, identity: Identity, payload: dict) -> None:
@@ -316,11 +412,34 @@ class TodoPlugin(BasePlugin):
 
     # -- what the page draws ------------------------------------------------
 
-    def _view(self, identity: Identity, order: str) -> dict:
+    def _view(self, identity: Identity, order: str, screen: str = "board") -> dict:
         readable = self._readable_as(identity)
         tasks = self.repo.entries(readable, order=order)
 
         now = datetime.now(UTC).replace(tzinfo=None)
+        shown_since = datetime.now() - DONE_ON_BOARD
+        archived = [
+            task
+            for task in tasks
+            if task["status"] == "done"
+            and task["done_at"] is not None
+            and task["done_at"] < shown_since
+        ]
+        archived_ids = {task["id"] for task in archived}
+
+        view = {
+            "title": "Задачи",
+            "order": order,
+            "layout": LAYOUTS[screen],
+            "keep": {"screen": screen, "order": order},
+        }
+
+        if screen == "archive":
+            view["tools"] = [
+                {"action": "view", "label": "← К доске", "params": {"screen": "board"}}
+            ]
+            view["list"] = self._archive(archived)
+            return view
 
         columns = []
         for status in STATUSES:
@@ -330,16 +449,55 @@ class TodoPlugin(BasePlugin):
                     "label": STATUS_LABELS[status],
                     "cards": [
                         self._card(task, status, now, order) for task in tasks
-                        if task["status"] == status
+                        if task["status"] == status and task["id"] not in archived_ids
                     ],
                 }
             )
 
+        view["tools"] = [
+            {
+                "action": "view",
+                "label": f"Архив ({len(archived)}) →",
+                "params": {"screen": "archive"},
+            }
+        ]
+        view["kanban"] = {"columns": columns}
+        view["forms"] = self._forms()
+        return view
+
+    def _archive(self, tasks: list[dict]) -> dict:
+        """Finished tasks older than a week, newest first, to bring back or remove."""
+        tasks = sorted(tasks, key=lambda task: task["done_at"], reverse=True)
+
         return {
-            "title": "Задачи",
-            "order": order,
-            "kanban": {"columns": columns},
-            "forms": self._forms(),
+            "title": "Архив",
+            "empty": "Архив пуст: сюда уходят задачи, сделанные больше недели назад.",
+            "columns": [
+                {"key": "text", "label": "Задача"},
+                {"key": "done_at", "label": "Сделано"},
+            ],
+            "rows": [
+                {
+                    "text": task["text"],
+                    "done_at": task["done_at"].strftime("%d.%m.%Y"),
+                    "actions": [
+                        {
+                            "action": "move",
+                            "label": "Вернуть в работу",
+                            "kind": "ghost",
+                            "params": {"id": str(task["id"]), "status": "doing"},
+                        },
+                        {
+                            "action": "delete",
+                            "label": "Удалить",
+                            "kind": "ghost",
+                            "params": {"id": str(task["id"])},
+                        },
+                    ],
+                }
+                for task in tasks
+            ],
+            "actions": "actions",
         }
 
     def _card(self, task: dict, status: str, now: datetime, order: str) -> dict:
@@ -349,29 +507,30 @@ class TodoPlugin(BasePlugin):
         return {
             "id": task["id"],
             "text": task["text"],
+            "description": task["description"] or "",
             "status": status,
             "priority": task["priority"],
             "priority_label": PRIORITY_LABELS.get(task["priority"]),
             "due_at": _format_due(due) if due else None,
-            "due_iso": due.isoformat() if due else None,
+            # A date field takes the date alone; with the time it shows empty.
+            "due_iso": due.date().isoformat() if due else None,
+            "repeat": task["repeat"] or "",
+            "repeat_label": REPEAT_LABELS.get(task["repeat"]),
             "created_at": task["created_at"].strftime("%d.%m.%Y"),
             "overdue": overdue,
-            "moves": self._forward_move(status),
+            "moves": self._moves(status),
         }
 
-    def _forward_move(self, status: str) -> list[dict]:
-        """The card's arrow: the one step forward, or nothing at the end.
-
-        The server's TRANSITIONS still allow a step back, but the card offers
-        only the forward move, because a board read left-to-right moves a card
-        that way and a backwards step is an edit, not a glance.
-        """
-        target = NEXT_STATUS.get(status)
-
-        if target is None:
-            return []
-
-        return [{"status": target, "label": STATUS_LABELS[target]}]
+    def _moves(self, status: str) -> list[dict]:
+        """The card's arrows: a step back and a step forward, where there is one."""
+        return [
+            {"status": target, "label": STATUS_LABELS[target], "dir": direction}
+            for direction, target in (
+                ("back", PREVIOUS_STATUS[status]),
+                ("forward", NEXT_STATUS[status]),
+            )
+            if target is not None
+        ]
 
     def _forms(self) -> list[dict]:
         return [
@@ -404,6 +563,24 @@ class TodoPlugin(BasePlugin):
                         "type": "date",
                         "placeholder": "ГГГГ-ММ-ДД",
                     },
+                    {
+                        "name": "repeat",
+                        "label": "Повтор",
+                        "type": "select",
+                        "options": [
+                            {"value": "", "label": "Не повторять"},
+                            *(
+                                {"value": key, "label": label}
+                                for key, label in REPEAT_LABELS.items()
+                            ),
+                        ],
+                    },
+                    {
+                        "name": "description",
+                        "label": "Описание",
+                        "type": "text",
+                        "placeholder": "Детали, ссылки",
+                    },
                 ],
             }
         ]
@@ -423,3 +600,51 @@ def _format_due(due_at: datetime) -> str:
     must not shift it by an offset that was never meant to be part of it.
     """
     return due_at.strftime("%d.%m.%Y").strip()
+
+
+def _text_and_description(payload: dict) -> tuple[str, str | None]:
+    """A task's line and its details from the page, checked."""
+    text = payload.get("text", "")
+    description = payload.get("description") or ""
+
+    if not isinstance(text, str) or not isinstance(description, str):
+        raise CommandError("Текст задачи должен быть строкой.")
+
+    text = text.strip()
+    description = description.strip()
+
+    if not text:
+        raise CommandError("Текст задачи не может быть пустым.")
+
+    if len(text) > MAX_TEXT:
+        raise CommandError(f"Текст задачи длиннее {MAX_TEXT} символов.")
+
+    if len(description) > MAX_DESCRIPTION:
+        raise CommandError(f"Описание длиннее {MAX_DESCRIPTION} символов.")
+
+    return text, description or None
+
+
+def _parse_repeat(raw) -> str | None:
+    if not raw:
+        return None
+
+    if raw not in REPEATS:
+        raise CommandError("Некорректный повтор.")
+
+    return raw
+
+
+def _after(moment: datetime, repeat: str) -> datetime:
+    """One period on from ``moment``; a month keeps the day where it can."""
+    if repeat == "daily":
+        return moment + timedelta(days=1)
+
+    if repeat == "weekly":
+        return moment + timedelta(weeks=1)
+
+    year = moment.year + moment.month // 12
+    month = moment.month % 12 + 1
+    day = min(moment.day, calendar.monthrange(year, month)[1])
+
+    return moment.replace(year=year, month=month, day=day)

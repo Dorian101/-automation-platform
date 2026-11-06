@@ -208,7 +208,8 @@ renderer calls `showPicker()` to make the whole field behave the same.
 - Expenses: page at /expenses, web-only; spending by category plus incomes
   (`salary` or `other`), edited in place, categories renamed or archived
 - Applications: page at /applications, web-only, statuses are a state machine
-- Tasks: page at /todo, web-only, a kanban board with deadline notifications
+- Tasks: page at /todo, web-only, a kanban board with deadline notifications,
+  descriptions, repeats and an archive of tasks done over a week ago
 - System: /plugins, /help, /status
 
 ## Statuses as a state machine

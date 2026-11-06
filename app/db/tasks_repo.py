@@ -21,6 +21,9 @@ STATUSES = ("todo", "doing", "done")
 # that would sort unpredictably, so the repository is not asked to store it.
 VALID_PRIORITIES = {1, 2, 3}
 
+# How often a repeating task comes back once it is done.
+REPEATS = ("daily", "weekly", "monthly")
+
 
 def _as_tuple(identity: Identity | Iterable[Identity]) -> tuple[Identity, ...]:
     if isinstance(identity, Identity):
@@ -40,15 +43,32 @@ class TasksRepository:
         priority: int | None = None,
         due_at: datetime | None = None,
         status: str = "todo",
+        description: str | None = None,
+        repeat: str | None = None,
+        done_at: datetime | None = None,
     ) -> None:
+        """Write one task. A task written as done is done now unless told when."""
+        if status == "done" and done_at is None:
+            done_at = datetime.now()
+
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO tasks (user_id, text, priority, due_at, status)
-                    VALUES (%s, %s, %s, %s, %s)
+                    INSERT INTO tasks (user_id, text, priority, due_at, status,
+                                       description, repeat, done_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     """,
-                    (str(identity), text, priority, due_at, status),
+                    (
+                        str(identity),
+                        text,
+                        priority,
+                        due_at,
+                        status,
+                        description,
+                        repeat,
+                        done_at,
+                    ),
                 )
             conn.commit()
 
@@ -82,7 +102,8 @@ class TasksRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     f"""
-                    SELECT id, text, status, priority, due_at, created_at
+                    SELECT id, text, status, priority, due_at, created_at,
+                           description, done_at, repeat, repeated
                     FROM tasks
                     WHERE user_id = ANY(%s){where}
                     ORDER BY {order_by}
@@ -99,6 +120,10 @@ class TasksRepository:
                 "priority": row[3],
                 "due_at": row[4],
                 "created_at": row[5],
+                "description": row[6],
+                "done_at": row[7],
+                "repeat": row[8],
+                "repeated": row[9],
             }
             for row in rows
         ]
@@ -109,10 +134,12 @@ class TasksRepository:
                 cur.execute(
                     """
                     UPDATE tasks
-                    SET status = %s
+                    SET status = %s,
+                        done_at = CASE WHEN %s = 'done'
+                                       THEN CURRENT_TIMESTAMP END
                     WHERE id = %s AND user_id = %s
                     """,
-                    (status, task_id, str(identity)),
+                    (status, status, task_id, str(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()
@@ -154,6 +181,55 @@ class TasksRepository:
             conn.commit()
 
         return changed > 0
+
+    def set_text(
+        self,
+        identity: Identity,
+        task_id: int,
+        text: str,
+        description: str | None,
+    ) -> bool:
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE tasks
+                    SET text = %s, description = %s
+                    WHERE id = %s AND user_id = %s
+                    """,
+                    (text, description, task_id, str(identity)),
+                )
+                changed = cur.rowcount
+            conn.commit()
+
+        return changed > 0
+
+    def set_repeat(
+        self, identity: Identity, task_id: int, repeat: str | None
+    ) -> bool:
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE tasks
+                    SET repeat = %s
+                    WHERE id = %s AND user_id = %s
+                    """,
+                    (repeat, task_id, str(identity)),
+                )
+                changed = cur.rowcount
+            conn.commit()
+
+        return changed > 0
+
+    def mark_repeated(self, task_id: int) -> None:
+        """Record that a done task has made its next one, so it makes no more."""
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE tasks SET repeated = TRUE WHERE id = %s", (task_id,)
+                )
+            conn.commit()
 
     def delete(self, identity: Identity, task_id: int) -> bool:
         with self.database.connect() as conn:

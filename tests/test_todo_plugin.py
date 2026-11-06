@@ -2,6 +2,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from app.core.identity import WEB, Identity
+from app.core.results import CommandError
 from app.plugins.todo import STATUS_LABELS, TodoPlugin
 
 
@@ -42,15 +44,17 @@ class TestView:
 
         assert [c["text"] for c in todo] == ["Высокий", "Без приоритета"]
 
-    async def test_a_card_carries_one_forward_move(self, plugin, web_identity):
+    async def test_a_new_card_only_moves_forward(self, plugin, web_identity):
         plugin.repo.add(web_identity, "Задача")
 
         view = await plugin.page_view(web_identity)
         card = view["kanban"]["columns"][0]["cards"][0]
 
-        assert card["moves"] == [{"status": "doing", "label": "В работе"}]
+        assert card["moves"] == [
+            {"status": "doing", "label": "В работе", "dir": "forward"}
+        ]
 
-    async def test_a_done_card_has_no_forward_move(self, plugin, web_identity):
+    async def test_a_done_card_only_moves_back(self, plugin, web_identity):
         plugin.repo.add(web_identity, "Задача")
         task_id = plugin.repo.entries(web_identity)[0]["id"]
         plugin.repo.set_status(web_identity, task_id, "done")
@@ -58,7 +62,9 @@ class TestView:
         view = await plugin.page_view(web_identity)
         done = view["kanban"]["columns"][2]["cards"][0]
 
-        assert done["moves"] == []
+        assert done["moves"] == [
+            {"status": "doing", "label": "В работе", "dir": "back"}
+        ]
 
     async def test_tasks_land_in_the_right_column(self, plugin, web_identity):
         plugin.repo.add(web_identity, "Сделать")
@@ -156,3 +162,147 @@ class TestWorker:
         # A second pass finds nothing: the task is marked as notified.
         await plugin.process_due()
         assert len(sent.received) == 1
+
+
+
+def _cards(view, column: int) -> list[dict]:
+    return view["kanban"]["columns"][column]["cards"]
+
+
+class TestEditing:
+    async def test_text_and_description(self, plugin, web_identity):
+        plugin.repo.add(web_identity, "Купть хлеб")
+        task_id = str(plugin.repo.entries(web_identity)[0]["id"])
+
+        view = await plugin.page_action(
+            web_identity,
+            "text",
+            {"id": task_id, "text": "Купить хлеб", "description": "Бородинский"},
+        )
+
+        card = _cards(view, 0)[0]
+        assert (card["text"], card["description"]) == ("Купить хлеб", "Бородинский")
+
+    async def test_empty_text_is_refused(self, plugin, web_identity):
+        plugin.repo.add(web_identity, "Задача")
+        task_id = str(plugin.repo.entries(web_identity)[0]["id"])
+
+        with pytest.raises(CommandError, match="пустым"):
+            await plugin.page_action(web_identity, "text", {"id": task_id, "text": " "})
+
+    async def test_another_accounts_task_is_not_changed(self, plugin, web_identity):
+        plugin.repo.add(web_identity, "Моя")
+        task_id = str(plugin.repo.entries(web_identity)[0]["id"])
+        other = Identity(kind=WEB, id="someone-else")
+
+        with pytest.raises(CommandError, match="не найдена"):
+            await plugin.page_action(other, "text", {"id": task_id, "text": "Чужая"})
+
+        assert plugin.repo.entries(web_identity)[0]["text"] == "Моя"
+
+
+class TestArchive:
+    async def test_a_week_old_done_task_leaves_the_board(self, plugin, web_identity):
+        plugin.repo.add(
+            web_identity, "Давно", status="done",
+            done_at=datetime.now() - timedelta(days=8),
+        )
+        plugin.repo.add(web_identity, "Вчера", status="done")
+
+        board = await plugin.page_view(web_identity)
+        archive = await plugin.page_action(web_identity, "view", {"screen": "archive"})
+
+        assert [card["text"] for card in _cards(board, 2)] == ["Вчера"]
+        assert board["tools"][0]["label"] == "Архив (1) →"
+        assert [row["text"] for row in archive["list"]["rows"]] == ["Давно"]
+
+    async def test_bringing_back_from_the_archive(self, plugin, web_identity):
+        plugin.repo.add(
+            web_identity, "Давно", status="done",
+            done_at=datetime.now() - timedelta(days=8),
+        )
+        archive = await plugin.page_action(web_identity, "view", {"screen": "archive"})
+        back = archive["list"]["rows"][0]["actions"][0]["params"]
+
+        view = await plugin.page_action(
+            web_identity, "move", {**archive["keep"], **back}
+        )
+
+        assert view["list"]["rows"] == []
+        assert plugin.repo.entries(web_identity)[0]["done_at"] is None
+
+
+class TestRepeat:
+    async def _finish(self, plugin, identity, task_id):
+        await plugin.page_action(identity, "move", {"id": task_id, "status": "doing"})
+        await plugin.page_action(identity, "move", {"id": task_id, "status": "done"})
+
+    async def test_finishing_makes_the_next_one_once(self, plugin, web_identity):
+        due = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        await plugin.page_action(
+            web_identity,
+            "add",
+            {"text": "Отчёт", "repeat": "weekly", "due_at": due.date().isoformat()},
+        )
+        task_id = str(plugin.repo.entries(web_identity)[0]["id"])
+
+        await self._finish(plugin, web_identity, task_id)
+        await plugin.page_action(
+            web_identity, "move", {"id": task_id, "status": "doing"}
+        )
+        await plugin.page_action(
+            web_identity, "move", {"id": task_id, "status": "done"}
+        )
+
+        tasks = plugin.repo.entries(web_identity)
+        waiting = [task for task in tasks if task["status"] == "todo"]
+        assert len(waiting) == 1
+        assert waiting[0]["due_at"] == due + timedelta(weeks=1)
+        assert waiting[0]["repeat"] == "weekly"
+
+    async def test_a_late_finish_is_not_due_in_the_past(self, plugin, web_identity):
+        long_ago = datetime.now() - timedelta(days=20)
+        plugin.repo.add(web_identity, "Полив", due_at=long_ago)
+        task_id = str(plugin.repo.entries(web_identity)[0]["id"])
+        await plugin.page_action(
+            web_identity, "repeat", {"id": task_id, "repeat": "daily"}
+        )
+
+        await self._finish(plugin, web_identity, task_id)
+
+        [nxt] = [t for t in plugin.repo.entries(web_identity) if t["status"] == "todo"]
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        assert today <= nxt["due_at"] < today + timedelta(days=1)
+
+    def test_a_month_keeps_the_day_where_it_can(self):
+        from app.plugins.todo import _after
+
+        assert _after(datetime(2026, 1, 31), "monthly") == datetime(2026, 2, 28)
+        assert _after(datetime(2026, 12, 10), "monthly") == datetime(2027, 1, 10)
+
+    async def test_an_unknown_repeat_is_refused(self, plugin, web_identity):
+        with pytest.raises(CommandError, match="повтор"):
+            await plugin.page_action(
+                web_identity, "add", {"text": "x", "repeat": "yearly"}
+            )
+
+
+async def test_the_deadline_reaches_the_date_field_as_a_date(plugin, web_identity):
+    """With the time attached the browser's date field shows nothing."""
+    plugin.repo.add(web_identity, "Задача", due_at=datetime(2026, 11, 8, 21, 30))
+
+    view = await plugin.page_view(web_identity)
+
+    assert _cards(view, 0)[0]["due_iso"] == "2026-11-08"
+
+
+
+async def test_one_save_keeps_the_text_and_the_deadline(plugin, web_identity):
+    plugin.repo.add(web_identity, "Задача")
+    task_id = str(plugin.repo.entries(web_identity)[0]["id"])
+
+    view = await plugin.page_action(
+        web_identity, "text", {"id": task_id, "text": "Задача", "due_at": "2026-12-01"}
+    )
+
+    assert _cards(view, 0)[0]["due_iso"] == "2026-12-01"

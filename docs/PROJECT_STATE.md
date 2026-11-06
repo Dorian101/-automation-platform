@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.76.0
+v0.77.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -359,6 +359,12 @@ Implemented:
 * the demonstration seeds an invented board — tasks across all three columns,
   mixed priorities and one overdue deadline — so a visitor sees the kanban
   working rather than an empty board
+* since v0.77.0: the text and a description are edited in the opened card; a
+  card has a step back as well as forward; finished tasks stay on the board
+  for a week (`done_at`) and then move to an archive screen, where they can be
+  brought back or deleted; a task can repeat daily, weekly or monthly, and
+  finishing it adds the next one once (`repeated`), due one period on and
+  never in the past
 
 ⸻
 

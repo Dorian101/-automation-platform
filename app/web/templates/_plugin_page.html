@@ -95,7 +95,7 @@ __STYLES__
   .formrow .btn { align-self: flex-end; }
   .field { display: flex; flex-direction: column; gap: 0.25rem; }
   .field label { font-size: 0.78rem; color: var(--muted); }
-  .field input, .field select {
+  .field input, .field select, .field textarea {
     background: var(--bg);
     color: var(--text);
     border: 1px solid var(--border);
@@ -104,7 +104,7 @@ __STYLES__
     font: inherit;
     font-size: 0.9rem;
   }
-  .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
   .btn {
     background: var(--accent);
     color: #fff;
@@ -120,6 +120,9 @@ __STYLES__
   }
   .btn:disabled { opacity: 0.5; cursor: default; }
   .tools { margin: 0 0 1.5rem; }
+  .textedit textarea, .textedit input { width: 100%; box-sizing: border-box; }
+  .textedit textarea { resize: vertical; }
+  .textedit { margin-bottom: 0.6rem; }
   .btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); }
   .btn.ghost:hover { border-color: var(--accent); color: var(--text); }
   table.data { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
@@ -758,14 +761,13 @@ __MENU_STYLES__
     } else {
       node.appendChild(el('div', 'due', 'Без срока'));
     }
+    if (card.repeat_label) node.appendChild(el('div', 'due', '↻ ' + card.repeat_label));
 
-    // The move and delete controls, visible on the card itself. The move is
-    // a single bare arrow advancing left-to-right; the target status is the
-    // next column, so a backwards step is not offered here.
+    // The move and delete controls, visible on the card itself: a step back
+    // and a step forward, each to the neighbouring column.
     const acts = el('div', 'acts');
-    if (card.moves && card.moves.length) {
-      const target = card.moves[0];
-      const b = el('button', '', '→');
+    for (const target of card.moves || []) {
+      const b = el('button', '', target.dir === 'back' ? '←' : '→');
       b.title = target.label;
       b.addEventListener('click', (ev) => {
         ev.stopPropagation();
@@ -787,19 +789,66 @@ __MENU_STYLES__
     // card, or interacting with a field — a date picker especially — would
     // collapse the card mid-edit.
     const detail = el('div', 'detail');
+    const text = document.createElement('input');
+    text.type = 'text';
+    text.value = card.text;
+    const description = document.createElement('textarea');
+    description.rows = 3;
+    description.placeholder = 'Детали, ссылки';
+    description.value = card.description || '';
+    const due = document.createElement('input');
+    due.type = 'date';
+    due.value = card.due_iso || '';
+    // One button for the typed fields; the selects save as they change.
+    const save = el('button', '', 'Сохранить');
+    save.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      // Saved means done with the card: the redraw shows it folded.
+      openCards.delete(card.id);
+      send('text', {
+        id: card.id, text: text.value, description: description.value, due_at: due.value,
+      }, save);
+    });
+    const typed = el('div', 'textedit');
+    typed.appendChild(detailRow('Текст', text));
+    typed.appendChild(detailRow('Описание', description));
+    typed.appendChild(detailRow('Срок', due));
+    typed.appendChild(save);
+    detail.appendChild(typed);
     detail.appendChild(detailRow('Приоритет', priorityField(card)));
-    detail.appendChild(detailRow('Срок', dueField(card)));
+    detail.appendChild(detailRow('Повтор', repeatField(card)));
     detail.appendChild(
       detailRow('Создано', null, card.created_at),
     );
     detail.addEventListener('click', (ev) => ev.stopPropagation());
     node.appendChild(detail);
 
+    // Kept open across a redraw, so saving a field does not fold the card.
+    if (openCards.has(card.id)) node.classList.add('expanded');
     node.addEventListener('click', () => {
       node.classList.toggle('expanded');
+      if (node.classList.contains('expanded')) openCards.add(card.id);
+      else openCards.delete(card.id);
     });
 
     return node;
+  }
+
+  const openCards = new Set();
+
+  function repeatField(card) {
+    const select = document.createElement('select');
+    for (const [value, label] of [['', 'Не повторять'], ['daily', 'Каждый день'], ['weekly', 'Каждую неделю'], ['monthly', 'Каждый месяц']]) {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = label;
+      select.appendChild(opt);
+    }
+    select.value = card.repeat || '';
+    select.addEventListener('change', () => {
+      send('repeat', { id: card.id, repeat: select.value }, select);
+    });
+    return select;
   }
 
   // A labelled inline field. `field` is null when the value is read-only, in
@@ -840,25 +889,6 @@ __MENU_STYLES__
       send('priority', { id: card.id, priority: select.value }, select);
     });
     return select;
-  }
-
-  // The deadline pick inside an expanded card. The input carries the ISO date
-  // (YYYY-MM-DD) so the browser's date picker understands it; the card shows a
-  // plain dd.mm.yyyy. Empty clears the deadline.
-  function dueField(card) {
-    const input = document.createElement('input');
-    input.type = 'date';
-    input.value = card.due_iso || '';
-    const apply = el('button', '', 'ОК');
-    apply.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      send('due', { id: card.id, due_at: input.value }, apply);
-    });
-    const row = el('div', 'fieldrow');
-    input.style.flex = '1';
-    row.appendChild(input);
-    row.appendChild(apply);
-    return row;
   }
 
   function drawForms() {
@@ -1100,12 +1130,13 @@ __MENU_STYLES__
   // A date field opens its calendar on any click, not only on the tiny icon
   // the browser draws. Chrome on some Windows setups only opens the picker on
   // that icon, and a field a user clicks the text of should behave the same.
+  // Caught on the way down: an opened task card stops clicks on the way up.
   document.addEventListener('click', (ev) => {
     const t = ev.target;
     if (t && t.tagName === 'INPUT' && t.type === 'date') {
       try { t.showPicker(); } catch (e) { /* not a picker-bearing field */ }
     }
-  });
+  }, true);
 
   draw();
 })();

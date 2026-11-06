@@ -214,3 +214,16 @@ class TestIncomesSeed:
         from app.web.demo import DEMO_TABLES
 
         assert "incomes" in DEMO_TABLES
+
+
+class TestTasksSeedFeatures:
+    async def test_every_new_feature_has_an_example(self, todo, visitor):
+        await todo.seed_demo(visitor)
+
+        board = await todo.page_view(visitor)
+        cards = [c for col in board["kanban"]["columns"] for c in col["cards"]]
+        archive = await todo.page_action(visitor, "view", {"screen": "archive"})
+
+        assert any(card["description"] for card in cards)
+        assert any(card["repeat"] for card in cards)
+        assert archive["list"]["rows"]

@@ -2424,3 +2424,27 @@ errors were only in the journal, which the service user cannot read by design.
 The Telegram "/" menu is set once at start, so it still lists a plugin that
 was switched off until the next restart; the command itself answers that it
 is off. Announcements reach linked web accounts only.
+
+## 2026-11-06
+
+### Decision
+Offer a step back on a task card, and move week-old finished tasks to an
+archive screen
+
+### Reason
+The card used to offer only the forward arrow, on the view that a backwards
+step is an edit rather than a glance. In use it left a task finished by
+mistake with no way back short of deleting it. The owner asked for the back
+step. The "done" column grew without end, which is what the archive answers.
+
+### How it is done
+
+- A card carries a back and a forward move, each within `TRANSITIONS`.
+- `done_at` is set on reaching `done` and cleared on leaving it. Tasks done
+  before the column existed take their creation time.
+- A repeating task adds its next copy once, guarded by `repeated`, so moving
+  it out of `done` and back does not make a second.
+
+### Result
+The board shows a week of finished work; older tasks are one button away.
+
