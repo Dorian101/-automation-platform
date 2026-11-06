@@ -172,10 +172,12 @@ class TasksRepository:
                 cur.execute(
                     """
                     UPDATE tasks
-                    SET due_at = %s
+                    SET due_at = %s,
+                        notified_at = CASE WHEN due_at IS DISTINCT FROM %s
+                                           THEN NULL ELSE notified_at END
                     WHERE id = %s AND user_id = %s
                     """,
-                    (due_at, task_id, str(identity)),
+                    (due_at, due_at, task_id, str(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()

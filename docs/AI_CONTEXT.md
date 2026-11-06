@@ -210,6 +210,7 @@ renderer calls `showPicker()` to make the whole field behave the same.
 - Applications: page at /applications, web-only, statuses are a state machine
 - Tasks: page at /todo, web-only, a kanban board with deadline notifications,
   descriptions, repeats and an archive of tasks done over a week ago
+  (a changed deadline clears `notified_at`, so it is reminded again)
 - System: /plugins, /help, /status
 
 ## Statuses as a state machine

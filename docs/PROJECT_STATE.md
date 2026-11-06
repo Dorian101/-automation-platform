@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.77.0
+v0.77.1
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -365,6 +365,8 @@ Implemented:
   brought back or deleted; a task can repeat daily, weekly or monthly, and
   finishing it adds the next one once (`repeated`), due one period on and
   never in the past
+* since v0.77.1 a changed deadline is reminded again: moving `due_at` clears
+  `notified_at`; saving the same date does not
 
 ⸻
 

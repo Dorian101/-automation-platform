@@ -163,6 +163,25 @@ class TestWorker:
         await plugin.process_due()
         assert len(sent.received) == 1
 
+    async def test_a_moved_deadline_is_reminded_again(self, plugin):
+        from app.core.identity import telegram
+
+        sent = RecordingChannel("telegram")
+        plugin._notifier._channels["telegram"] = sent
+        owner = telegram(4242)
+        due = (datetime.now() + timedelta(hours=1)).replace(microsecond=0)
+        plugin.repo.add(owner, "Напомнить", due_at=due)
+        task_id = plugin.repo.entries(owner)[0]["id"]
+        await plugin.process_due()
+
+        plugin.repo.set_due(owner, task_id, due)
+        await plugin.process_due()
+        assert len(sent.received) == 1
+
+        plugin.repo.set_due(owner, task_id, due + timedelta(hours=2))
+        await plugin.process_due()
+        assert len(sent.received) == 2
+
 
 
 def _cards(view, column: int) -> list[dict]:

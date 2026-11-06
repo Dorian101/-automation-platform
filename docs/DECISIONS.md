@@ -2448,3 +2448,33 @@ step. The "done" column grew without end, which is what the archive answers.
 ### Result
 The board shows a week of finished work; older tasks are one button away.
 
+
+## 2026-11-06
+
+### Decision
+Pick the version number by what changed for the user
+
+### Reason
+Versions were raised by habit, a patch for a fix and a minor for a feature,
+with nothing written down to settle a mixed or doubtful case.
+
+### How it is done
+
+- Patch (`0.77.1`): nothing new for the user. A bug fix, data included; a
+  small change of look or wording; docs, dependencies, CI, deploy scripts or
+  tests only; no migration, or one that only repairs data.
+- Minor (`0.78.0`): something new or a changed behaviour. A feature, page,
+  action, command, setting or plugin; a migration that adds a table or a
+  column; a changed public contract (route, plugin interface, configuration
+  key). While the version is 0.x a breaking change is a minor too.
+- A push holding both takes the larger step.
+- `1.0.0` is a promise of stability rather than an amount of work, and after
+  it a breaking change of a contract is `2.0.0`. It comes when all of these
+  hold: a month of the owner's real spending and tasks with no data lost; a
+  safe deploy (a post-deploy check of `/health` and the plugin scenarios,
+  rollback by one command, a tested restore from backup); an uptime monitor
+  that tells the owner the site is down; the plugin interface, routes and
+  configuration keys described and frozen; the public pages' copy finished.
+
+### Result
+The release's version step follows this rule.
