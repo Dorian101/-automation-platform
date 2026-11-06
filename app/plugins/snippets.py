@@ -184,6 +184,8 @@ class SnippetsPlugin(BasePlugin):
 
     async def page_action(self, identity: Identity, action: str, payload: dict) -> dict:
         panel = None
+        clip = None
+        notice = None
         readable = self._readable_as(identity)
 
         if action == "save":
@@ -191,22 +193,37 @@ class SnippetsPlugin(BasePlugin):
             self.repo.add(
                 identity, _title(payload.get("title"), body), body, _source(identity)
             )
-        elif action == "open":
+        elif action in ("open", "clip"):
             snippet = self.repo.get(readable, _id(payload))
             if snippet is None:
                 raise CommandError("Сниппет не найден.")
-            panel = {
-                "title": snippet["title"],
-                "text": snippet["body"],
-                "copy": payload.get("copy") == "1",
-            }
+            if action == "clip":
+                clip = snippet["body"]
+            else:
+                panel = _panel(snippet)
+        elif action == "update":
+            snippet_id = _id(payload)
+            body = _body(payload.get("body"))
+            title = _title(payload.get("title"), body)
+            if not self.repo.update(readable, snippet_id, title, body):
+                raise CommandError("Сниппет не найден.")
+            panel = _panel({"id": snippet_id, "title": title, "body": body})
+            notice = "Изменения сохранены."
         elif action == "delete":
             if not self.repo.delete(readable, _id(payload)):
                 raise CommandError("Сниппет не найден.")
         elif action != "view":
             raise CommandError(f"Неизвестное действие: {action}")
 
-        return self._view(identity, panel)
+        view = self._view(identity, panel)
+
+        if clip is not None:
+            view["clip"] = clip
+
+        if notice:
+            view["notice"] = notice
+
+        return view
 
     def _view(self, identity: Identity, panel: dict | None) -> dict:
         view = {
@@ -255,10 +272,11 @@ class SnippetsPlugin(BasePlugin):
                     "source": SOURCES.get(entry["source"], entry["source"]),
                     "actions": [
                         {
-                            "action": "open",
+                            "action": "clip",
                             "label": "Скопировать",
                             "kind": "ghost",
-                            "params": {**params, "copy": "1"},
+                            "params": params,
+                            "copy": True,
                         },
                         {
                             "action": "open",
@@ -295,6 +313,14 @@ class SnippetsPlugin(BasePlugin):
             return identity
 
         return self._persons.identities(identity)
+
+
+def _panel(snippet: dict) -> dict:
+    return {
+        "title": snippet["title"],
+        "text": snippet["body"],
+        "save": {"action": "update", "params": {"id": str(snippet["id"])}},
+    }
 
 
 def _id(payload: dict) -> int:

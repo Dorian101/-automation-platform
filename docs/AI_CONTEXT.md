@@ -185,6 +185,11 @@ entity, never through a parse mode) or `file=(name, bytes)` (sent as a
 document). A document sent to the bot goes to the one enabled plugin with
 `accepts_files`, after the size in `max_file_bytes` is checked.
 
+A row action with `copy: true` is not a redraw: the page asks the plugin for
+the text (`view.clip`) and writes it to the device's clipboard. A `panel` is an
+editable title and text with an optional `save` action; `notice` is a line
+shown after a redraw.
+
 Optional parts of a description: `layout` (the order of sections), `tools`
 (page-level buttons), `keep` (values the page sends back with every action,
 such as which screen is open), `list` as an array of tables, a table's `tools`

@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.79.0
+v0.80.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -279,6 +279,9 @@ Implemented:
   (entities, no markdown) or, past 3,500 characters, as a file
 * the newest 100 per account; a linked pair shares the list
 * /copy and /paste are gone; the `clipboard` table stays in the database
+* since v0.80.0 "Скопировать" in the list copies straight away and shows a
+  check mark on the button; "Открыть" opens the snippet for editing, with
+  its title and text saved by one button
 
 ⸻
 

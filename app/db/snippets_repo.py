@@ -87,6 +87,25 @@ class SnippetsRepository:
 
         return {"id": row[0], "title": row[1], "body": row[2]}
 
+    def update(
+        self,
+        identity: Identity | Iterable[Identity],
+        snippet_id: int,
+        title: str,
+        body: str,
+    ) -> bool:
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE snippets SET title = %s, body = %s "
+                    "WHERE id = %s AND user_id = ANY(%s)",
+                    (title, body, snippet_id, _ids(identity)),
+                )
+                changed = cur.rowcount
+            conn.commit()
+
+        return changed > 0
+
     def delete(self, identity: Identity | Iterable[Identity], snippet_id: int) -> bool:
         with self.database.connect() as conn:
             with conn.cursor() as cur:

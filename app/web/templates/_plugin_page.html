@@ -130,6 +130,37 @@ __STYLES__
     width: 100%;
     box-sizing: border-box;
   }
+  .viewer-title {
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 0.5rem;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.45rem 0.6rem;
+    font: inherit;
+  }
+  .btn .check {
+    width: 1em;
+    height: 1em;
+    margin-right: 0.25em;
+    vertical-align: -0.15em;
+    fill: none;
+    stroke: var(--ok);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 16;
+    animation: check-draw 0.3s ease-out both;
+  }
+  @keyframes check-draw {
+    from { stroke-dashoffset: 16; }
+    to { stroke-dashoffset: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .btn .check { animation: none; }
+  }
   textarea.viewer {
     background: var(--bg);
     color: var(--text);
@@ -641,7 +672,8 @@ __MENU_STYLES__
             action.label,
           );
           button.addEventListener('click', () => {
-            send(action.action, action.params || {}, button);
+            if (action.copy) copyFromServer(action, button);
+            else send(action.action, action.params || {}, button);
           });
           cell.appendChild(button);
         }
@@ -687,43 +719,112 @@ __MENU_STYLES__
   }
 
   function drawPanel(panel) {
-    root.appendChild(el('h2', null, panel.title));
+    root.appendChild(el('h2', null, 'Сниппет'));
+    const title = document.createElement('input');
+    title.type = 'text';
+    title.className = 'viewer-title';
+    title.value = panel.title;
     const area = document.createElement('textarea');
     area.className = 'mono viewer';
-    area.readOnly = true;
     area.rows = 18;
+    area.spellcheck = false;
     area.value = panel.text;
+    root.appendChild(title);
     root.appendChild(area);
     const bar = el('div', 'tools');
-    const copy = el('button', 'btn', 'Скопировать');
-    copy.addEventListener('click', () => copyText(panel.text, area));
+    if (panel.save) {
+      const save = el('button', 'btn', 'Сохранить изменения');
+      save.addEventListener('click', () => {
+        send(panel.save.action, {
+          ...(panel.save.params || {}), title: title.value, body: area.value,
+        }, save);
+      });
+      bar.appendChild(save);
+    }
+    const copy = el('button', 'btn ghost', 'Скопировать');
+    copy.addEventListener('click', () => copyNow(area.value, copy));
     const close = el('button', 'btn ghost', 'Закрыть');
     close.addEventListener('click', () => send('view', {}, close));
     bar.appendChild(copy);
     bar.appendChild(close);
     root.appendChild(bar);
-    if (panel.copy) copyText(panel.text, area);
   }
 
-  function copyText(text, area) {
-    const bySelection = () => {
-      area.focus();
-      area.select();
-      let done = false;
-      try { done = document.execCommand('copy'); } catch (e) { done = false; }
-      showMessage(
-        done ? 'Скопировано.' : 'Текст выделен: нажмите Ctrl+C или Cmd+C.',
-        false,
-      );
-    };
+  const CHECK =
+    '<svg class="check" viewBox="0 0 16 16" aria-hidden="true">' +
+    '<path d="M3 8.5 6.5 12 13 4.5"/></svg>';
+
+  function confirmCopy(button, succeeded) {
+    const label = button.textContent;
+    button.innerHTML = succeeded ? CHECK : '';
+    button.append(succeeded ? 'Скопировано' : 'Не удалось');
+    button.disabled = true;
+    setTimeout(() => {
+      button.textContent = label;
+      button.disabled = false;
+    }, 1500);
+  }
+
+  function copyBySelection(text) {
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    let done = false;
+    try { done = document.execCommand('copy'); } catch (e) { done = false; }
+    area.remove();
+    return done;
+  }
+
+  function copyNow(text, button) {
     if (!navigator.clipboard) {
-      bySelection();
+      confirmCopy(button, copyBySelection(text));
       return;
     }
     navigator.clipboard.writeText(text).then(
-      () => showMessage('Скопировано.', false),
-      bySelection,
+      () => confirmCopy(button, true),
+      () => confirmCopy(button, copyBySelection(text)),
     );
+  }
+
+  async function fetchClip(action) {
+    const response = await fetch(ACTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        page: PAGE_PATH,
+        action: action.action,
+        payload: { ...(view.keep || {}), ...(action.params || {}) },
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok || typeof data.view.clip !== 'string') {
+      throw new Error(data.error || 'Ошибка');
+    }
+    return data.view.clip;
+  }
+
+  async function copyFromServer(action, button) {
+    const text = fetchClip(action);
+    text.catch(() => {});
+    try {
+      if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+        const blob = text.then((value) => new Blob([value], { type: 'text/plain' }));
+        await navigator.clipboard.write([new ClipboardItem({ 'text/plain': blob })]);
+      } else {
+        await navigator.clipboard.writeText(await text);
+      }
+      confirmCopy(button, true);
+    } catch (e) {
+      try {
+        confirmCopy(button, copyBySelection(await text));
+      } catch (missing) {
+        confirmCopy(button, false);
+      }
+    }
   }
 
   // Page-level buttons, such as a switch between a plugin's screens.
@@ -1139,6 +1240,7 @@ __MENU_STYLES__
       view = data.view;
       if (payload.month) view.month.value = payload.month;
       redraw(action);
+      if (view.notice) showMessage(view.notice, false);
     } catch (err) {
       showMessage('Не удалось связаться с сервером', false);
     } finally {

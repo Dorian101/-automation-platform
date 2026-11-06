@@ -198,3 +198,48 @@ class TestTransport:
             0,
             len(text) + 1,
         )
+
+
+class TestCopyAndEdit:
+    async def test_copying_from_the_list_opens_nothing(self, plugin, web_identity):
+        view = await _save(plugin, web_identity, SQL)
+        copy = view["list"]["rows"][0]["actions"][0]
+
+        result = await plugin.page_action(web_identity, copy["action"], copy["params"])
+
+        assert copy["copy"] is True
+        assert result["clip"] == SQL
+        assert "panel" not in result
+
+    async def test_an_opened_snippet_is_edited_in_place(self, plugin, web_identity):
+        view = await _save(plugin, web_identity, "old text")
+        opened = await _open(plugin, web_identity, view)
+        save = opened["panel"]["save"]
+
+        result = await plugin.page_action(
+            web_identity,
+            save["action"],
+            {**save["params"], "title": "Новое", "body": SQL},
+        )
+
+        assert result["notice"] == "Изменения сохранены."
+        assert result["panel"]["text"] == SQL
+        assert [row["title"] for row in result["list"]["rows"]] == ["Новое"]
+
+    async def test_an_edit_is_checked_like_a_new_one(self, plugin, web_identity):
+        view = await _save(plugin, web_identity, "text")
+        save = (await _open(plugin, web_identity, view))["panel"]["save"]
+
+        with pytest.raises(CommandError, match="нулевой"):
+            await plugin.page_action(
+                web_identity, save["action"], {**save["params"], "body": "a\x00"}
+            )
+
+    async def test_another_account_cannot_edit(self, plugin, web_identity):
+        view = await _save(plugin, web_identity, "mine")
+        save = (await _open(plugin, web_identity, view))["panel"]["save"]
+
+        with pytest.raises(CommandError, match="не найден"):
+            await plugin.page_action(
+                OTHER, save["action"], {**save["params"], "body": "theirs"}
+            )
