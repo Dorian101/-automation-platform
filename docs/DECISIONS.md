@@ -2553,3 +2553,33 @@ such episodes and no other errors.
 ### Result
 The list shows what needs a look: an outage that does not end by itself.
 
+## 2026-11-07
+
+### Decision
+Install security fixes without waiting for the owner, and speak only when
+that fails
+
+### Reason
+The owner put security updates first, given reports of models finding holes
+in the Linux kernel and common software. The host already installed Ubuntu's
+security updates daily, but a new kernel waited for a reboot nobody made,
+Livepatch was off and Caddy, from its own repository, was two releases
+behind. Python dependencies were audited only on a push.
+
+### How it is done
+
+- Livepatch through a free Ubuntu Pro subscription patches the kernel without
+  a reboot; an automatic reboot at 04:00 Moscow time covers what it cannot.
+- Caddy's repository joins the automatic updates.
+- Once a day is enough, by the owner's choice; the check runs after it.
+- A daily check writes to the administrators only on a failed run, errors in
+  its log, security updates left pending, a reboot waiting over a day or
+  Livepatch not enabled. No message on a normal day: the owner wants no
+  digests.
+- CI audits the locked dependencies every day, and Dependabot opens security
+  pull requests as soon as an advisory appears.
+
+### Result
+A fix reaches the host within a day, the kernel within hours through
+Livepatch, and silence means it worked.
+

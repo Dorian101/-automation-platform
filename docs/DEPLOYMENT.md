@@ -157,6 +157,100 @@ systemctl start automation-platform-ssh-digest.service
 journalctl -u automation-platform-ssh-digest.service -n 5 --no-pager
 ```
 
+### Security updates
+
+Ubuntu's `unattended-upgrades` installs security updates once a day, PostgreSQL
+and OpenSSH included. Four additions, all as root:
+
+1. **Livepatch** fixes the running kernel without a reboot. The Pro client is
+   not in the provider's image.
+
+   ```bash
+   apt-get update && apt-get install -y ubuntu-pro-client
+   pro attach <token>
+   pro enable livepatch
+   pro status
+   canonical-livepatch status --verbose
+   ```
+
+   `pro status` must show `livepatch enabled`; `canonical-livepatch status`
+   must name the running kernel as supported.
+
+2. **A reboot when one is needed**, at 04:00 Moscow time (the host runs in
+   UTC). It happens only on nights that leave `/var/run/reboot-required`;
+   the app, Caddy, PostgreSQL and fail2ban are enabled and come back by
+   themselves.
+
+   ```bash
+   cat > /etc/apt/apt.conf.d/52automation-reboot <<'CONF'
+   Unattended-Upgrade::Automatic-Reboot "true";
+   Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
+   Unattended-Upgrade::Automatic-Reboot-Time "01:00";
+   CONF
+   unattended-upgrade --dry-run --debug 2>&1 | grep -i "reboot"
+   ```
+
+3. **Caddy** comes from its own repository, which `unattended-upgrades` skips
+   unless told otherwise.
+
+   ```bash
+   cat > /etc/apt/apt.conf.d/53automation-caddy <<'CONF'
+   Unattended-Upgrade::Origins-Pattern {
+           "origin=cloudsmith/caddy/stable,archive=any-version";
+   };
+   CONF
+   unattended-upgrade --dry-run --debug 2>&1 | grep -i "caddy"
+   apt-get install -y -o Dpkg::Options::="--force-confold" caddy
+   caddy version && systemctl is-active caddy
+   ```
+
+4. **A message when something is wrong**, and silence otherwise.
+   `scripts/update-check.sh` looks at the last automatic run, its log for the
+   day, security updates still pending, a reboot waiting over a day and
+   Livepatch, and writes to the administrators only if one of them is off.
+   Root runs it, so it is copied out of the checkout like the SSH digest.
+
+   ```bash
+   install -o root -g root -m 0755 /opt/automation-platform/scripts/update-check.sh \
+     /usr/local/sbin/automation-platform-update-check
+   /usr/local/sbin/automation-platform-update-check --print
+   ```
+
+   `/etc/systemd/system/automation-platform-update-check.service`:
+
+   ```ini
+   [Unit]
+   Description=Automation Platform security update check
+
+   [Service]
+   Type=oneshot
+   ExecStart=/usr/local/sbin/automation-platform-update-check
+   ```
+
+   `/etc/systemd/system/automation-platform-update-check.timer`:
+
+   ```ini
+   [Unit]
+   Description=Automation Platform security update check, daily
+
+   [Timer]
+   OnCalendar=*-*-* 09:00 UTC
+   Persistent=true
+
+   [Install]
+   WantedBy=timers.target
+   ```
+
+   ```bash
+   systemctl daemon-reload && systemctl enable --now automation-platform-update-check.timer
+   systemctl list-timers automation-platform-update-check.timer --no-pager
+   ```
+
+Python dependencies are audited every day at 04:00 UTC by
+`.github/workflows/audit.yml` (GitHub mails the owner when it fails), and
+Dependabot security updates open a pull request as soon as an advisory is
+published.
+
 ## Install
 
 ```bash

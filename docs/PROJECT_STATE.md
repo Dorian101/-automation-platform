@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.80.1
+v0.80.2
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -734,6 +734,11 @@ deployment that never sets it records everything as before.
 
 ## Current limitations
 
+* Since v0.80.2 security updates are watched: a daily pip-audit in CI,
+  Dependabot security updates, and on the host Livepatch, a reboot at 04:00
+  Moscow time when one is needed, Caddy in the automatic updates and a daily
+  check that writes to the administrators only when something is off. The
+  host part is set up by hand as root; see DEPLOYMENT.md, "Security updates".
 * Since v0.80.1 `/admin/errors` leaves out Telegram polling failures that
   recover within five minutes; an outage longer than that is stored once.
   The service journal still has every attempt.

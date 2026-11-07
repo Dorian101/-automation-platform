@@ -190,6 +190,10 @@ the text (`view.clip`) and writes it to the device's clipboard. A `panel` is an
 editable title and text with an optional `save` action; `notice` is a line
 shown after a redraw.
 
+Root-run host scripts (`scripts/ssh-digest.sh`, `scripts/update-check.sh`)
+are copied to `/usr/local/sbin` by hand, never run from the checkout, and send
+through `app.manage notify-admins` as `automation`.
+
 Optional parts of a description: `layout` (the order of sections), `tools`
 (page-level buttons), `keep` (values the page sends back with every action,
 such as which screen is open), `list` as an array of tables, a table's `tools`

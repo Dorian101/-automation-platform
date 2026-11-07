@@ -1,0 +1,27 @@
+name: Audit
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Fetch main
+        run: |
+          git init --quiet .
+          git fetch --quiet --depth 1 "https://github.com/$GITHUB_REPOSITORY" "$GITHUB_SHA"
+          git checkout --quiet FETCH_HEAD
+
+      - name: Audit dependencies
+        run: |
+          pipx install uv
+          uv export --frozen --no-emit-project > "$RUNNER_TEMP/requirements.txt"
+          uvx pip-audit@2.10.1 --strict --disable-pip -r "$RUNNER_TEMP/requirements.txt"

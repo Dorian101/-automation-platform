@@ -37,9 +37,7 @@ def commands(script: str) -> list[str]:
     — which is how this file asserted a merge-prone pull was safe for one
     revision of its own existence.
     """
-    return [
-        line for line in script.splitlines() if not line.lstrip().startswith("#")
-    ]
+    return [line for line in script.splitlines() if not line.lstrip().startswith("#")]
 
 
 def _triggers(workflow: dict) -> dict:
@@ -101,8 +99,7 @@ class TestWorkflow:
         steps = workflow["jobs"]["deploy"]["steps"]
 
         assert not any(
-            step.get("uses", "").startswith("actions/checkout")
-            for step in steps
+            step.get("uses", "").startswith("actions/checkout") for step in steps
         )
 
     def test_it_pins_the_host_key(self, workflow):
@@ -113,9 +110,7 @@ class TestWorkflow:
         assert "DEPLOY_KNOWN_HOSTS" in step["env"]
         assert "ssh-keyscan" not in step["run"]
 
-    def test_it_fails_fast_rather_than_waiting_for_a_password(
-        self, workflow
-    ):
+    def test_it_fails_fast_rather_than_waiting_for_a_password(self, workflow):
         run = workflow["jobs"]["deploy"]["steps"][0]["run"]
 
         assert "BatchMode=yes" in run
@@ -133,8 +128,7 @@ class TestWorkflow:
         run = workflow["jobs"]["deploy"]["steps"][0]["run"]
 
         assert any(
-            "base64 -d" in line and "deploy_key" in line
-            for line in commands(run)
+            "base64 -d" in line and "deploy_key" in line for line in commands(run)
         ), "the deploy key is not base64-decoded before use"
 
 
@@ -233,9 +227,7 @@ class TestScript:
             # sudoers names an absolute path, the script calls the command by
             # name through sudo.
             command = rule.removeprefix("/usr/bin/")
-            assert any(
-                line.endswith(command) for line in commands(script)
-            ), rule
+            assert any(line.endswith(command) for line in commands(script)), rule
 
     def test_it_does_not_chown(self, script):
         """It runs as the user that owns the checkout, so the files a pull
@@ -276,3 +268,114 @@ class TestSecretsStayOut:
                 continue
 
             assert marker not in text, path
+
+
+class TestDailyAudit:
+    @pytest.fixture(scope="class")
+    def audit(self) -> dict:
+        path = ROOT / ".github" / "workflows" / "audit.yml"
+        return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    def test_it_runs_every_day(self, audit):
+        assert _triggers(audit)["schedule"] == [{"cron": "0 4 * * *"}]
+
+    def test_it_audits_what_the_deploy_audits(self, audit, workflow):
+        def audit_line(steps):
+            runs = "\n".join(step.get("run", "") for step in steps)
+            return [line.strip() for line in runs.splitlines() if "pip-audit" in line]
+
+        assert audit_line(audit["jobs"]["audit"]["steps"]) == audit_line(
+            workflow["jobs"]["test"]["steps"]
+        )
+
+    def test_it_only_reads(self, audit):
+        assert audit["permissions"] == {"contents": "read"}
+        assert all("uses" not in step for step in audit["jobs"]["audit"]["steps"])
+
+
+UPDATE_CHECK = ROOT / "scripts" / "update-check.sh"
+
+
+class TestUpdateCheck:
+    def test_it_parses(self):
+        import subprocess
+
+        subprocess.run(["bash", "-n", str(UPDATE_CHECK)], check=True)
+
+    @pytest.fixture
+    def run(self, tmp_path):
+        import subprocess
+        import sys
+
+        if not sys.platform.startswith("linux"):
+            pytest.skip("GNU date and stat")
+
+        def _run(
+            result="success",
+            upgradable="",
+            livepatch="enabled",
+            log="",
+            reboot_age=None,
+        ):
+            bin_dir = tmp_path / "bin"
+            bin_dir.mkdir(exist_ok=True)
+            stubs = {
+                "systemctl": f'echo "{result}"',
+                "apt": f'printf "%s" "{upgradable}"',
+                "pro": (
+                    'printf \'{"services": [{"name": "livepatch", "status": "'
+                    + livepatch
+                    + "\"}]}'"
+                ),
+            }
+            for name, body in stubs.items():
+                stub = bin_dir / name
+                stub.write_text(f"#!/bin/sh\n{body}\n")
+                stub.chmod(0o755)
+            log_file = tmp_path / "uu.log"
+            log_file.write_text(log)
+            flag = tmp_path / "reboot-required"
+            if reboot_age is not None:
+                flag.write_text("")
+                stamp = __import__("time").time() - reboot_age
+                os.utime(flag, (stamp, stamp))
+            env = {
+                **os.environ,
+                "PATH": f"{bin_dir}:{os.environ['PATH']}",
+                "UU_LOG": str(log_file),
+                "REBOOT_FLAG": str(flag),
+            }
+            done = subprocess.run(
+                ["bash", str(UPDATE_CHECK), "--print"],
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            assert done.returncode == 0, done.stderr
+            return done.stdout
+
+        return _run
+
+    def test_all_well_is_quiet(self, run):
+        assert run() == "Обновления безопасности: всё в порядке\n"
+
+    def test_every_problem_is_named(self, run):
+        from datetime import datetime
+
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        out = run(
+            result="exit-code",
+            upgradable="openssl/noble-security 3.0 amd64 [upgradable from: 2.9]\n",
+            livepatch="disabled",
+            log=f"{now},000 ERROR dpkg returned an error\n",
+            reboot_age=2 * 86400,
+        )
+
+        assert "с ошибкой: exit-code" in out
+        assert "ошибок за сутки: 1" in out
+        assert "обновлений безопасности: 1" in out
+        assert "перезагрузки дольше суток" in out
+        assert "Livepatch не работает: disabled" in out
+
+    def test_a_fresh_reboot_flag_is_not_a_problem(self, run):
+        assert "перезагрузки" not in run(reboot_age=3600)
