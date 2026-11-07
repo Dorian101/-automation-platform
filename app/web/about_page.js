@@ -9,10 +9,17 @@
     '<svg class="check" viewBox="0 0 16 16" aria-hidden="true">' +
     '<path d="M3 8.5 6.5 12 13 4.5"/></svg>';
 
+  const announcer = document.createElement("p");
+  announcer.className = "sr-only";
+  announcer.setAttribute("aria-live", "polite");
+  document.body.append(announcer);
+
   function confirm(button, text, succeeded) {
     const label = button.textContent;
     button.innerHTML = succeeded ? CHECK : "";
     button.append(text);
+    announcer.textContent = "";
+    requestAnimationFrame(() => { announcer.textContent = text; });
     button.disabled = true;
     setTimeout(() => {
       button.textContent = label;

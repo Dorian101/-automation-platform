@@ -98,6 +98,7 @@ def _local(moment: datetime) -> datetime:
 
 class AutomationPlugin(BasePlugin):
     name = "automation"
+    tables = {"rule_runs": "Срабатывания правил", "rules": "Правила"}
     version = "0.1.0"
     description = "Правила «если — то» между плагинами"
     web_only = True

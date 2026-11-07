@@ -219,6 +219,11 @@ def _purchases(total: int, shares: tuple[int, ...]) -> list[int]:
 
 class ExpensesPlugin(BasePlugin):
     name = "expenses"
+    tables = {
+        "expenses": "Расходы",
+        "expense_categories": "Категории расходов",
+        "incomes": "Пополнения",
+    }
     version = "0.1.0"
     description = "Личные расходы"
     web_only = True

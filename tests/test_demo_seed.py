@@ -211,9 +211,9 @@ class TestIncomesSeed:
         assert totals["Зарплата − траты"] != totals["Все пополнения − траты"]
 
     def test_guests_incomes_are_cleaned_up(self):
-        from app.web.demo import DEMO_TABLES
+        from app.plugins.tables import demo_tables
 
-        assert "incomes" in DEMO_TABLES
+        assert "incomes" in demo_tables()
 
 
 class TestTasksSeedFeatures:

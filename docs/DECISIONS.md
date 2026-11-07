@@ -1347,6 +1347,16 @@ whatever the request rate.
   `DB_POOL_MAX_SIZE` (20) and `DB_POOL_TIMEOUT_SECONDS` (5), so a request that
   cannot borrow a connection fails fast instead of queueing on a full pool.
 
+### Known limitation (noted 2026-11-07)
+The pool is synchronous and the bot, the web server and the background workers
+share one event loop. Every query blocks that loop for its duration, and a
+request waiting for a free connection blocks it for up to
+`DB_POOL_TIMEOUT_SECONDS`. At the current load (one owner, short indexed
+queries) this does not show. Moving to `AsyncConnectionPool` means making every
+repository method async and touching every caller, so it is left until one of
+these appears: request latency that tracks database time, pool timeouts in
+`/admin/errors`, or a query that is slow by design (reports, exports).
+
 ### Result
 The test suite reuses one pool for the whole run rather than creating hundreds
 of short-lived ones, which is what the full run exposed: a pool carries
@@ -2621,3 +2631,29 @@ outage rather than on every pass.
 A database blip delays reminders by one poll instead of stopping them, and a
 bot user sees a short apology instead of an exception or silence.
 
+## 2026-11-07
+
+### Decision
+Plugins declare their tables; the web layer reads them by discovering plugin
+classes, not from the registered `PluginManager`
+
+### Reason
+`DEMO_TABLES` in `demo.py` and the status-page list in `admin.py` were the
+core knowing plugin internals, and the status list had already drifted: tasks,
+incomes and rules were never counted. The registered manager looks like the
+natural source, but the nightly `manage.py prune-guests` runs without the bot and
+builds an empty manager, so a manager-based list would make the cleanup
+silently delete nothing. Discovery from `app/plugins` works in both processes
+and also cleans the guests of a plugin switched off in the admin area.
+
+### How it is done
+- `BasePlugin.tables` is `{table: label}`.
+- `app/plugins/tables.py` imports every module in `app/plugins` once and reads
+  the direct subclasses of `BasePlugin`; `data_tables()` and `demo_tables()`
+  derive from that.
+- `TestPluginTables` fails when a table in the schema has neither a plugin
+  owner nor a place in the test's core list.
+
+### Result
+v0.81.0. A plugin that inherits from another plugin would be missed by
+`__subclasses__`; none does.

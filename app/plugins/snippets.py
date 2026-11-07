@@ -102,6 +102,7 @@ def _lines(body: str) -> int:
 
 class SnippetsPlugin(BasePlugin):
     name = "snippets"
+    tables = {"snippets": "Сниппеты"}
     version = "0.1.0"
     description = "Код и большие тексты между устройствами"
     page = "/snippets"

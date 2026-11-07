@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.80.4
+v0.81.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -734,6 +734,15 @@ deployment that never sets it records everything as before.
 
 ## Current limitations
 
+* Since v0.81.0 plugins declare their own tables (`tables`), and the admin
+  status page and the demo cleanup read them instead of lists in the web
+  layer; the status page now also counts tasks, incomes, expense categories,
+  rules and rule runs. Form errors carry `role="alert"`, copy confirmations
+  are announced to screen readers, the feedback dialog has a name, and the
+  untitled sections of /about and /project read as headings. The /about hero
+  plays in 4.8 s instead of 5.4 s. New tests cover CSRF refusal on every admin
+  action, the rate-limit window lifting, a failed migration rolling back,
+  failing automation rules and files sent to the bot.
 * Since v0.80.4 the reminder and deadline workers keep polling after a failed
   pass instead of stopping until a restart. The reminders worker stores a
   failure once per distinct error and logs a warning when it recovers. Left

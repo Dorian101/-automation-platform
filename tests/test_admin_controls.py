@@ -334,3 +334,79 @@ class TestTelegramOutages:
         handler.emit(record)
 
         assert [error.message for error in repository.recent()] == ["Cause exception"]
+
+
+class TestEveryActionNeedsAToken:
+    @pytest.mark.parametrize("token", [None, "made-up"])
+    async def test_broadcast(self, admin, notifier, users, database_with_schema, token):
+        TelegramLinksRepository(database_with_schema).link(
+            users.get_by_username(TEST_USERNAME).id, 111
+        )
+        data = {"text": "Привет"} | ({"csrf": token} if token else {})
+
+        response = await admin.post(
+            "/admin/broadcast", data=data, allow_redirects=False
+        )
+
+        assert response.status == 303
+        assert notifier.sent == []
+
+    async def test_settings(self, admin, database_with_schema):
+        await admin.post(
+            "/admin/settings",
+            data={"csrf": "made-up", "maintenance": "1"},
+            allow_redirects=False,
+        )
+
+        assert SettingsRepository(database_with_schema).maintenance() is False
+
+    async def test_backup(self, admin, monkeypatch):
+        made = []
+        monkeypatch.setattr(
+            "app.web.admin.BackupManager.create_backup",
+            lambda self, name: made.append(name),
+        )
+
+        await admin.post(
+            "/admin/tasks/backup", data={"csrf": "made-up"}, allow_redirects=False
+        )
+
+        assert made == []
+
+    async def test_guest_cleanup(self, admin, database_with_schema):
+        await TodoPlugin(None, database_with_schema).seed_demo(guest("abc"))
+
+        await admin.post(
+            "/admin/tasks/guests", data={"csrf": "made-up"}, allow_redirects=False
+        )
+
+        with database_with_schema.connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM tasks WHERE user_id LIKE 'web:guest:%'")
+            assert cur.fetchone()[0] > 0
+
+    async def test_ending_a_login(self, admin, users, database_with_schema):
+        sessions = SessionsRepository(database_with_schema)
+        sessions.create(
+            users.get_by_username(TEST_USERNAME).id, 3600, agent="iPhone · Safari"
+        )
+        other = next(s for s in sessions.active() if s.agent == "iPhone · Safari")
+
+        await admin.post(
+            f"/admin/logins/{other.id}/end",
+            data={"csrf": "made-up"},
+            allow_redirects=False,
+        )
+
+        assert other.id in [s.id for s in sessions.active()]
+
+    async def test_enabling_an_account(self, admin, users, create_user):
+        target = create_user(username="gone", password=TEST_PASSWORD)
+        users.set_active(target.id, False)
+
+        await admin.post(
+            f"/admin/users/{target.id}/enable",
+            data={"csrf": "made-up"},
+            allow_redirects=False,
+        )
+
+        assert users.get_by_username("gone").is_active is False

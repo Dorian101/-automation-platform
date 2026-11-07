@@ -185,6 +185,43 @@ class TestTransport:
         with pytest.raises(CommandError, match="больше"):
             await manager.receive_file(message)
 
+    async def test_a_file_of_unknown_size_is_not_downloaded(self, manager):
+        message = FakeMessage(None)
+
+        with pytest.raises(CommandError, match="больше"):
+            await manager.receive_file(message)
+
+        assert message.downloaded is False
+
+    @pytest.mark.parametrize(
+        "switches, reply",
+        [
+            ((set(), True), "обслуживании"),
+            (({"snippets"}, False), "не принимаются"),
+        ],
+    )
+    async def test_a_switched_off_service_refuses_before_download(
+        self, manager, switches, reply
+    ):
+        disabled, maintenance = switches
+        manager.switches = SimpleNamespace(
+            disabled_plugins=lambda: disabled, maintenance=lambda: maintenance
+        )
+        message = FakeMessage(10)
+
+        with pytest.raises(CommandError, match=reply):
+            await manager.receive_file(message)
+
+        assert message.downloaded is False
+
+    async def test_a_file_lands_in_the_senders_snippets(self, manager, plugin):
+        message = FakeMessage(len(SQL.encode()), data=SQL.encode())
+
+        await manager.receive_file(message)
+
+        [entry] = plugin.repo.entries(telegram(42))
+        assert plugin.repo.get(telegram(42), entry["id"])["body"] == SQL
+
     async def test_the_code_block_covers_the_whole_text(self):
         message = FakeMessage(1)
         text = "😀 a || b"

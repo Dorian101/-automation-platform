@@ -26,6 +26,7 @@ MAX_DROPPED_ATTEMPTS = 3
 
 class RemindersPlugin(BasePlugin):
     name = "reminders"
+    tables = {"reminders": "Напоминания"}
     version = "1.2.0"
     description = "Напоминания"
     commands = {

@@ -419,7 +419,8 @@ __MENU_STYLES__
     </div>
   </div>
 
-  <p class="message err" id="message" hidden></p>
+  <p class="message err" id="message" role="alert" hidden></p>
+  <p class="sr-only" id="announce" aria-live="polite"></p>
 
   <div id="root"></div>
 </main>
@@ -757,7 +758,11 @@ __MENU_STYLES__
   function confirmCopy(button, succeeded) {
     const label = button.textContent;
     button.innerHTML = succeeded ? CHECK : '';
-    button.append(succeeded ? 'Скопировано' : 'Не удалось');
+    const text = succeeded ? 'Скопировано' : 'Не удалось';
+    button.append(text);
+    const announce = document.getElementById('announce');
+    announce.textContent = '';
+    requestAnimationFrame(() => { announce.textContent = text; });
     button.disabled = true;
     setTimeout(() => {
       button.textContent = label;

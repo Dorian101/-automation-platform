@@ -26,6 +26,7 @@
     ["дубль", 0.3, 0.58], ["#Н/Д", 0.54, 0.76], ["01.02 или 02.01", 0.08, 0.86],
   ];
   const END = 5.4;
+  const SECONDS = 4.8;
   const MANROPE = "Manrope, sans-serif";
   const MONO = '"JetBrains Mono", monospace';
 
@@ -261,7 +262,7 @@
     // From the first painted frame, not from the load: a tab opened behind
     // another gets no frames, and would otherwise wake up on the last one.
     started ??= now;
-    const t = (now - started) / 1000;
+    const t = ((now - started) / 1000) * (END / SECONDS);
     draw(Math.min(t, END));
     frame = t < END ? requestAnimationFrame(tick) : 0;
   }

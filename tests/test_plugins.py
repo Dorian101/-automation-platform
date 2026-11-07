@@ -716,3 +716,58 @@ async def test_reminder_worker_survives_a_failed_pass(
 
     assert caplog.text.count("Reminder delivery failed") == 2
     assert "Reminder delivery recovered" in caplog.text
+
+
+class TestPluginTables:
+    CORE = {
+        "app_errors",
+        "clipboard",
+        "feedback",
+        "schema_migrations",
+        "sessions",
+        "settings",
+        "telegram_links",
+        "users",
+        "visit_salts",
+        "visits",
+    }
+
+    def _columns(self, database) -> dict[str, set[str]]:
+        with database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT table_name, column_name FROM information_schema.columns "
+                    "WHERE table_schema = 'public'"
+                )
+                rows = cur.fetchall()
+        columns: dict[str, set[str]] = {}
+        for table, column in rows:
+            columns.setdefault(table, set()).add(column)
+        return columns
+
+    def test_every_table_has_an_owner(self, database_with_schema):
+        from app.plugins.tables import data_tables
+
+        owned = {table for table, _ in data_tables()}
+        schema = set(self._columns(database_with_schema))
+
+        assert schema - owned - self.CORE == set()
+        assert owned <= schema
+
+    def test_every_demo_table_is_per_user(self, database_with_schema):
+        from app.plugins.tables import demo_tables
+
+        columns = self._columns(database_with_schema)
+
+        assert demo_tables()
+        for table in demo_tables():
+            assert "user_id" in columns[table], table
+
+    def test_the_status_page_counts_every_plugin_table(self):
+        from app.plugins.tables import data_tables
+
+        labels = dict(data_tables())
+
+        assert labels["tasks"] == "Задачи"
+        assert labels["rules"] == "Правила"
+        assert labels["incomes"] == "Пополнения"

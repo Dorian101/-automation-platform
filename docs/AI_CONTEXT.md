@@ -153,6 +153,12 @@ A plugin may also declare:
   plugin does not inspect `identity.kind`.
 - `demo` — whether the page belongs on the public demonstration. **Default
   off.** See "The demonstration" below.
+- `tables` — `{table: label}` for every table the plugin owns.
+  `app/plugins/tables.py` collects them from every plugin class in
+  `app/plugins`: `data_tables()` feeds the row counts on `/admin/status`,
+  `demo_tables()` (tables of `demo` plugins) the guest cleanup and the demo
+  block. `TestPluginTables` fails when a table in the schema has no owner, so a
+  new plugin cannot leave its guests' rows behind.
 - `command_args` — the fields a command with arguments needs, keyed the same
   as `commands`. Each field is a `(type, label)` pair, `type` being `text` or
   `number`; the label is the prompt drawn under the input. A command absent
@@ -828,7 +834,7 @@ of `/about`, `/project` and `/demo` (`app/web/feedback.js`).
 - Task buttons on `/admin/status` run a backup (`manual_…`), the demo
   cleanup and the visit pruning in a thread. The demo cleanup records its
   time under `demo.pruned_at`, which the demo block shows with guest counts
-  per table in `DEMO_TABLES`.
+  per table from `demo_tables()`.
 - `sessions` carries an `id`, the device label of the sign-in and
   `last_seen`, which the session lookup writes at most every five minutes.
   `/admin/users` lists only sessions used in the last 30 minutes, with a

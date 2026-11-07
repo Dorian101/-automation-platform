@@ -310,3 +310,77 @@ async def test_switched_off_in_the_admin_area_nothing_fires(platform, web_identi
     await todo.page_action(web_identity, "add", {"text": "раз"})
 
     assert _texts(todo, web_identity) == ["раз"]
+
+
+class TestFailures:
+    async def test_a_crashing_action_is_logged_and_the_rest_still_run(
+        self, platform, web_identity, monkeypatch
+    ):
+        _, todo, expenses, automation = platform
+        food = expenses.repo.add_category(web_identity, "Продукты")
+        for name in ("Первое", "Второе"):
+            automation.repo.add(
+                web_identity, name, "expense.added", "task.create", {"text": name}
+            )
+        real = todo.automation
+        calls = []
+
+        async def flaky(identity, action, params, chain):
+            calls.append(params["text"])
+            if len(calls) == 1:
+                raise RuntimeError("boom")
+            return await real(identity, action, params, chain)
+
+        monkeypatch.setattr(todo, "automation", flaky)
+
+        await _spend(expenses, web_identity, food, "100")
+
+        assert len(expenses.repo.recent(web_identity)) == 1
+        assert len(calls) == 2
+        assert len(_texts(todo, web_identity)) == 1
+        runs = automation.repo.runs(web_identity)
+        assert sorted(run["ok"] for run in runs) == [False, True]
+        assert "Внутренняя ошибка." in [run["message"] for run in runs]
+        assert "boom" not in " ".join(run["message"] for run in runs)
+
+    async def test_a_broken_rule_store_does_not_break_the_users_action(
+        self, platform, web_identity, monkeypatch
+    ):
+        _, _, expenses, automation = platform
+        food = expenses.repo.add_category(web_identity, "Продукты")
+
+        def down(*args):
+            raise RuntimeError("database is down")
+
+        monkeypatch.setattr(automation.repo, "listening", down)
+
+        await _spend(expenses, web_identity, food, "100")
+
+        assert len(expenses.repo.recent(web_identity)) == 1
+
+    async def test_a_failed_schedule_pass_does_not_stop_the_worker(
+        self, platform, monkeypatch
+    ):
+        import asyncio
+
+        from app.plugins import automation as module
+
+        _, _, _, automation = platform
+        passes = []
+
+        async def failing(now):
+            passes.append(now)
+            if len(passes) == 3:
+                raise asyncio.CancelledError
+            raise RuntimeError("boom")
+
+        async def instant(seconds):
+            return None
+
+        monkeypatch.setattr(automation, "process_schedule", failing)
+        monkeypatch.setattr(module.asyncio, "sleep", instant)
+
+        with pytest.raises(asyncio.CancelledError):
+            await automation._worker()
+
+        assert len(passes) == 3

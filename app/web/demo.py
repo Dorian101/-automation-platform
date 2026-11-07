@@ -40,6 +40,7 @@ from app.core.config import Config
 from app.core.identity import Identity, guest
 from app.core.results import CommandError
 from app.db.settings_repo import SettingsRepository
+from app.plugins.tables import demo_tables
 
 from .pages import nav, render_demo_landing, render_not_found, render_plugin_page
 from .ratelimit import RateLimiter, client_ip
@@ -61,19 +62,6 @@ VISITOR = "demo_visitor"
 TOKEN_BYTES = 16
 
 DEMO_PREFIX = "/demo"
-
-#: Every table a demonstration guest can write to. A demo plugin whose table
-#: is not here keeps its guests' rows for ever — `tasks` was missing until
-#: v0.75.0 for exactly that reason.
-DEMO_TABLES = (
-    "expenses",
-    "expense_categories",
-    "incomes",
-    "job_applications",
-    "tasks",
-    "rule_runs",
-    "rules",
-)
 
 #: The settings key holding when the guests were last removed, in UTC.
 PRUNED_AT = "demo.pruned_at"
@@ -380,17 +368,14 @@ class DemoService:
         """Delete every guest namespace, reporting what went.
 
         A delete by prefix rather than a walk over accounts, because a guest
-        was never in `users`. Every table a demonstration can write to is
-        named here; a table added later and not added here is one whose guests
-        are never cleaned up, so the list is short and explicit on purpose
-        rather than discovered from the schema.
+        was never in `users`.
         """
         pattern = "web:guest:%"
         removed = {}
 
         with self._database.connect() as conn:
             with conn.cursor() as cur:
-                for table in DEMO_TABLES:
+                for table in demo_tables():
                     cur.execute(
                         f"DELETE FROM {table} WHERE user_id LIKE %s",
                         (pattern,),

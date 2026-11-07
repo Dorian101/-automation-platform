@@ -78,6 +78,7 @@ PRIORITY_LABELS = {1: "Высокий", 2: "Средний", 3: "Низкий"}
 
 class TodoPlugin(BasePlugin):
     name = "todo"
+    tables = {"tasks": "Задачи"}
     version = "0.1.0"
     description = "Список дел на канбан-доске с приоритетами и дедлайнами"
     web_only = True

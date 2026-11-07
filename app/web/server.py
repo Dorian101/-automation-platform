@@ -1567,7 +1567,7 @@ def _render_index(
     source = source.replace("__TELEGRAM_BLOCK__", _telegram_panel(link, nonce, csrf))
     source = source.replace(
         "__ERROR_BLOCK__",
-        f'<p class="error">{html.escape(error)}</p>' if error else "",
+        _error_block(error),
     )
 
     return source
@@ -2014,7 +2014,7 @@ def _error_block(message: str) -> str:
     if not message:
         return ""
 
-    return f'<p class="error">{html.escape(message)}</p>'
+    return f'<p class="error" role="alert">{html.escape(message)}</p>'
 
 
 #: What a visitor is told to wait during maintenance.

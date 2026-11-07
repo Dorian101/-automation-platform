@@ -40,6 +40,8 @@ class BasePlugin(ABC):
     # private page was published is not one line to undo.
     demo: bool = False
 
+    tables: dict[str, str] = {}
+
     # Plugins that are only worth using through the web console set this and
     # leave commands alone: a plugin that returns a payload for the analytics
     # screen has nothing to say in a chat message, and the router refuses

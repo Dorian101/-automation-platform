@@ -830,6 +830,21 @@ class TestRateLimiting:
 
         assert len(limiter._hits) <= MAX_KEYS
 
+    async def test_the_block_lifts_once_the_window_passes(self, monkeypatch):
+        now = [1000.0]
+        monkeypatch.setattr("app.web.ratelimit.time.monotonic", lambda: now[0])
+        limiter = RateLimiter()
+
+        assert limiter.allow("ip", limit=2, window_seconds=60)
+        assert limiter.allow("ip", limit=2, window_seconds=60)
+        assert not limiter.allow("ip", limit=2, window_seconds=60)
+
+        now[0] += 60
+        assert not limiter.allow("ip", limit=2, window_seconds=60)
+
+        now[0] += 1
+        assert limiter.allow("ip", limit=2, window_seconds=60)
+
     async def test_signup_is_limited_per_address(
         self,
         signup_client,

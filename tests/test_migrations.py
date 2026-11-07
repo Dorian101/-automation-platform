@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from app.db.migrations import MigrationRunner
 
 MIGRATIONS_DIR = Path(__file__).resolve().parents[1] / "sql" / "migrations"
@@ -253,3 +255,32 @@ class TestBackupBeforeMigrating:
 
         with pytest.raises(RuntimeError, match="pg_dump"):
             MigrationRunner(database, backup=backup).run()
+
+
+class TestAFailedMigration:
+    def _exists(self, database, table: str) -> bool:
+        with database.connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT to_regclass(%s) IS NOT NULL", (table,))
+            return cur.fetchone()[0]
+
+    def test_it_leaves_nothing_behind_and_runs_again_once_fixed(
+        self, database, tmp_path
+    ):
+        (tmp_path / "001_first.sql").write_text("CREATE TABLE first_step (id INT);")
+        broken = tmp_path / "002_second.sql"
+        broken.write_text("CREATE TABLE half_done (id INT);\nSELECT no_such_column;")
+        runner = MigrationRunner(database)
+        runner.migrations_dir = tmp_path
+
+        with pytest.raises(Exception):
+            runner.run()
+
+        assert self._exists(database, "first_step")
+        assert not self._exists(database, "half_done")
+        assert runner.get_applied_migrations() == {"001_first.sql"}
+
+        broken.write_text("CREATE TABLE half_done (id INT);")
+        runner.run()
+
+        assert self._exists(database, "half_done")
+        assert runner.get_applied_migrations() == {"001_first.sql", "002_second.sql"}

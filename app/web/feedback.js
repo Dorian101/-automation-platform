@@ -9,9 +9,10 @@
   function build() {
     const dialog = document.createElement("dialog");
     dialog.className = "feedback";
+    dialog.setAttribute("aria-labelledby", "feedback-title");
     dialog.innerHTML = `
       <form method="dialog">
-        <h3>Книга отзывов и предложений</h3>
+        <h3 id="feedback-title">Книга отзывов и предложений</h3>
         <p>Что понравилось, что сломалось, чего не хватает. Анонимно: сохраняется только текст.</p>
         <textarea name="text" rows="6" maxlength="${MAX}" required
                   aria-label="Текст отзыва"></textarea>

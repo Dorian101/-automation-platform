@@ -57,9 +57,10 @@ from app.db.settings_repo import (
 )
 from app.db.users_repo import User, UsersRepository
 from app.db.visits_repo import DEFAULT_LIMIT, Visit, VisitsRepository
+from app.plugins.tables import data_tables, demo_tables
 from app.web.auth import SESSION_COOKIE, resolve_user
 from app.web.csrf import CSRF_FIELD, CsrfSigner
-from app.web.demo import DEMO_TABLES, PRUNED_AT, DemoService
+from app.web.demo import PRUNED_AT, DemoService
 from app.web.pages import menu_styles, render_not_found
 from app.web.responses import redirect, token_rejected
 from app.web.system import cores, disk, load, memory
@@ -613,15 +614,7 @@ def _section_title(section: str) -> str:
     }[section]
 
 
-#: The data tables whose row counts the status page shows. Names as a person
-#: reads them, not as the migrations write them: the point of the figure is
-#: "how much is in here", and `users` reads better than the sql file's table.
-_STATUS_TABLES = [
-    ("notes", "Заметки"),
-    ("reminders", "Напоминания"),
-    ("snippets", "Сниппеты"),
-    ("expenses", "Расходы"),
-    ("job_applications", "Заявки"),
+_CORE_TABLES = [
     ("users", "Аккаунты"),
     ("visits", "Визиты"),
 ]
@@ -652,7 +645,7 @@ def _table_counts(database: Database) -> dict:
 
     with database.connect() as conn:
         with conn.cursor() as cur:
-            for table, label in _STATUS_TABLES:
+            for table, label in data_tables() + _CORE_TABLES:
                 cur.execute(f'SELECT count(*) FROM "{table}"')
                 counts[label] = cur.fetchone()[0]
 
@@ -1123,7 +1116,7 @@ def _task_flash(query) -> str:
 
     if failed in _TASK_DONE:
         return (
-            '<p class="flash error">Задача не выполнилась, '
+            '<p class="flash error" role="alert">Задача не выполнилась, '
             "подробности в «Ошибках».</p>"
         )
 
@@ -1148,26 +1141,29 @@ def _task_buttons(token: str) -> str:
 def _demo_block(database: Database, pruned_at: str | None) -> str:
     """How much the demo holds now: guests and their rows per table."""
     pattern = "web:guest:%"
+    tables = demo_tables()
     counts = []
+    guests = 0
 
     with database.connect() as conn:
         with conn.cursor() as cur:
-            for table in DEMO_TABLES:
+            for table in tables:
                 cur.execute(
                     f"SELECT count(*) FROM {table} WHERE user_id LIKE %s",
                     (pattern,),
                 )
                 counts.append((table, cur.fetchone()[0]))
 
-            union = " UNION ".join(
-                f"SELECT user_id FROM {table} WHERE user_id LIKE %s"
-                for table in DEMO_TABLES
-            )
-            cur.execute(
-                f"SELECT count(*) FROM ({union}) AS guests",
-                (pattern,) * len(DEMO_TABLES),
-            )
-            guests = cur.fetchone()[0]
+            if tables:
+                union = " UNION ".join(
+                    f"SELECT user_id FROM {table} WHERE user_id LIKE %s"
+                    for table in tables
+                )
+                cur.execute(
+                    f"SELECT count(*) FROM ({union}) AS guests",
+                    (pattern,) * len(tables),
+                )
+                guests = cur.fetchone()[0]
 
     items = "".join(
         f"<li><span>{html.escape(table)}</span><b>{count}</b></li>"
