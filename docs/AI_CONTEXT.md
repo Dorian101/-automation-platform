@@ -153,6 +153,9 @@ A plugin may also declare:
   plugin does not inspect `identity.kind`.
 - `demo` — whether the page belongs on the public demonstration. **Default
   off.** See "The demonstration" below.
+- Phone layout: the plugin page template has one `@media (max-width: 40rem)`
+  block. Tables there become stacked cards whose labels come from each cell's
+  `data-label`, set from the column label in `drawTable`.
 - `check` — for a plugin without a page, the read-only command with no
   arguments that `manage.py verify` runs after a deploy. A plugin with a page
   is checked through `page_view`.

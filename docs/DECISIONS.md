@@ -2708,3 +2708,30 @@ check that cannot quietly stop covering a plugin added later.
 v0.82.0. Tests run the whole check against a test server: a healthy one
 passes, a broken plugin and an unreachable service fail.
 
+### Decision
+Lay plugin pages out for phones with one media block, and make the site
+installable without a service worker
+
+### Reason
+On a 375px screen nothing overflowed, but the pages were awkward to use: a
+three-row header, half-width fields, 13px inputs that make iOS zoom, 30px
+buttons, bar charts squeezed to a sliver and a table that scrolled sideways.
+The owner wanted a PWA only once the phone layout was right.
+
+### How it is done
+- One `@media (max-width: 40rem)` block in `_plugin_page.html`; the desktop
+  rules are untouched. Tables become cards with `td::before` labels from
+  `data-label`, rather than a second phone-only renderer.
+- The header hides "Вы вошли как" on narrow screens so menu, theme and sign-out
+  fit one row.
+- `manifest.webmanifest` and the icons are static files in `app/web`, public
+  like the favicon, linked from `_theme.html`, which the CSP middleware puts in
+  every page's head. Icons are a full-bleed square with the mark at 72% so the
+  maskable crop keeps it; rendered from `app-icon.svg` with `sips`.
+- No service worker: everything the app shows comes from the server, so an
+  offline shell would only show an error more slowly.
+
+### Result
+v0.83.0. Checked at 375px on the local stand: no horizontal scroll, the
+desktop layout unchanged. Tests cover the manifest, its icons and the link.
+

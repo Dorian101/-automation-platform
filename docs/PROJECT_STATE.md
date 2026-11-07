@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.82.0
+v0.83.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -734,6 +734,14 @@ deployment that never sets it records everything as before.
 
 ## Current limitations
 
+* Since v0.83.0 plugin pages are laid out for phones below 40rem: the header
+  is one row (the "signed in as" line is hidden), form fields and buttons are
+  full width with 16px text, touch targets are 44px, bar charts and the funnel
+  put the label above the bar, and tables turn each row into a card with
+  labelled values. The site is installable: `/manifest.webmanifest` with PNG
+  icons (`app-icon.svg` is the source), linked from every page through the
+  theme head; it opens `/` in a standalone window. No service worker and no
+  offline mode.
 * Since v0.82.0 every deploy is checked on the host after the restart:
   `manage.py verify` polls `/health`, runs all `/project/trace` scenarios and
   each enabled plugin's page or `check` command, and a failure turns the

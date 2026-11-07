@@ -400,6 +400,33 @@ __STYLES__
   .dialog .dclose:hover { color: var(--text); }
   .dialog .formrow { align-items: flex-end; }
   .dialog .formrow .field { flex: 1 1 100%; }
+  @media (max-width: 40rem) {
+    .field input, .field select, .field textarea, .monthpick input,
+    .monthpick button, .sortbar select, .viewer-title, textarea.mono { font-size: 16px; }
+    .formrow .field, .formrow .btn { flex: 1 1 100%; }
+    .monthpick { margin-bottom: 1rem; }
+    .monthpick input { flex: 1; min-width: 0; }
+    .monthpick button, .btn, table.data td.acts .btn { min-height: 2.75rem; }
+    .totals { gap: 1rem 1.5rem; }
+    .totals .big { font-size: 1.8rem; }
+    .barrow, .fnrow { flex-wrap: wrap; row-gap: 0.2rem; }
+    .barlabel, .fnlabel { width: 100%; text-align: left; }
+    .fnvalue { width: auto; }
+    table.data thead { display: none; }
+    table.data tr {
+      display: flex; flex-wrap: wrap; gap: 0.2rem 1rem;
+      padding: 0.6rem 0; border-bottom: 1px solid var(--border);
+    }
+    table.data tbody tr:last-child { border-bottom: none; }
+    table.data td { display: flex; gap: 0.35rem; padding: 0; border: none; }
+    table.data td::before { content: attr(data-label); color: var(--muted); }
+    table.data td:first-child { flex-basis: 100%; font-weight: 500; }
+    table.data td:first-child::before, table.data td.acts::before { content: none; }
+    table.data td:empty { display: none; }
+    table.data td.acts { flex-basis: 100%; gap: 0.5rem; padding-top: 0.3rem; }
+    table.data td.acts .btn { margin: 0; }
+    .kbcard .acts button, .addbtn { min-width: 2.75rem; min-height: 2.75rem; }
+  }
 </style>
 __MENU_STYLES__
 </head>
@@ -661,7 +688,9 @@ __MENU_STYLES__
       }
 
       for (const col of table.columns) {
-        tr.appendChild(cellFor(col, row));
+        const cell = cellFor(col, row);
+        cell.dataset.label = col.label;
+        tr.appendChild(cell);
       }
 
       if (table.actions) {

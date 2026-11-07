@@ -685,3 +685,29 @@ class TestWhenTheLinkIsShared:
         body = await self._page(crawler, "/about")
 
         assert 'href="/project"' in body
+
+
+class TestInstallableApp:
+    async def test_the_manifest_and_its_icons_are_served_without_a_session(
+        self, crawler
+    ):
+        response = await crawler.get("/manifest.webmanifest")
+        assert response.status == 200
+        assert response.content_type == "application/manifest+json"
+
+        manifest = json.loads(await response.text())
+        assert manifest["display"] == "standalone"
+        sizes = {icon["sizes"] for icon in manifest["icons"]}
+        assert {"192x192", "512x512"} <= sizes
+
+        for path in {icon["src"] for icon in manifest["icons"]} | {
+            "/apple-touch-icon.png"
+        }:
+            icon = await crawler.get(path)
+            assert icon.status == 200, path
+            assert (await icon.read()).startswith(b"\x89PNG"), path
+
+    async def test_every_page_links_the_manifest(self, crawler):
+        for path in ("/login", "/about"):
+            body = await (await crawler.get(path)).text()
+            assert '<link rel="manifest" href="/manifest.webmanifest">' in body

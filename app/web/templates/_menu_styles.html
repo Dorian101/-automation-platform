@@ -92,11 +92,9 @@
   }
   .secondary:hover { border-color: var(--accent); }
 
-  /* A narrow screen has no room for both; the block wraps under the menu
-     rather than being hidden, since the way out of an account should not
-     depend on the width of the window. */
   @media (max-width: 30rem) {
-    .attic { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+    .attic { flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
+    .who { display: none; }
   }
   .menuitems a[aria-current="page"] { color: var(--accent); background: var(--bg); }
 </style>

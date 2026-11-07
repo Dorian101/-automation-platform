@@ -90,6 +90,13 @@ ABOUT_PAGE_JS = Path(__file__).resolve().parent / "about_page.js"
 PROJECT_PAGE_JS = Path(__file__).resolve().parent / "project_page.js"
 FEEDBACK_JS = Path(__file__).resolve().parent / "feedback.js"
 
+APP_ASSETS = {
+    "/manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json"),
+    "/icon-192.png": ("icon-192.png", "image/png"),
+    "/icon-512.png": ("icon-512.png", "image/png"),
+    "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
+}
+
 SCRIPTS = {
     "/about-hero.js": ABOUT_HERO_JS,
     "/about-page.js": ABOUT_PAGE_JS,
@@ -172,6 +179,7 @@ PUBLIC_PATHS = {
     "/favicon.ico",
     "/favicon.svg",
     "/og-image.png",
+    *APP_ASSETS,
     "/about-hero.js",
     "/about-page.js",
     "/project-page.js",
@@ -782,6 +790,14 @@ class WebServer:
         return web.Response(
             body=OG_IMAGE_PNG.read_bytes(),
             content_type="image/png",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+
+    async def _app_asset(self, request: web.Request) -> web.Response:
+        name, content_type = APP_ASSETS[request.path]
+        return web.Response(
+            body=(Path(__file__).resolve().parent / name).read_bytes(),
+            content_type=content_type,
             headers={"Cache-Control": "public, max-age=86400"},
         )
 
@@ -1461,6 +1477,7 @@ class WebServer:
                 web.get("/favicon.ico", self._favicon),
                 web.get("/favicon.svg", self._favicon),
                 web.get("/og-image.png", self._og_image),
+                *(web.get(path, self._app_asset) for path in APP_ASSETS),
                 web.get("/about-hero.js", self._script),
                 web.get("/about-page.js", self._script),
                 web.get("/project-page.js", self._script),
