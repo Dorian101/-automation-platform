@@ -42,6 +42,14 @@ class BasePlugin(ABC):
 
     tables: dict[str, str] = {}
 
+    check: str = ""
+
+    async def probe(self, identity: Identity) -> None:
+        if self.page:
+            await self.page_view(identity)
+        else:
+            await self.execute(self.check, "", identity)
+
     # Plugins that are only worth using through the web console set this and
     # leave commands alone: a plugin that returns a payload for the analytics
     # screen has nothing to say in a chat message, and the router refuses

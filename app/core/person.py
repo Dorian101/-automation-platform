@@ -5,11 +5,10 @@ numeric id on each transport is not the same person. Pairing them says they
 are, and this module turns that into the set of identities a read should look
 across.
 
-Writes are deliberately not widened. A note added on the web is stored under
-the web identity and stays there, so unlinking takes effect at once and the
-history keeps saying who wrote what and from where. Only reading spans the
-pair, and it spans exactly the pairs that exist — nothing here invents a
-shared namespace.
+A new record is stored under the identity that created it, so unlinking takes
+effect at once and the history keeps saying who wrote what and from where.
+Reading, editing and deleting span the pair, and they span exactly the pairs
+that exist — nothing here invents a shared namespace.
 """
 
 from app.core.identity import TELEGRAM, WEB, Identity

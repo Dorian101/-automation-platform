@@ -8,6 +8,7 @@ from .base import BasePlugin
 
 class NotesPlugin(BasePlugin):
     name = "notes"
+    check = "/notes"
     tables = {"notes": "Заметки"}
     version = "1.2.0"
     description = "Личные заметки"

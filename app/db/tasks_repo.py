@@ -32,6 +32,10 @@ def _as_tuple(identity: Identity | Iterable[Identity]) -> tuple[Identity, ...]:
     return tuple(identity)
 
 
+def _ids(identity: Identity | Iterable[Identity]) -> list[str]:
+    return [str(one) for one in _as_tuple(identity)]
+
+
 class TasksRepository:
     def __init__(self, database: Database | None = None):
         self.database = database or Database()
@@ -128,7 +132,9 @@ class TasksRepository:
             for row in rows
         ]
 
-    def set_status(self, identity: Identity, task_id: int, status: str) -> bool:
+    def set_status(
+        self, identity: Identity | Iterable[Identity], task_id: int, status: str
+    ) -> bool:
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -137,9 +143,9 @@ class TasksRepository:
                     SET status = %s,
                         done_at = CASE WHEN %s = 'done'
                                        THEN CURRENT_TIMESTAMP END
-                    WHERE id = %s AND user_id = %s
+                    WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (status, status, task_id, str(identity)),
+                    (status, status, task_id, _ids(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()
@@ -147,7 +153,10 @@ class TasksRepository:
         return changed > 0
 
     def set_priority(
-        self, identity: Identity, task_id: int, priority: int | None
+        self,
+        identity: Identity | Iterable[Identity],
+        task_id: int,
+        priority: int | None,
     ) -> bool:
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -155,9 +164,9 @@ class TasksRepository:
                     """
                     UPDATE tasks
                     SET priority = %s
-                    WHERE id = %s AND user_id = %s
+                    WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (priority, task_id, str(identity)),
+                    (priority, task_id, _ids(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()
@@ -165,7 +174,10 @@ class TasksRepository:
         return changed > 0
 
     def set_due(
-        self, identity: Identity, task_id: int, due_at: datetime | None
+        self,
+        identity: Identity | Iterable[Identity],
+        task_id: int,
+        due_at: datetime | None,
     ) -> bool:
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -175,9 +187,9 @@ class TasksRepository:
                     SET due_at = %s,
                         notified_at = CASE WHEN due_at IS DISTINCT FROM %s
                                            THEN NULL ELSE notified_at END
-                    WHERE id = %s AND user_id = %s
+                    WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (due_at, due_at, task_id, str(identity)),
+                    (due_at, due_at, task_id, _ids(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()
@@ -186,7 +198,7 @@ class TasksRepository:
 
     def set_text(
         self,
-        identity: Identity,
+        identity: Identity | Iterable[Identity],
         task_id: int,
         text: str,
         description: str | None,
@@ -197,9 +209,9 @@ class TasksRepository:
                     """
                     UPDATE tasks
                     SET text = %s, description = %s
-                    WHERE id = %s AND user_id = %s
+                    WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (text, description, task_id, str(identity)),
+                    (text, description, task_id, _ids(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()
@@ -207,7 +219,7 @@ class TasksRepository:
         return changed > 0
 
     def set_repeat(
-        self, identity: Identity, task_id: int, repeat: str | None
+        self, identity: Identity | Iterable[Identity], task_id: int, repeat: str | None
     ) -> bool:
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -215,9 +227,9 @@ class TasksRepository:
                     """
                     UPDATE tasks
                     SET repeat = %s
-                    WHERE id = %s AND user_id = %s
+                    WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (repeat, task_id, str(identity)),
+                    (repeat, task_id, _ids(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()
@@ -233,12 +245,12 @@ class TasksRepository:
                 )
             conn.commit()
 
-    def delete(self, identity: Identity, task_id: int) -> bool:
+    def delete(self, identity: Identity | Iterable[Identity], task_id: int) -> bool:
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "DELETE FROM tasks WHERE id = %s AND user_id = %s",
-                    (task_id, str(identity)),
+                    "DELETE FROM tasks WHERE id = %s AND user_id = ANY(%s)",
+                    (task_id, _ids(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()

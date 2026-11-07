@@ -14,6 +14,10 @@ def _as_tuple(identity: Identity | Iterable[Identity]) -> tuple[Identity, ...]:
     return tuple(identity)
 
 
+def _ids(identity: Identity | Iterable[Identity]) -> list[str]:
+    return [str(one) for one in _as_tuple(identity)]
+
+
 class ApplicationsRepository:
     """Job applications and the counts the funnel is drawn from.
 
@@ -98,14 +102,14 @@ class ApplicationsRepository:
 
     def set_status(
         self,
-        identity: Identity,
+        identity: Identity | Iterable[Identity],
         application_id: int,
         status: str,
     ) -> bool:
         """Move one application to a stage, reporting whether it was there.
 
-        Scoped to the account as well as to the id. The id is a global
-        sequence, so accepting one that is not this account's would let a
+        Scoped to the person as well as to the id. The id is a global
+        sequence, so accepting one that is not this person's would let a
         guess rewrite somebody else's stage.
         """
         with self.database.connect() as conn:
@@ -114,22 +118,24 @@ class ApplicationsRepository:
                     """
                     UPDATE job_applications
                     SET status = %s
-                    WHERE id = %s AND user_id = %s
+                    WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (status, application_id, str(identity)),
+                    (status, application_id, _ids(identity)),
                 )
                 updated = cur.rowcount
             conn.commit()
 
         return updated > 0
 
-    def delete(self, identity: Identity, application_id: int) -> bool:
+    def delete(
+        self, identity: Identity | Iterable[Identity], application_id: int
+    ) -> bool:
         """Remove one application, reporting whether it was there."""
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "DELETE FROM job_applications WHERE id = %s AND user_id = %s",
-                    (application_id, str(identity)),
+                    "DELETE FROM job_applications WHERE id = %s AND user_id = ANY(%s)",
+                    (application_id, _ids(identity)),
                 )
                 deleted = cur.rowcount
             conn.commit()

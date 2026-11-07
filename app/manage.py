@@ -13,6 +13,7 @@
     python -m app.manage list-links
     python -m app.manage backup
     python -m app.manage notify-admins < message.txt
+    python -m app.manage verify
 
 Accounts are created here from the machine, with no browser involved, which
 is what an administrator wants when nothing should be typed through a web
@@ -598,6 +599,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     notifying.set_defaults(func=notify_admins)
 
+    verifying = subparsers.add_parser(
+        "verify", help="Check the running service after a deploy"
+    )
+    verifying.set_defaults(func=verify)
+
     guests = subparsers.add_parser(
         "prune-guests",
         help="Delete every demonstration namespace",
@@ -611,6 +617,84 @@ def build_parser() -> argparse.ArgumentParser:
     visits.set_defaults(func=prune_visits)
 
     return parser
+
+
+VERIFY_WAIT_SECONDS = 90
+
+
+def verify(args: argparse.Namespace) -> int:
+    return asyncio.run(_verify())
+
+
+async def _verify() -> int:
+    from aiohttp import ClientSession
+
+    from app.core.identity import guest
+    from app.db.settings_repo import SettingsRepository
+    from app.main import build_manager
+    from app.notifications import Notifier
+    from app.web.auth import AUTH_HEADER
+    from app.web.server import TRACE_SCENARIOS
+
+    base = f"http://{Config.WEB_HOST}:{Config.WEB_PORT}"
+    failures = []
+
+    async with ClientSession(headers={AUTH_HEADER: Config.WEB_ACCESS_TOKEN}) as http:
+        if not await _healthy(http, base):
+            print(f"health: not ok after {VERIFY_WAIT_SECONDS} s")
+            return 1
+        print("health: ok")
+
+        for name in TRACE_SCENARIOS:
+            async with http.get(
+                f"{base}/project/trace", params={"scenario": name}
+            ) as response:
+                body = await response.json() if response.status == 200 else {}
+            passed = body.get("ok") is (name != "unknown")
+            print(f"trace {name}: {'ok' if passed else response.status}")
+            if not passed:
+                failures.append(f"trace {name}")
+
+    database = Database()
+    try:
+        users = UsersRepository(database)
+        links = TelegramLinksRepository(database)
+        manager = build_manager(database, Notifier([]), users, links, logger)
+        disabled = SettingsRepository(database).disabled_plugins()
+        identity = guest("verify")
+
+        for plugin in manager.get_plugins():
+            if plugin.name in disabled:
+                print(f"plugin {plugin.name}: switched off")
+                continue
+            try:
+                await plugin.probe(identity)
+            except Exception as error:
+                print(f"plugin {plugin.name}: {type(error).__name__}: {error}")
+                failures.append(f"plugin {plugin.name}")
+            else:
+                print(f"plugin {plugin.name}: ok")
+    finally:
+        database.close()
+
+    if failures:
+        print("failed: " + ", ".join(failures))
+        return 1
+    return 0
+
+
+async def _healthy(http, base: str) -> bool:
+    deadline = asyncio.get_running_loop().time() + VERIFY_WAIT_SECONDS
+    while True:
+        try:
+            async with http.get(f"{base}/health") as response:
+                if response.status == 200 and (await response.json()).get("database"):
+                    return True
+        except Exception:
+            pass
+        if asyncio.get_running_loop().time() >= deadline:
+            return False
+        await asyncio.sleep(2)
 
 
 def main(argv: list[str] | None = None) -> int:

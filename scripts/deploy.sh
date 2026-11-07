@@ -55,6 +55,9 @@ uv sync --frozen --no-dev
 # rule. Restarting is the only privileged step the deploy needs.
 sudo systemctl restart automation-platform
 
+status=0
+"$REPO/.venv/bin/python" -m app.manage verify || status=$?
+
 # The tail is here so that whoever triggered this sees what happened without
 # having to ask the host for it. A deploy that starts a service which then
 # crashes leaves the answer in the journal, and this is where it gets read.
@@ -68,3 +71,5 @@ sudo systemctl restart automation-platform
 # The exact arguments are also a tripwire. Change `-n 50` here and sudo rejects
 # the call, which is a louder failure than it looks.
 sudo journalctl -u automation-platform -n 50 --no-pager
+
+exit "$status"

@@ -342,7 +342,7 @@ class TodoPlugin(BasePlugin):
                 f"в «{STATUS_LABELS[target]}»."
             )
 
-        self.repo.set_status(identity, task_id, target)
+        self.repo.set_status(self._readable_as(identity), task_id, target)
 
         if target == "done":
             self._next_of(identity, task)
@@ -379,14 +379,14 @@ class TodoPlugin(BasePlugin):
         task_id = self._task_id(payload)
         priority = self._parse_priority(payload.get("priority", ""))
 
-        if not self.repo.set_priority(identity, task_id, priority):
+        if not self.repo.set_priority(self._readable_as(identity), task_id, priority):
             raise CommandError("Задача не найдена.")
 
     def _set_due(self, identity: Identity, payload: dict) -> None:
         task_id = self._task_id(payload)
         due_at = self._parse_due(payload.get("due_at", ""))
 
-        if not self.repo.set_due(identity, task_id, due_at):
+        if not self.repo.set_due(self._readable_as(identity), task_id, due_at):
             raise CommandError("Задача не найдена.")
 
     def _set_text(self, identity: Identity, payload: dict) -> None:
@@ -397,23 +397,24 @@ class TodoPlugin(BasePlugin):
         has_due = "due_at" in payload
         due_at = self._parse_due(payload.get("due_at", "")) if has_due else None
 
-        if not self.repo.set_text(identity, task_id, text, description):
+        readable = self._readable_as(identity)
+        if not self.repo.set_text(readable, task_id, text, description):
             raise CommandError("Задача не найдена.")
 
         if has_due:
-            self.repo.set_due(identity, task_id, due_at)
+            self.repo.set_due(readable, task_id, due_at)
 
     def _set_repeat(self, identity: Identity, payload: dict) -> None:
         task_id = self._task_id(payload)
         repeat = _parse_repeat(payload.get("repeat", ""))
 
-        if not self.repo.set_repeat(identity, task_id, repeat):
+        if not self.repo.set_repeat(self._readable_as(identity), task_id, repeat):
             raise CommandError("Задача не найдена.")
 
     def _delete(self, identity: Identity, payload: dict) -> None:
         task_id = self._task_id(payload)
 
-        if not self.repo.delete(identity, task_id):
+        if not self.repo.delete(self._readable_as(identity), task_id):
             raise CommandError("Задача не найдена.")
 
     # -- helpers ------------------------------------------------------------

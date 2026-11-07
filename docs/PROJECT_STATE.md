@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.81.0
+v0.82.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -734,6 +734,16 @@ deployment that never sets it records everything as before.
 
 ## Current limitations
 
+* Since v0.82.0 every deploy is checked on the host after the restart:
+  `manage.py verify` polls `/health`, runs all `/project/trace` scenarios and
+  each enabled plugin's page or `check` command, and a failure turns the
+  deploy job red (no rollback). Plugin registration lives in
+  `app.main.build_manager`, shared by the service and the check; a test fails
+  when a plugin in `app/plugins` is not registered there or has neither a page
+  nor a `check`. Records of a linked web + Telegram pair can now be edited and
+  deleted from either side: tasks, expenses, incomes and applications joined
+  notes, snippets, rules and categories. New records still belong to the
+  identity that created them; reminders are still per identity.
 * Since v0.81.0 plugins declare their own tables (`tables`), and the admin
   status page and the demo cleanup read them instead of lists in the web
   layer; the status page now also counts tasks, incomes, expense categories,

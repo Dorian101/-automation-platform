@@ -1004,6 +1004,14 @@ the guard so the second pass cannot reach it and loop.
 gh run list --limit 5          # from the checkout, with gh authenticated
 ```
 
+After the restart `deploy.sh` runs `python -m app.manage verify` as
+`automation`. It waits up to 90 s for `/health` on the loopback port, runs
+every `/project/trace` scenario, then each enabled plugin's page or read-only
+`check` command against the production database, under the guest identity
+`web:guest:verify` (pruned nightly with the other guests). Each line of its
+report is in the workflow log; any failure exits non-zero and turns the
+`deploy` job red. It does not roll back: the new version is already running.
+
 On the host, the last 50 lines of the service journal show the migrations
 that ran and whether the service came back. A deploy that applied a migration
 also wrote a dump first — see "Search engines" for the `up to date` case, which

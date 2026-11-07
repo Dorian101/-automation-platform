@@ -2657,3 +2657,54 @@ and also cleans the guests of a plugin switched off in the admin area.
 ### Result
 v0.81.0. A plugin that inherits from another plugin would be missed by
 `__subclasses__`; none does.
+
+## 2026-11-08
+
+### Decision
+Edits and deletes span a linked web + Telegram pair; new records do not
+
+### Reason
+"Reads widen across a linked pair, writes do not" (2026-10) left the owner
+looking at a task created in Telegram that the web page refused to change with
+"Задача не найдена". It was also inconsistent already: notes, snippets, rules
+and categories were deleted and renamed across the pair. A pair is one person,
+so a record they can see is a record they can change.
+
+### How it is done
+- Task, expense, income and application mutators take an identity or a tuple
+  of identities and match `user_id = ANY(...)`; the plugins pass
+  `_readable_as(identity)`, the same set their reads use.
+- Creation still stores the creating identity, so unlinking takes effect at
+  once and the record keeps saying where it was written.
+- Reminders stay per identity: their list never widened.
+- An edited expense must keep a category of its own owner: the category
+  report joins on `e.user_id = c.user_id`, so a Telegram expense filed under
+  a web category would vanish from that category's totals.
+
+### Result
+v0.82.0. `tests/test_linked_pair_writes.py`: a chat's task is edited and
+deleted from the web, an application's stage moved, an income removed; a
+stranger is still refused.
+
+### Decision
+Check every deploy on the host, from the same plugin list the service uses
+
+### Reason
+A green deploy job only meant the restart command returned. The owner wanted a
+check that cannot quietly stop covering a plugin added later.
+
+### How it is done
+- `deploy.sh` runs `python -m app.manage verify` after the restart and exits
+  with its status after printing the journal.
+- Plugin registration moved from `main()` into `app.main.build_manager`, which
+  the check calls too. A test compares it with the plugin classes found in
+  `app/plugins`, and another requires each plugin without a page to declare a
+  read-only `check` command.
+- In-process plugin checks run against the production database as
+  `web:guest:verify`, which the nightly guest cleanup removes.
+- No rollback: that is a separate item.
+
+### Result
+v0.82.0. Tests run the whole check against a test server: a healthy one
+passes, a broken plugin and an unreachable service fail.
+

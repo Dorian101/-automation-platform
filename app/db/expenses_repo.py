@@ -15,6 +15,10 @@ def _as_tuple(identity: Identity | Iterable[Identity]) -> tuple[Identity, ...]:
     return tuple(identity)
 
 
+def _ids(identity: Identity | Iterable[Identity]) -> list[str]:
+    return [str(one) for one in _as_tuple(identity)]
+
+
 class ExpensesRepository:
     """Spending, its categories, and the aggregation both are read through.
 
@@ -282,8 +286,10 @@ class ExpensesRepository:
                     for row in cur.fetchall()
                 ]
 
-    def get(self, identity: Identity, expense_id: int) -> dict | None:
-        """One entry of this account's, for the edit form."""
+    def get(
+        self, identity: Identity | Iterable[Identity], expense_id: int
+    ) -> dict | None:
+        """One entry of this person's, for the edit form."""
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -291,9 +297,9 @@ class ExpensesRepository:
                     SELECT e.id, e.amount, e.spent_at, e.note, c.name, c.id
                     FROM expenses e
                     JOIN expense_categories c ON c.id = e.category_id
-                    WHERE e.id = %s AND e.user_id = %s
+                    WHERE e.id = %s AND e.user_id = ANY(%s)
                     """,
-                    (expense_id, str(identity)),
+                    (expense_id, _ids(identity)),
                 )
                 row = cur.fetchone()
 
@@ -311,17 +317,17 @@ class ExpensesRepository:
 
     def update(
         self,
-        identity: Identity,
+        identity: Identity | Iterable[Identity],
         expense_id: int,
         category_id: int,
         amount: Decimal,
         spent_at: date,
         note: str = "",
     ) -> bool:
-        """Change one entry of this account's, under a category of its own.
+        """Change one entry of this person's, under a category of its own.
 
         Scoped on both ids for the reason `add` is. Returns whether a row
-        changed: false when either id is not this account's.
+        changed: false when either id is not this person's.
         """
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -330,10 +336,10 @@ class ExpensesRepository:
                     UPDATE expenses
                     SET category_id = %s, amount = %s, spent_at = %s, note = %s
                     WHERE id = %s
-                        AND user_id = %s
+                        AND user_id = ANY(%s)
                         AND EXISTS (
-                            SELECT 1 FROM expense_categories
-                            WHERE id = %s AND user_id = %s
+                            SELECT 1 FROM expense_categories c
+                            WHERE c.id = %s AND c.user_id = expenses.user_id
                         )
                     """,
                     (
@@ -342,9 +348,8 @@ class ExpensesRepository:
                         spent_at,
                         note,
                         expense_id,
-                        str(identity),
+                        _ids(identity),
                         category_id,
-                        str(identity),
                     ),
                 )
                 updated = cur.rowcount
@@ -352,13 +357,13 @@ class ExpensesRepository:
 
         return updated > 0
 
-    def delete(self, identity: Identity, expense_id: int) -> bool:
+    def delete(self, identity: Identity | Iterable[Identity], expense_id: int) -> bool:
         """Remove one entry, reporting whether it was there."""
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "DELETE FROM expenses WHERE id = %s AND user_id = %s",
-                    (expense_id, str(identity)),
+                    "DELETE FROM expenses WHERE id = %s AND user_id = ANY(%s)",
+                    (expense_id, _ids(identity)),
                 )
                 deleted = cur.rowcount
             conn.commit()
@@ -533,16 +538,18 @@ class ExpensesRepository:
                     for row in cur.fetchall()
                 ]
 
-    def get_income(self, identity: Identity, income_id: int) -> dict | None:
-        """One income of this account's, for the edit form."""
+    def get_income(
+        self, identity: Identity | Iterable[Identity], income_id: int
+    ) -> dict | None:
+        """One income of this person's, for the edit form."""
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
                     SELECT id, kind, amount, received_at, note
-                    FROM incomes WHERE id = %s AND user_id = %s
+                    FROM incomes WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (income_id, str(identity)),
+                    (income_id, _ids(identity)),
                 )
                 row = cur.fetchone()
 
@@ -559,36 +566,38 @@ class ExpensesRepository:
 
     def update_income(
         self,
-        identity: Identity,
+        identity: Identity | Iterable[Identity],
         income_id: int,
         kind: str,
         amount: Decimal,
         received_at: date,
         note: str = "",
     ) -> bool:
-        """Change one income of this account's, reporting whether it was there."""
+        """Change one income of this person's, reporting whether it was there."""
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
                     UPDATE incomes
                     SET kind = %s, amount = %s, received_at = %s, note = %s
-                    WHERE id = %s AND user_id = %s
+                    WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (kind, amount, received_at, note, income_id, str(identity)),
+                    (kind, amount, received_at, note, income_id, _ids(identity)),
                 )
                 updated = cur.rowcount
             conn.commit()
 
         return updated > 0
 
-    def delete_income(self, identity: Identity, income_id: int) -> bool:
+    def delete_income(
+        self, identity: Identity | Iterable[Identity], income_id: int
+    ) -> bool:
         """Remove one income, reporting whether it was there."""
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "DELETE FROM incomes WHERE id = %s AND user_id = %s",
-                    (income_id, str(identity)),
+                    "DELETE FROM incomes WHERE id = %s AND user_id = ANY(%s)",
+                    (income_id, _ids(identity)),
                 )
                 deleted = cur.rowcount
             conn.commit()

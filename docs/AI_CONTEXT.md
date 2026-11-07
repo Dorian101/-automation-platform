@@ -153,6 +153,9 @@ A plugin may also declare:
   plugin does not inspect `identity.kind`.
 - `demo` — whether the page belongs on the public demonstration. **Default
   off.** See "The demonstration" below.
+- `check` — for a plugin without a page, the read-only command with no
+  arguments that `manage.py verify` runs after a deploy. A plugin with a page
+  is checked through `page_view`.
 - `tables` — `{table: label}` for every table the plugin owns.
   `app/plugins/tables.py` collects them from every plugin class in
   `app/plugins`: `data_tables()` feeds the row counts on `/admin/status`,

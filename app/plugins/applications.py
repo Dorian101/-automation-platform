@@ -445,7 +445,7 @@ class ApplicationsPlugin(BasePlugin):
                 f"в «{_label(target)}».",
             )
 
-        self.repo.set_status(identity, int(application_id), target)
+        self.repo.set_status(self._readable_as(identity), int(application_id), target)
 
     def _delete(self, identity: Identity, payload: dict) -> None:
         application_id = payload.get("id", "")
@@ -453,7 +453,7 @@ class ApplicationsPlugin(BasePlugin):
         if not application_id.isdigit():
             raise CommandError("Отклик не найден.")
 
-        if not self.repo.delete(identity, int(application_id)):
+        if not self.repo.delete(self._readable_as(identity), int(application_id)):
             raise CommandError("Отклик не найден.")
 
     def _find(self, identity: Identity, application_id: int) -> dict | None:

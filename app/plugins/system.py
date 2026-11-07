@@ -7,6 +7,7 @@ from .manager import PluginManager
 
 class SystemPlugin(BasePlugin):
     name = "system"
+    check = "/status"
     version = "1.1.0"
     description = "Системные команды"
     commands = {

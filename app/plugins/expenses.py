@@ -315,7 +315,8 @@ class ExpensesPlugin(BasePlugin):
             self._delete(identity, payload)
         elif action == "incomedelete":
             self.repo.delete_income(
-                identity, _id(payload, "income_id", "Пополнение не найдено.")
+                self._readable_as(identity),
+                _id(payload, "income_id", "Пополнение не найдено."),
             )
         elif action == "edit":
             editing = self._editing_spend(identity, payload)
@@ -882,7 +883,7 @@ class ExpensesPlugin(BasePlugin):
 
     def _editing_spend(self, identity: Identity, payload: dict) -> dict:
         expense = self.repo.get(
-            identity, _id(payload, "expense_id", "Трата не найдена.")
+            self._readable_as(identity), _id(payload, "expense_id", "Трата не найдена.")
         )
 
         if expense is None:
@@ -938,7 +939,8 @@ class ExpensesPlugin(BasePlugin):
 
     def _editing_income(self, identity: Identity, payload: dict) -> dict:
         income = self.repo.get_income(
-            identity, _id(payload, "income_id", "Пополнение не найдено.")
+            self._readable_as(identity),
+            _id(payload, "income_id", "Пополнение не найдено."),
         )
 
         if income is None:
@@ -1049,7 +1051,9 @@ class ExpensesPlugin(BasePlugin):
     def _save_spend(self, identity: Identity, payload: dict) -> None:
         expense_id = _id(payload, "expense_id", "Трата не найдена.")
 
-        if not self.repo.update(identity, expense_id, *self._expense_fields(payload)):
+        if not self.repo.update(
+            self._readable_as(identity), expense_id, *self._expense_fields(payload)
+        ):
             raise CommandError("Трата или категория не найдена.")
 
     def _expense_fields(self, payload: dict) -> tuple:
@@ -1077,7 +1081,7 @@ class ExpensesPlugin(BasePlugin):
         income_id = _id(payload, "income_id", "Пополнение не найдено.")
 
         if not self.repo.update_income(
-            identity, income_id, *self._income_values(payload)
+            self._readable_as(identity), income_id, *self._income_values(payload)
         ):
             raise CommandError("Пополнение не найдено.")
 
@@ -1134,7 +1138,7 @@ class ExpensesPlugin(BasePlugin):
         if not expense_id.isdigit():
             raise CommandError("Трата не найдена.")
 
-        self.repo.delete(identity, int(expense_id))
+        self.repo.delete(self._readable_as(identity), int(expense_id))
 
     # -- demonstration ------------------------------------------------------
 

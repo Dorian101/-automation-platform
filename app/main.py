@@ -34,6 +34,20 @@ from app.web import WebServer
 EX_CONFIG = 78
 
 
+def build_manager(database, notifier, users, links, logger) -> PluginManager:
+    persons = PersonResolver(users, links)
+    manager = PluginManager(logger)
+    manager.register(NotesPlugin(database, persons=persons))
+    manager.register(RemindersPlugin(notifier, database))
+    manager.register(TodoPlugin(notifier, database, persons=persons))
+    manager.register(SnippetsPlugin(database, persons=persons))
+    manager.register(ExpensesPlugin(database, persons=persons))
+    manager.register(ApplicationsPlugin(database, persons=persons))
+    manager.register(AutomationPlugin(manager, notifier, database, persons=persons))
+    manager.register(SystemPlugin(manager, users=users, links=links))
+    return manager
+
+
 async def main() -> None:
     logger = setup_logger()
 
@@ -66,22 +80,7 @@ async def main() -> None:
         resolver=LinkedChatResolver(users, links),
     )
 
-    # One resolver answering both halves of the same question: where a message
-    # goes, and whose data is readable as one person's. Sharing it means the two
-    # cannot disagree about who a link belongs to.
-    persons = PersonResolver(users, links)
-
-    manager = PluginManager(logger)
-    manager.register(NotesPlugin(database, persons=persons))
-    manager.register(RemindersPlugin(notifier, database))
-    manager.register(TodoPlugin(notifier, database, persons=persons))
-    manager.register(SnippetsPlugin(database, persons=persons))
-    manager.register(ExpensesPlugin(database, persons=persons))
-    manager.register(ApplicationsPlugin(database, persons=persons))
-    manager.register(AutomationPlugin(manager, notifier, database, persons=persons))
-    manager.register(
-        SystemPlugin(manager, users=users, links=links)
-    )
+    manager = build_manager(database, notifier, users, links, logger)
 
     dp.include_router(manager.build_router())
 
