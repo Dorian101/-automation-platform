@@ -419,6 +419,18 @@ class TestTheLightTheme:
                 ratio = _contrast(palette[name], palette[ground])
                 assert ratio >= 4.5, f"--{name} on --{ground}: {ratio:.2f}"
 
+    @pytest.mark.parametrize(
+        "stylesheet", ["_styles.html", "_page_styles.html"]
+    )
+    async def test_buttons_and_field_edges_are_readable(self, stylesheet):
+        source = (ROOT / "app/web/templates" / stylesheet).read_text()
+        palette = {}
+        for name, colour in re.findall(r"--([a-z-]+): (#[0-9a-f]{6});", source):
+            palette.setdefault(name, colour)
+
+        assert _contrast(palette["bg"], palette["accent"]) >= 4.5
+        assert _contrast(palette["muted"], palette["bg"]) >= 3
+
 
 class TestTheProjectPage:
     """A page of claims about the project, checked against the project.

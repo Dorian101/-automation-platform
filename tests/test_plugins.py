@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -691,3 +692,27 @@ class TestSharedDataThroughThePlugins:
         result = await plugin.execute("/snippets", "", telegram(9999))
 
         assert result.text.startswith("Сниппетов нет")
+
+
+async def test_reminder_worker_survives_a_failed_pass(
+    notifier, database_with_schema, monkeypatch, caplog
+):
+    plugin = RemindersPlugin(notifier, database_with_schema)
+    passes = iter(
+        [RuntimeError("pool timeout"), RuntimeError("pool timeout"),
+         RuntimeError("relation missing"), None, asyncio.CancelledError()]
+    )
+
+    async def process_due():
+        error = next(passes)
+        if error:
+            raise error
+
+    monkeypatch.setattr(plugin, "process_due", process_due)
+    monkeypatch.setattr("app.plugins.reminders.POLL_INTERVAL_SECONDS", 0)
+
+    with pytest.raises(asyncio.CancelledError):
+        await plugin._worker()
+
+    assert caplog.text.count("Reminder delivery failed") == 2
+    assert "Reminder delivery recovered" in caplog.text

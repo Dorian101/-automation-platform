@@ -2583,3 +2583,41 @@ behind. Python dependencies were audited only on a push.
 A fix reaches the host within a day, the kernel within hours through
 Livepatch, and silence means it worked.
 
+
+## 2026-11-07
+
+### Decision
+Keep background workers alive after a failed pass, and answer the user when a
+bot handler fails
+
+### Reason
+An audit found that the reminders and todo workers had no guard around their
+pass: one database error ended the task, and reminders stopped silently until
+a restart. The button flow in `app/bot/menu.py` caught every exception and sent
+its text to the chat, which could carry driver or SQL details, and nothing
+logged it.
+
+### How it is done
+
+- Each worker pass sits in `try/except Exception`; cancellation still stops
+  the task. The reminders worker, polling every 30 seconds, logs the traceback
+  only when the error changes and a warning when a pass succeeds again, so an
+  outage does not fill `app_errors` (500 rows) within hours. The todo worker
+  polls hourly and logs every failure.
+- Bot handlers catch only `CommandError`. Anything else reaches the
+  dispatcher's error handler, which logs it and replies with a fixed text.
+- The accent buttons take `--bg` as their text colour and inputs take
+  `--muted` as their border, both checked by a test for the sign-in and page
+  stylesheets.
+
+Left for later, from the same review: a shared periodic-task helper on
+`BasePlugin` (three workers now copy the start, stop and guard code); an
+`--on-accent` token instead of reusing `--bg`; underlining links by default
+rather than for `p`, `li` and `footer`; one helper for the JSON-object body
+check, now in three handlers; and logging a reminder's failed delivery once per
+outage rather than on every pass.
+
+### Result
+A database blip delays reminders by one poll instead of stopping them, and a
+bot user sees a short apology instead of an exception or silence.
+

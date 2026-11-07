@@ -77,6 +77,7 @@
   li::marker { color: var(--muted); }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
+  p a, li a, footer a { text-decoration: underline; text-underline-offset: 3px; }
   code {
     background: var(--bg);
     border: 1px solid var(--border);
@@ -501,7 +502,7 @@
   dialog.feedback textarea {
     width: 100%;
     padding: 0.75rem;
-    border: 1px solid var(--border);
+    border: 1px solid var(--muted);
     border-radius: 8px;
     background: var(--bg);
     color: var(--text);
@@ -521,7 +522,7 @@
     font: inherit;
     cursor: pointer;
   }
-  .feedback-buttons .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .feedback-buttons .primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
   .feedback-buttons button:disabled { opacity: 0.6; cursor: default; }
   /* The report's text needs about 340px, which 38% of the page only gives on a
      wide screen. Below that it goes under the headline, as on a phone. */

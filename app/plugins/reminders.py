@@ -150,8 +150,18 @@ class RemindersPlugin(BasePlugin):
         return reply(f"Cancelled reminder {position}")
 
     async def _worker(self) -> None:
+        last_error = None
         while True:
-            await self.process_due()
+            try:
+                await self.process_due()
+            except Exception as error:
+                if repr(error) != last_error:
+                    logger.exception("Reminder delivery failed")
+                last_error = repr(error)
+            else:
+                if last_error:
+                    logger.warning("Reminder delivery recovered")
+                last_error = None
             await asyncio.sleep(POLL_INTERVAL_SECONDS)
 
     async def process_due(self) -> None:

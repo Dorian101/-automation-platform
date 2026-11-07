@@ -271,7 +271,7 @@ class TestSecretsStayOut:
 
 
 class TestDailyAudit:
-    @pytest.fixture(scope="class")
+    @pytest.fixture
     def audit(self) -> dict:
         path = ROOT / ".github" / "workflows" / "audit.yml"
         return yaml.safe_load(path.read_text(encoding="utf-8"))

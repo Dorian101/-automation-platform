@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.80.3
+v0.80.4
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -734,6 +734,18 @@ deployment that never sets it records everything as before.
 
 ## Current limitations
 
+* Since v0.80.4 the reminder and deadline workers keep polling after a failed
+  pass instead of stopping until a restart. The reminders worker stores a
+  failure once per distinct error and logs a warning when it recovers. Left
+  for later: a reminder whose delivery raises is still logged on every
+  30-second pass, so a long Telegram outage with several due reminders can
+  fill `/admin/errors`.
+* Since v0.80.4 the bot answers "Что-то пошло не так" when a handler fails
+  with anything but a `CommandError`, instead of showing the exception text
+  in the button flow or staying silent elsewhere.
+* Since v0.80.4 `/api/command` answers 400 to a JSON body that is not an
+  object, and the sign-in pages' buttons, field edges and prose links meet
+  WCAG AA contrast in both themes.
 * Since v0.80.3 the engineering view of /project covers automations,
   snippets, the admin area, the demo's limits, the release order, speed and
   monitoring, and security updates; the claim that nightly dumps go to

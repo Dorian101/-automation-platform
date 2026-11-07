@@ -649,6 +649,12 @@ class WebServer:
                 status=400,
             )
 
+        if not isinstance(payload, dict):
+            return web.json_response(
+                {"error": "Request body must be a JSON object"},
+                status=400,
+            )
+
         command = payload.get("command", "")
         args = payload.get("args", "")
 

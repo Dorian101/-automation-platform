@@ -816,6 +816,12 @@ of `/about`, `/project` and `/demo` (`app/web/feedback.js`).
   aiogram's "Failed to fetch updates" is stored only when failures keep
   coming for five minutes (a gap over a minute starts a new outage), and
   then once per outage.
+- Background workers (`reminders`, `todo`, `automation`) catch everything but
+  cancellation around each pass and keep polling. The reminders worker logs a
+  failure once per distinct error and a warning on recovery.
+- The bot's `dp.error()` handler (`app/bot/error_handler.py`) logs the
+  exception and answers the message with a fixed `FAILURE_REPLY`; handlers
+  catch only `CommandError`, whose text is meant for the user.
 - `/admin/broadcast` sends through the `Notifier` to the linked chats of
   active accounts. Bot users without a web account are not reachable: there
   is no list of them outside the plugin tables.

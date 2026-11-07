@@ -140,6 +140,13 @@ class TestExecuteEndpoint:
 
         assert response.status == 400
 
+    @pytest.mark.parametrize("body", [[], "text", 5])
+    async def test_rejects_a_body_that_is_not_an_object(self, client, body):
+        response = await client.post("/api/command", json=body)
+
+        assert response.status == 400
+        assert "JSON object" in (await response.json())["error"]
+
     async def test_rejects_non_string_fields(self, client):
         response = await client.post(
             "/api/command",

@@ -49,19 +49,20 @@
   }
   input {
     background: var(--bg);
-    border: 1px solid var(--border);
+    border: 1px solid var(--muted);
     border-radius: 6px;
     color: var(--text);
     padding: 0.55rem 0.7rem;
     font: inherit;
   }
   input:focus { outline: none; border-color: var(--accent); }
+  input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   button {
     margin-top: 0.25rem;
     background: var(--accent);
     border: none;
     border-radius: 6px;
-    color: #fff;
+    color: var(--bg);
     padding: 0.6rem 1.1rem;
     font: inherit;
     font-weight: 500;
@@ -70,6 +71,7 @@
   button:hover { filter: brightness(1.08); }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
+  .alt a { text-decoration: underline; text-underline-offset: 3px; }
   .alt {
     text-align: center;
     font-size: 0.9rem;

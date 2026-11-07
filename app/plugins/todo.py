@@ -144,7 +144,10 @@ class TodoPlugin(BasePlugin):
 
     async def _worker(self) -> None:
         while True:
-            await self.process_due()
+            try:
+                await self.process_due()
+            except Exception:
+                logger.exception("Deadline reminders failed")
             await asyncio.sleep(POLL_INTERVAL_SECONDS)
 
     async def process_due(self) -> None:

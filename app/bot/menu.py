@@ -16,6 +16,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import KeyboardButton, Message, ReplyKeyboardMarkup
 
+from app.core.results import CommandError
+
 # Group buttons, fixed text. A button is just a message the bot answers; the
 # group names below are what that message contains.
 BTN_ARGS = "➕ Команды с аргументами"
@@ -144,7 +146,7 @@ def build_menu_router(execute) -> Router:
 
         try:
             result = await execute("/add", message.text, _identity(message))
-        except Exception as error:
+        except CommandError as error:
             await message.answer(str(error), reply_markup=args_keyboard())
             await state.set_state(InputFlow.waiting)
             return
@@ -176,7 +178,7 @@ def build_menu_router(execute) -> Router:
 
         try:
             result = await execute("/remind", args, _identity(message))
-        except Exception as error:
+        except CommandError as error:
             await message.answer(str(error), reply_markup=args_keyboard())
             await state.set_state(InputFlow.waiting)
             return

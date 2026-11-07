@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta
 
 import pytest
@@ -325,3 +326,18 @@ async def test_one_save_keeps_the_text_and_the_deadline(plugin, web_identity):
     )
 
     assert _cards(view, 0)[0]["due_iso"] == "2026-12-01"
+
+
+async def test_deadline_worker_survives_a_failed_pass(plugin, monkeypatch, caplog):
+    errors = iter([RuntimeError("pool timeout"), asyncio.CancelledError()])
+
+    async def process_due():
+        raise next(errors)
+
+    monkeypatch.setattr(plugin, "process_due", process_due)
+    monkeypatch.setattr("app.plugins.todo.POLL_INTERVAL_SECONDS", 0)
+
+    with pytest.raises(asyncio.CancelledError):
+        await plugin._worker()
+
+    assert "Deadline reminders failed" in caplog.text
