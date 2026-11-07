@@ -194,6 +194,10 @@ Root-run host scripts (`scripts/ssh-digest.sh`, `scripts/update-check.sh`)
 are copied to `/usr/local/sbin` by hand, never run from the checkout, and send
 through `app.manage notify-admins` as `automation`.
 
+The /project diagram draws one box per shipped plugin, 82 wide on an 88 step
+from x=32; `project_page.js` keeps the same step for the moving dot, and
+`tests/test_seo.py` fails when a plugin is missing from the drawing.
+
 Optional parts of a description: `layout` (the order of sections), `tools`
 (page-level buttons), `keep` (values the page sends back with every action,
 such as which screen is open), `list` as an array of tables, a table's `tools`

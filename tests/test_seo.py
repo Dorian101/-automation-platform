@@ -470,6 +470,7 @@ class TestTheProjectPage:
         matter — a plugin renamed in code and not here is the same defect.
         """
         from app.plugins.applications import ApplicationsPlugin
+        from app.plugins.automation import AutomationPlugin
         from app.plugins.expenses import ExpensesPlugin
         from app.plugins.notes import NotesPlugin
         from app.plugins.reminders import RemindersPlugin
@@ -483,6 +484,7 @@ class TestTheProjectPage:
             SnippetsPlugin.name,
             ExpensesPlugin.name,
             ApplicationsPlugin.name,
+            AutomationPlugin.name,
             SystemPlugin.name,
             TodoPlugin.name,
         }

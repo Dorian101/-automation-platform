@@ -119,10 +119,15 @@ __MENU_STYLES__
       <article class="project lime">
         <div class="project-meta"><span>02</span><span>Финансы · Категории</span></div>
         <h3>Расходы</h3>
-        <p class="lens-brief">Учёт трат по своим категориям и сводка за месяц.</p>
-        <p class="lens-deep">Категории заводит сам пользователь. Суммы хранятся
-        как <code>NUMERIC(12, 2)</code> и проходят через Python как
-        <code>Decimal</code>, поэтому деньги не теряют точность.</p>
+        <p class="lens-brief">Траты и пополнения по своим категориям. За месяц
+        считаются два итога: зарплата минус траты и все поступления минус траты.
+        График, разбивка по категориям и список операций вынесены на отдельный
+        экран.</p>
+        <p class="lens-deep">Категории создаёт пользователь. Удалённая категория
+        архивируется вместе с историей и восстанавливается, если создать её
+        снова с тем же именем. Суммы хранятся в <code>NUMERIC(12, 2)</code> и
+        обрабатываются как <code>Decimal</code>, без потери точности. Запись
+        можно отредактировать, правка проходит те же проверки, что и создание.</p>
       </article>
       <article class="project coral">
         <div class="project-meta"><span>03</span><span>Воронка · Статусы</span></div>
@@ -136,11 +141,42 @@ __MENU_STYLES__
       <article class="project blue">
         <div class="project-meta"><span>04</span><span>Канбан · Дедлайны</span></div>
         <h3>Задачи</h3>
-        <p class="lens-brief">Канбан-доска с тремя колонками. Если Telegram
-        связан с аккаунтом, за сутки до дедлайна придёт напоминание.</p>
-        <p class="lens-deep">Три статуса и таблица допустимых переходов. Воркер
-        раз в час ищет задачи со сроком в ближайшие сутки, отправляет одно
-        напоминание и помечает задачу, чтобы не повторяться.</p>
+        <p class="lens-brief">Канбан-доска из трёх колонок. У задачи есть
+        описание, срок, приоритет и повтор: ежедневно, еженедельно или
+        ежемесячно. Выполненные задачи через неделю уходят в архив. Если аккаунт
+        связан с Telegram, перед сроком приходит напоминание.</p>
+        <p class="lens-deep">Переходы между статусами заданы таблицей, вперёд и
+        назад. При закрытии повторяющейся задачи один раз создаётся следующая, и
+        её срок не может оказаться в прошлом. Напоминания отправляет воркер раз
+        в час, по одному на срок. Если срок перенести, напоминание придёт снова.</p>
+      </article>
+      <article class="project lime">
+        <div class="project-meta"><span>05</span><span>Правила · События</span></div>
+        <h3>Автоматизации</h3>
+        <p class="lens-brief">Правила вида «когда — если — сделать», которые
+        собираются на странице из готовых блоков. Например: закрыта задача
+        «оплатить коммуналку» — внести трату; трата больше 5000 — создать задачу
+        на проверку; каждое 1-е число — сообщение в Telegram.</p>
+        <p class="lens-deep">Плагины объявляют свои события и действия и
+        публикуют события в общую шину. Ядро не знает о конкретных плагинах.
+        Правило хранится в базе как данные, а действие выполняется с теми же
+        проверками, что и с веб-страницы. Чтобы правила не вызывали друг друга
+        бесконечно, событие несёт цепочку правил, которые к нему привели: правило
+        не запускается дважды в одной цепочке, глубина ограничена тремя. Все
+        срабатывания пишутся в журнал.</p>
+      </article>
+      <article class="project coral">
+        <div class="project-meta"><span>06</span><span>Код · Тексты</span></div>
+        <h3>Сниппеты</h3>
+        <p class="lens-brief">Хранилище для кода и длинных текстов, общее для
+        бота и сайта. Сниппет можно открыть, отредактировать и скопировать. Боту
+        можно отправить текстовый файл, а получить сниппет обратно блоком кода
+        или файлом.</p>
+        <p class="lens-deep">Текст хранится без изменений, до 200 КБ. Размер
+        файла проверяется до скачивания и после, двоичные файлы и файлы не в
+        UTF-8 отклоняются, имя файла очищается. В Telegram текст отправляется с
+        сущностью <code>pre</code>, без разбора Markdown, поэтому символы вроде
+        <code>||</code> остаются как есть.</p>
       </article>
     </div>
   </section>
@@ -187,7 +223,7 @@ __MENU_STYLES__
       </defs>
 
       <path class="edge" data-step="telegram" d="M 205 100 L 205 138 L 380 138" />
-      <path class="edge page-route" data-step="page-route" d="M 270 207 L 100 207 L 100 330 L 479 330 L 479 342" marker-end="url(#d-arrow)" />
+      <path class="edge page-route" data-step="page-route" d="M 270 207 L 100 207 L 100 330 L 425 330 L 425 342" marker-end="url(#d-arrow)" />
       <path class="edge" data-step="identity" d="M 560 100 L 560 138 L 380 138 L 380 182" marker-end="url(#d-arrow)" />
       <path class="edge" data-step="dispatcher" d="M 380 230 L 380 256" marker-end="url(#d-arrow)" />
       <path class="edge" data-step="to-plugin" d="M 380 316 L 380 342" marker-end="url(#d-arrow)" />
@@ -218,20 +254,22 @@ __MENU_STYLES__
       <text class="label" x="380" y="278" text-anchor="middle" dominant-baseline="middle">PluginManager</text>
       <text class="small" x="380" y="298" text-anchor="middle">parse_command → execute → CommandResult</text>
 
-      <rect class="box process" data-step="plugin-system" x="32" y="344" width="94" height="40" rx="8" />
-      <text class="cell" x="79" y="364" text-anchor="middle" dominant-baseline="middle">system</text>
-      <rect class="box process" data-step="plugin-notes" x="132" y="344" width="94" height="40" rx="8" />
-      <text class="cell" x="179" y="364" text-anchor="middle" dominant-baseline="middle">notes</text>
-      <rect class="box process" data-step="plugin-reminders" x="232" y="344" width="94" height="40" rx="8" />
-      <text class="cell" x="279" y="364" text-anchor="middle" dominant-baseline="middle">reminders</text>
-      <rect class="box process" data-step="plugin-snippets" x="332" y="344" width="94" height="40" rx="8" />
-      <text class="cell" x="379" y="364" text-anchor="middle" dominant-baseline="middle">snippets</text>
-      <rect class="box process" data-step="plugin-expenses" x="432" y="344" width="94" height="40" rx="8" />
-      <text class="cell" x="479" y="364" text-anchor="middle" dominant-baseline="middle">expenses</text>
-      <rect class="box process" data-step="plugin-applications" x="532" y="344" width="94" height="40" rx="8" />
-      <text class="cell" x="579" y="364" text-anchor="middle" dominant-baseline="middle">applications</text>
-      <rect class="box process" data-step="plugin-todo" x="632" y="344" width="94" height="40" rx="8" />
-      <text class="cell" x="679" y="364" text-anchor="middle" dominant-baseline="middle">todo</text>
+      <rect class="box process" data-step="plugin-system" x="32" y="344" width="82" height="40" rx="8" />
+      <text class="cell" x="73" y="364" text-anchor="middle" dominant-baseline="middle">system</text>
+      <rect class="box process" data-step="plugin-notes" x="120" y="344" width="82" height="40" rx="8" />
+      <text class="cell" x="161" y="364" text-anchor="middle" dominant-baseline="middle">notes</text>
+      <rect class="box process" data-step="plugin-reminders" x="208" y="344" width="82" height="40" rx="8" />
+      <text class="cell" x="249" y="364" text-anchor="middle" dominant-baseline="middle">reminders</text>
+      <rect class="box process" data-step="plugin-snippets" x="296" y="344" width="82" height="40" rx="8" />
+      <text class="cell" x="337" y="364" text-anchor="middle" dominant-baseline="middle">snippets</text>
+      <rect class="box process" data-step="plugin-expenses" x="384" y="344" width="82" height="40" rx="8" />
+      <text class="cell" x="425" y="364" text-anchor="middle" dominant-baseline="middle">expenses</text>
+      <rect class="box process" data-step="plugin-applications" x="472" y="344" width="82" height="40" rx="8" />
+      <text class="cell" x="513" y="364" text-anchor="middle" dominant-baseline="middle">applications</text>
+      <rect class="box process" data-step="plugin-todo" x="560" y="344" width="82" height="40" rx="8" />
+      <text class="cell" x="601" y="364" text-anchor="middle" dominant-baseline="middle">todo</text>
+      <rect class="box process" data-step="plugin-automation" x="648" y="344" width="82" height="40" rx="8" />
+      <text class="cell" x="689" y="364" text-anchor="middle" dominant-baseline="middle">automation</text>
 
       <rect class="box storage" data-step="postgres" x="240" y="464" width="280" height="48" rx="8" />
       <text class="label" x="380" y="488" text-anchor="middle" dominant-baseline="middle">PostgreSQL</text>
@@ -261,7 +299,7 @@ __MENU_STYLES__
       <li data-step="web telegram"><b>Транспорт</b>Telegram-бот на aiogram и веб-консоль на aiohttp</li>
       <li data-step="identity"><b>Identity</b>kind:id, PersonResolver связывает каналы</li>
       <li data-step="dispatcher"><b>PluginManager</b>parse_command → execute → CommandResult</li>
-      <li data-step="plugin-system plugin-notes plugin-reminders plugin-snippets plugin-expenses plugin-applications plugin-todo"><b>Плагины</b>system · notes · reminders · snippets · expenses · applications · todo</li>
+      <li data-step="plugin-system plugin-notes plugin-reminders plugin-snippets plugin-expenses plugin-applications plugin-todo plugin-automation"><b>Плагины</b>system · notes · reminders · snippets · expenses · applications · todo · automation</li>
       <li data-step="postgres notify"><b>Хранение и доставка</b>PostgreSQL и уведомления в чат Telegram</li>
     </ol>
     <figcaption>
@@ -288,6 +326,17 @@ __MENU_STYLES__
     Пуш в <code>main</code> сначала проходит <code>ruff</code>, аудит зависимостей
     и <code>pytest</code> в GitHub Actions, а затем проект разворачивается сам: по ключу с единственной
     разрешённой командой выполняется скрипт деплоя.</p>
+    <p class="lens-deep">Управление сайтом вынесено в админку: режим
+    обслуживания, отключение плагинов, лимиты, журнал ошибок, рассылка и
+    отзывы. Кратковременные сбои связи с Telegram, которые проходят сами, в
+    журнал не пишутся, пишется только простой дольше пяти минут.</p>
+    <p class="lens-deep">Демо доступно без регистрации. У каждого гостя
+    отдельное пространство, привязанное к cookie, есть лимиты на число записей
+    и общий лимит запросов с одного адреса. Данные гостей удаляются раз в
+    сутки.</p>
+    <p class="lens-deep">Страница «Обо мне» получает 100 баллов в
+    PageSpeed на десктопе. Ответы сжимаются, шрифты отдаются с сервера и
+    кешируются на год. Доступность сайта извне проверяет UptimeRobot.</p>
   </section>
 
   <section class="about lens-deep">
@@ -298,6 +347,11 @@ __MENU_STYLES__
     <code>ruff</code> и <code>pytest</code> запускаются перед коммитом, а CI
     повторяет их перед деплоем. Тесты проверяют и то, что работает, и то, что
     должно отказывать.</p>
+    <p>Порядок релиза фиксирован: ревью диффа, если он большой; проверка
+    безопасности по затронутым местам; версия по правилу (новое поведение —
+    минорная, исправление — патч); тег на коммите. После деплоя проверяется,
+    что на сервере нужный коммит и сервис запущен. Хук не даёт запушить в
+    <code>main</code> без новой версии и тега.</p>
     <p>Состояние живёт в файлах, а не в переписке: <code>DECISIONS.md</code>,
     <code>PROJECT_STATE.md</code>, <code>DEPLOYMENT.md</code>
     и <code>AI_CONTEXT.md</code>. Правила работы сложились из собственной практики и
@@ -315,9 +369,7 @@ __MENU_STYLES__
     <h3>Бэкап, который нельзя восстановить, — не бэкап</h3>
     <p>Создать дамп просто; убедиться, что он восстанавливается, — нет.
     Поэтому восстановление проверено на отдельной базе: вернулись таблицы,
-    миграции и последовательности, а новая запись прошла сразу. Копия каждого
-    ночного дампа, зашифрованная gpg, уходит администратору в Telegram, так что
-    потеря сервера больше не означает потерю данных.</p>
+    миграции и последовательности, а новая запись прошла сразу.</p>
 
     <h3>Сервер под постоянным перебором паролей</h3>
     <p>Журнал показал около 14 тысяч попыток входа по SSH в сутки. Теперь вход
@@ -327,9 +379,19 @@ __MENU_STYLES__
 
     <h3>Аудит, который ничего не проверял</h3>
     <p>Проверка уязвимостей по виртуальному окружению всегда отвечала «чисто» —
-    оказалось, она находила ноль пакетов. Теперь CI проверяет lock-файл на каждом
-    пуше и блокирует деплой при находке, а Dependabot раз в неделю предлагает
-    обновления.</p>
+    оказалось, она находила ноль пакетов. Теперь CI проверяет lock-файл при
+    каждом пуше и раз в сутки по расписанию. Найденная уязвимость блокирует
+    деплой, а Dependabot открывает PR с исправлением сразу после публикации
+    уязвимости.</p>
+
+    <h3>Обновления безопасности</h3>
+    <p>Модели всё чаще находят уязвимости в ядре Linux и распространённых
+    программах, поэтому обновления должны доходить до сервера без участия
+    человека. Обновления безопасности ставятся автоматически раз в сутки,
+    включая Caddy из его репозитория. Ядро обновляется через Livepatch без
+    перезагрузки. Если перезагрузка всё же нужна, сервер перезагружается ночью.
+    Раз в сутки скрипт проверяет, что обновления прошли, и пишет в Telegram,
+    только если что-то не так.</p>
 
     <h3>Деплой, который только выглядел успешным</h3>
     <p>Скрипт деплоя лежит в обновляемом им же репозитории, а Bash читает

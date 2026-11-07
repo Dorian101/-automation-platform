@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.80.2
+v0.80.3
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -734,6 +734,11 @@ deployment that never sets it records everything as before.
 
 ## Current limitations
 
+* Since v0.80.3 the engineering view of /project covers automations,
+  snippets, the admin area, the demo's limits, the release order, speed and
+  monitoring, and security updates; the claim that nightly dumps go to
+  Telegram is gone, since that copy is switched off. The diagram lists eight
+  plugins, automation included.
 * Since v0.80.2 security updates are watched: a daily pip-audit in CI,
   Dependabot security updates, and on the host Livepatch, a reboot at 04:00
   Moscow time when one is needed, Caddy in the automatic updates and a daily
