@@ -23,6 +23,11 @@ DETAILS_LIMIT = 8000
 #: connection, and the event loop waits with it.
 PAUSE_SECONDS = 30
 
+POLLING_LOGGER = "aiogram.dispatcher"
+POLLING_FAILURE = "Failed to fetch updates"
+OUTAGE_SECONDS = 300
+OUTAGE_GAP_SECONDS = 60
+
 
 @dataclass(frozen=True)
 class AppError:
@@ -76,10 +81,23 @@ class ErrorLogHandler(logging.Handler):
         super().__init__(level=logging.ERROR)
         self._repository = repository
         self._paused_until = 0.0
+        self._outage_start = None
+        self._outage_last = None
+        self._outage_reported = False
 
     def emit(self, record: logging.LogRecord) -> None:
         if time.monotonic() < self._paused_until:
             return
+
+        message = record.getMessage()
+
+        if record.name == POLLING_LOGGER and message.startswith(POLLING_FAILURE):
+            if not self._outage_lasts(record.created):
+                return
+
+            message = (
+                f"Нет связи с Telegram дольше {OUTAGE_SECONDS // 60} минут: {message}"
+            )
 
         try:
             details = ""
@@ -87,6 +105,19 @@ class ErrorLogHandler(logging.Handler):
             if record.exc_info:
                 details = logging.Formatter().formatException(record.exc_info)
 
-            self._repository.add(record.name, record.getMessage(), details)
+            self._repository.add(record.name, message, details)
         except Exception:  # noqa: BLE001 — see the class docstring
             self._paused_until = time.monotonic() + PAUSE_SECONDS
+
+    def _outage_lasts(self, now: float) -> bool:
+        if self._outage_last is None or now - self._outage_last > OUTAGE_GAP_SECONDS:
+            self._outage_start = now
+            self._outage_reported = False
+
+        self._outage_last = now
+
+        if self._outage_reported or now - self._outage_start < OUTAGE_SECONDS:
+            return False
+
+        self._outage_reported = True
+        return True

@@ -2531,3 +2531,25 @@ not used otherwise.
 ### Result
 `/copy` and `/paste` are gone from the bot and the help.
 
+## 2026-11-07
+
+### Decision
+Keep short Telegram outages out of the admin area's error list
+
+### Reason
+The owner read four "Failed to fetch updates - Bad Gateway" records as a
+recurring fault. They were one minute of Telegram answering 502, which
+aiogram retried until it reconnected on its own; in ten days there were two
+such episodes and no other errors.
+
+### How it is done
+
+- The error log handler holds polling failures back and stores one record
+  only when they keep coming for five minutes.
+- A gap of more than a minute between failures counts as a recovery, since
+  aiogram retries within seconds while the outage lasts.
+- The service journal is untouched.
+
+### Result
+The list shows what needs a look: an outage that does not end by itself.
+

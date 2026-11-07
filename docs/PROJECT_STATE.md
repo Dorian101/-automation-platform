@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.80.0
+v0.80.1
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -734,6 +734,9 @@ deployment that never sets it records everything as before.
 
 ## Current limitations
 
+* Since v0.80.1 `/admin/errors` leaves out Telegram polling failures that
+  recover within five minutes; an outage longer than that is stored once.
+  The service journal still has every attempt.
 * Since v0.75.2 `/fonts/*` is cached for a year (`immutable`) instead of a
   day, so a changed font or `fonts.css` must ship under a new file name.
   Response compression is Caddy's `encode zstd gzip`, a line in the server's

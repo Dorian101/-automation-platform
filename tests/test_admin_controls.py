@@ -282,3 +282,55 @@ class TestActiveMeansInUse:
 
         assert sessions.get_user_id(token) == account.id
         assert len(sessions.active()) == 1
+
+
+class TestTelegramOutages:
+    def _failures(self, handler, *seconds):
+        for at in seconds:
+            record = logging.LogRecord(
+                "aiogram.dispatcher",
+                logging.ERROR,
+                "",
+                0,
+                "Failed to fetch updates - TelegramServerError: Bad Gateway",
+                None,
+                None,
+            )
+            record.created = at
+            handler.emit(record)
+
+    def test_a_short_outage_is_not_stored(self, database_with_schema):
+        repository = ErrorsRepository(database_with_schema)
+        handler = ErrorLogHandler(repository)
+
+        self._failures(handler, 0, 1, 3, 6, 60)
+
+        assert repository.recent() == []
+
+    def test_a_long_outage_is_stored_once(self, database_with_schema):
+        repository = ErrorsRepository(database_with_schema)
+        handler = ErrorLogHandler(repository)
+
+        self._failures(handler, *range(0, 400, 5))
+
+        [error] = repository.recent()
+        assert error.message.startswith("Нет связи с Telegram дольше 5 минут")
+
+    def test_a_gap_starts_a_new_outage(self, database_with_schema):
+        repository = ErrorsRepository(database_with_schema)
+        handler = ErrorLogHandler(repository)
+
+        self._failures(handler, 0, 200, 400, 600)
+
+        assert repository.recent() == []
+
+    def test_other_errors_are_still_stored(self, database_with_schema):
+        repository = ErrorsRepository(database_with_schema)
+        handler = ErrorLogHandler(repository)
+        record = logging.LogRecord(
+            "aiogram.dispatcher", logging.ERROR, "", 0, "Cause exception", None, None
+        )
+
+        handler.emit(record)
+
+        assert [error.message for error in repository.recent()] == ["Cause exception"]

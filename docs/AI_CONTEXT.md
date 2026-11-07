@@ -805,6 +805,9 @@ of `/about`, `/project` and `/demo` (`app/web/feedback.js`).
 - `ErrorLogHandler` (installed in `app/main.py`) writes ERROR records to
   `app_errors`, keeping the newest 500, for `/admin/errors`; a failed write
   is dropped rather than logged, which would recurse.
+  aiogram's "Failed to fetch updates" is stored only when failures keep
+  coming for five minutes (a gap over a minute starts a new outage), and
+  then once per outage.
 - `/admin/broadcast` sends through the `Notifier` to the linked chats of
   active accounts. Bot users without a web account are not reachable: there
   is no list of them outside the plugin tables.
