@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{lang}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Платформа автоматизации — проект и метод работы</title>
-<meta name="description" content="Личная платформа автоматизации: заметки, напоминания, расходы, задачи и отклики на вакансии в браузере и Telegram над одной базой.">
+<title>{{project.title}}</title>
+<meta name="description" content="{{project.description}}">
 __PAGE_STYLES__
 __MENU_STYLES__
 </head>
@@ -13,11 +13,11 @@ __MENU_STYLES__
   __NAV__
 
   <section class="hero">
-    <p class="eyebrow">Проект · Automation Platform</p>
-    <h1>Личные дела — <br>в одном <em>месте</em>.</h1>
-    <div id="lens" class="lens" role="group" aria-label="Глубина описания" hidden>
-      <button type="button" data-lens="brief">Кратко</button>
-      <button type="button" data-lens="deep">Инженерно</button>
+    <p class="eyebrow">{{project.eyebrow}}</p>
+    <h1>{{project.headline}}</h1>
+    <div id="lens" class="lens" role="group" aria-label="{{project.lens_label}}" hidden>
+      <button type="button" data-lens="brief">{{project.lens_brief}}</button>
+      <button type="button" data-lens="deep">{{project.lens_deep}}</button>
     </div>
     <div class="viz viz--small" aria-hidden="true">
       <svg viewBox="0 0 64 64" class="viz-svg">
@@ -68,133 +68,77 @@ __MENU_STYLES__
   </section>
 
   <section class="about">
-    <p class="section-tag" role="heading" aria-level="2">01 / Что это</p>
-    <p class="location">Личная платформа автоматизации</p>
-    <p class="lens-brief">Система для повседневных дел: заметки, напоминания,
-    расходы, задачи и отклики на вакансии. Заметки и напоминания доступны и в
-    Telegram, и в браузере, а для расходов, задач и откликов есть отдельные
-    страницы. Аккаунты можно связать: данные из обоих каналов будут видны
-    вместе, а напоминания станут приходить в чат.</p>
-    <p class="lens-brief">Проект показывает полный цикл разработки: от схемы
-    базы и тестов до автоматического деплоя и резервных копий. Разработку вели
-    AI-агенты, задачи ставил человек. Платформа работает в проде, а демо
-    открывается <a href="/demo">без регистрации</a>.</p>
-    <p class="lens-deep">Python-монолит: один процесс держит aiogram polling,
-    HTTP-сервер на aiohttp и фоновые воркеры напоминаний и дедлайнов. Данные —
-    в PostgreSQL. Схема сознательно простая: один VPS, один сервис, никаких
-    брокеров и отдельных воркеров.</p>
-    <p class="lens-deep">Ядро не зависит от транспорта. Текстовая команда из
-    обоих каналов проходит через <code>parse_command</code> и
-    <code>PluginManager.execute</code> и возвращает <code>CommandResult</code>.
-    Плагин с флагом <code>web_only</code> работает через страницы, а транспорт
-    проверяет роутер.</p>
-    <p class="lens-deep">Identity хранится как <code>kind:id</code>, поэтому
-    одинаковые id из разных каналов не смешиваются. <code>PersonResolver</code>
-    объединяет связанные аккаунты при чтении, а запись остаётся под исходной
-    identity: отвязка действует сразу, а история сохраняет источник.</p>
+    <p class="section-tag" role="heading" aria-level="2">{{project.tag_what}}</p>
+    <p class="location">{{project.what_subtitle}}</p>
+    <p class="lens-brief">{{project.what_brief_1}}</p>
+    <p class="lens-brief">{{project.what_brief_2}}</p>
+    <p class="lens-deep">{{project.what_deep_1}}</p>
+    <p class="lens-deep">{{project.what_deep_2}}</p>
+    <p class="lens-deep">{{project.what_deep_3}}</p>
     <div class="facts lens-deep">
-      <div class="fact"><b>__PLUGINS__</b><span>плагинов</span></div>
-      <div class="fact"><b>__COMMANDS__</b><span>команд</span></div>
-      <div class="fact"><b>__MIGRATIONS__</b><span>миграций</span></div>
+      <div class="fact"><b>__PLUGINS__</b><span>{{project.fact_plugins}}</span></div>
+      <div class="fact"><b>__COMMANDS__</b><span>{{project.fact_commands}}</span></div>
+      <div class="fact"><b>__MIGRATIONS__</b><span>{{project.fact_migrations}}</span></div>
     </div>
   </section>
 
   <section class="work">
     <div class="work-heading">
-      <p class="section-tag">02 / Что умеет</p>
-      <h2>Дела, деньги,<br>поиск работы.</h2>
+      <p class="section-tag">{{project.tag_features}}</p>
+      <h2>{{project.features_title}}</h2>
     </div>
 
     <div class="project-list">
       <article class="project blue">
-        <div class="project-meta"><span>01</span><span>Заметки · Напоминания</span></div>
-        <h3>Заметки и напоминания</h3>
-        <p class="lens-brief">Записать мысль или поставить напоминание можно
-        командой в боте или в браузере. Напоминание придёт в Telegram, поэтому
-        в браузере его можно поставить, когда Telegram связан с аккаунтом.</p>
-        <p class="lens-deep">Команды <code>/notes</code>, <code>/remind</code> и
-        <code>/snippets</code> используют общий разбор и набор плагинов. Напоминания
-        лежат в базе, а фоновый воркер доставляет их через слой уведомлений.</p>
+        <div class="project-meta"><span>01</span><span>{{project.notes_meta}}</span></div>
+        <h3>{{project.notes_title}}</h3>
+        <p class="lens-brief">{{project.notes_brief}}</p>
+        <p class="lens-deep">{{project.notes_deep}}</p>
       </article>
       <article class="project lime">
-        <div class="project-meta"><span>02</span><span>Финансы · Категории</span></div>
-        <h3>Расходы</h3>
-        <p class="lens-brief">Траты и пополнения по своим категориям. За месяц
-        считаются два итога: зарплата минус траты и все поступления минус траты.
-        График, разбивка по категориям и список операций вынесены на отдельный
-        экран.</p>
-        <p class="lens-deep">Категории создаёт пользователь. Удалённая категория
-        архивируется вместе с историей и восстанавливается, если создать её
-        снова с тем же именем. Суммы хранятся в <code>NUMERIC(12, 2)</code> и
-        обрабатываются как <code>Decimal</code>, без потери точности. Запись
-        можно отредактировать, правка проходит те же проверки, что и создание.</p>
+        <div class="project-meta"><span>02</span><span>{{project.expenses_meta}}</span></div>
+        <h3>{{project.expenses_title}}</h3>
+        <p class="lens-brief">{{project.expenses_brief}}</p>
+        <p class="lens-deep">{{project.expenses_deep}}</p>
       </article>
       <article class="project coral">
-        <div class="project-meta"><span>03</span><span>Воронка · Статусы</span></div>
-        <h3>Отклики на вакансии</h3>
-        <p class="lens-brief">Воронка поиска работы: каждый отклик идёт по
-        стадиям, а на экране видны только возможные следующие шаги.</p>
-        <p class="lens-deep">Статусы образуют конечный автомат: каждая стадия
-        знает, куда можно двигаться дальше. Кнопки строятся из того же
-        объявления, которое проверяет сервер.</p>
+        <div class="project-meta"><span>03</span><span>{{project.applications_meta}}</span></div>
+        <h3>{{project.applications_title}}</h3>
+        <p class="lens-brief">{{project.applications_brief}}</p>
+        <p class="lens-deep">{{project.applications_deep}}</p>
       </article>
       <article class="project blue">
-        <div class="project-meta"><span>04</span><span>Канбан · Дедлайны</span></div>
-        <h3>Задачи</h3>
-        <p class="lens-brief">Канбан-доска из трёх колонок. У задачи есть
-        описание, срок, приоритет и повтор: ежедневно, еженедельно или
-        ежемесячно. Выполненные задачи через неделю уходят в архив. Если аккаунт
-        связан с Telegram, перед сроком приходит напоминание.</p>
-        <p class="lens-deep">Переходы между статусами заданы таблицей, вперёд и
-        назад. При закрытии повторяющейся задачи один раз создаётся следующая, и
-        её срок не может оказаться в прошлом. Напоминания отправляет воркер раз
-        в час, по одному на срок. Если срок перенести, напоминание придёт снова.</p>
+        <div class="project-meta"><span>04</span><span>{{project.tasks_meta}}</span></div>
+        <h3>{{project.tasks_title}}</h3>
+        <p class="lens-brief">{{project.tasks_brief}}</p>
+        <p class="lens-deep">{{project.tasks_deep}}</p>
       </article>
       <article class="project lime">
-        <div class="project-meta"><span>05</span><span>Правила · События</span></div>
-        <h3>Автоматизации</h3>
-        <p class="lens-brief">Правила вида «когда — если — сделать», которые
-        собираются на странице из готовых блоков. Например: закрыта задача
-        «оплатить коммуналку» — внести трату; трата больше 5000 — создать задачу
-        на проверку; каждое 1-е число — сообщение в Telegram.</p>
-        <p class="lens-deep">Плагины объявляют свои события и действия и
-        публикуют события в общую шину. Ядро не знает о конкретных плагинах.
-        Правило хранится в базе как данные, а действие выполняется с теми же
-        проверками, что и с веб-страницы. Чтобы правила не вызывали друг друга
-        бесконечно, событие несёт цепочку правил, которые к нему привели: правило
-        не запускается дважды в одной цепочке, глубина ограничена тремя. Все
-        срабатывания пишутся в журнал.</p>
+        <div class="project-meta"><span>05</span><span>{{project.automation_meta}}</span></div>
+        <h3>{{project.automation_title}}</h3>
+        <p class="lens-brief">{{project.automation_brief}}</p>
+        <p class="lens-deep">{{project.automation_deep}}</p>
       </article>
       <article class="project coral">
-        <div class="project-meta"><span>06</span><span>Код · Тексты</span></div>
-        <h3>Сниппеты</h3>
-        <p class="lens-brief">Хранилище для кода и длинных текстов, общее для
-        бота и сайта. Сниппет можно открыть, отредактировать и скопировать. Боту
-        можно отправить текстовый файл, а получить сниппет обратно блоком кода
-        или файлом.</p>
-        <p class="lens-deep">Текст хранится без изменений, до 200 КБ. Размер
-        файла проверяется до скачивания и после, двоичные файлы и файлы не в
-        UTF-8 отклоняются, имя файла очищается. В Telegram текст отправляется с
-        сущностью <code>pre</code>, без разбора Markdown, поэтому символы вроде
-        <code>||</code> остаются как есть.</p>
+        <div class="project-meta"><span>06</span><span>{{project.snippets_meta}}</span></div>
+        <h3>{{project.snippets_title}}</h3>
+        <p class="lens-brief">{{project.snippets_brief}}</p>
+        <p class="lens-deep">{{project.snippets_deep}}</p>
       </article>
     </div>
   </section>
 
   <section class="work">
     <div class="work-heading">
-      <p class="section-tag">03 / Как устроено</p>
-      <h2>Два входа,<br>одно ядро.</h2>
+      <p class="section-tag">{{project.tag_how}}</p>
+      <h2>{{project.how_title}}</h2>
     </div>
 
-    <p class="lens-brief">Запрос из Telegram или браузера проходит один путь:
-    система определяет пользователя, передаёт команду нужному модулю и сохраняет
-    результат в базе. Нажмите кнопку под схемой: запрос выполнится по-настоящему,
-    а схема покажет его маршрут.</p>
+    <p class="lens-brief">{{project.how_brief}}</p>
 
     <figure class="diagram">
     <svg viewBox="0 0 760 600" role="img" aria-labelledby="diagram-title">
-      <title id="diagram-title">Устройство платформы: транспорт, ядро, хранилище</title>
+      <title id="diagram-title">{{project.diagram_title}}</title>
       <style>
         .diagram .edge { stroke: var(--diagram-edge); stroke-width: 1.5; fill: none; }
         .diagram .arrow { fill: var(--diagram-edge); }
@@ -231,24 +175,24 @@ __MENU_STYLES__
       <path class="edge" data-step="notify" d="M 638 384 L 638 462" marker-end="url(#d-arrow)" />
 
       <rect class="zone" x="16" y="16" width="728" height="112" rx="10" />
-      <text class="zone-name" x="32" y="36">Транспорт</text>
+      <text class="zone-name" x="32" y="36">{{project.zone_transport}}</text>
 
       <rect class="zone" x="16" y="148" width="728" height="254" rx="10" />
-      <text class="zone-name" x="32" y="168">Ядро процесса</text>
+      <text class="zone-name" x="32" y="168">{{project.zone_core}}</text>
 
       <rect class="zone" x="16" y="428" width="728" height="120" rx="10" />
-      <text class="zone-name" x="32" y="448">Хранение и доставка</text>
+      <text class="zone-name" x="32" y="448">{{project.zone_storage}}</text>
 
       <rect class="box external" data-step="telegram" x="60" y="52" width="290" height="48" rx="8" />
-      <text class="label" x="205" y="76" text-anchor="middle" dominant-baseline="middle">Telegram-бот · aiogram polling</text>
+      <text class="label" x="205" y="76" text-anchor="middle" dominant-baseline="middle">{{project.box_bot}}</text>
 
       <rect class="box input" data-step="web" x="410" y="52" width="300" height="48" rx="8" />
-      <text class="label" x="560" y="76" text-anchor="middle" dominant-baseline="middle">Веб-консоль · aiohttp</text>
-      <text class="small" x="560" y="116" text-anchor="middle">TLS и транспортный секрет — на стороне Caddy</text>
+      <text class="label" x="560" y="76" text-anchor="middle" dominant-baseline="middle">{{project.box_web}}</text>
+      <text class="small" x="560" y="116" text-anchor="middle">{{project.box_web_note}}</text>
 
       <rect class="box identity" data-step="identity" x="270" y="184" width="220" height="46" rx="8" />
       <text class="label" x="380" y="200" text-anchor="middle" dominant-baseline="middle">Identity: kind:id</text>
-      <text class="small" x="380" y="218" text-anchor="middle">PersonResolver связывает каналы</text>
+      <text class="small" x="380" y="218" text-anchor="middle">{{project.box_identity_note}}</text>
 
       <rect class="box process" data-step="dispatcher" x="160" y="258" width="440" height="58" rx="8" />
       <text class="label" x="380" y="278" text-anchor="middle" dominant-baseline="middle">PluginManager</text>
@@ -273,146 +217,97 @@ __MENU_STYLES__
 
       <rect class="box storage" data-step="postgres" x="240" y="464" width="280" height="48" rx="8" />
       <text class="label" x="380" y="488" text-anchor="middle" dominant-baseline="middle">PostgreSQL</text>
-      <text class="small" x="380" y="530" text-anchor="middle">репозитории и sql/migrations</text>
+      <text class="small" x="380" y="530" text-anchor="middle">{{project.box_postgres_note}}</text>
 
       <rect class="box external" data-step="notify" x="548" y="464" width="180" height="48" rx="8" />
-      <text class="label" x="638" y="482" text-anchor="middle" dominant-baseline="middle">Уведомления</text>
-      <text class="small" x="638" y="500" text-anchor="middle">→ чат Telegram</text>
+      <text class="label" x="638" y="482" text-anchor="middle" dominant-baseline="middle">{{project.box_notify}}</text>
+      <text class="small" x="638" y="500" text-anchor="middle">{{project.box_notify_note}}</text>
 
-      <text class="small" x="108" y="198">страницы</text>
+      <text class="small" x="108" y="198">{{project.pages_route}}</text>
       <circle id="trace-dot" r="6" />
 
       <g transform="translate(32, 578)">
         <rect class="box input" x="0" y="-10" width="14" height="14" rx="3" />
-        <text class="small" x="21" y="1">ввод</text>
+        <text class="small" x="21" y="1">{{project.legend_input}}</text>
         <rect class="box process" x="72" y="-10" width="14" height="14" rx="3" />
-        <text class="small" x="93" y="1">обработка</text>
+        <text class="small" x="93" y="1">{{project.legend_process}}</text>
         <rect class="box storage" x="192" y="-10" width="14" height="14" rx="3" />
-        <text class="small" x="213" y="1">хранение</text>
+        <text class="small" x="213" y="1">{{project.legend_storage}}</text>
         <rect class="box external" x="292" y="-10" width="14" height="14" rx="3" />
-        <text class="small" x="313" y="1">внешнее</text>
+        <text class="small" x="313" y="1">{{project.legend_external}}</text>
         <rect class="box identity" x="382" y="-10" width="14" height="14" rx="3" />
-        <text class="small" x="403" y="1">идентичность</text>
+        <text class="small" x="403" y="1">{{project.legend_identity}}</text>
       </g>
     </svg>
     <ol class="diagram-flow">
-      <li data-step="web telegram"><b>Транспорт</b>Telegram-бот на aiogram и веб-консоль на aiohttp</li>
-      <li data-step="identity"><b>Identity</b>kind:id, PersonResolver связывает каналы</li>
+      <li data-step="web telegram"><b>{{project.flow_transport}}</b>{{project.flow_transport_text}}</li>
+      <li data-step="identity"><b>Identity</b>{{project.flow_identity_text}}</li>
       <li data-step="dispatcher"><b>PluginManager</b>parse_command → execute → CommandResult</li>
-      <li data-step="plugin-system plugin-notes plugin-reminders plugin-snippets plugin-expenses plugin-applications plugin-todo plugin-automation"><b>Плагины</b>system · notes · reminders · snippets · expenses · applications · todo · automation</li>
-      <li data-step="postgres notify"><b>Хранение и доставка</b>PostgreSQL и уведомления в чат Telegram</li>
+      <li data-step="plugin-system plugin-notes plugin-reminders plugin-snippets plugin-expenses plugin-applications plugin-todo plugin-automation"><b>{{project.flow_plugins}}</b>system · notes · reminders · snippets · expenses · applications · todo · automation</li>
+      <li data-step="postgres notify"><b>{{project.zone_storage}}</b>{{project.flow_storage_text}}</li>
     </ol>
     <figcaption>
-      <span class="lens-brief">Бот и браузер работают через один код и одну базу.</span>
-      <span class="lens-deep">Плагин получает команду и identity, а возвращает
-      <code>CommandResult</code>, поэтому ядро одинаково обслуживает оба транспорта.</span>
+      <span class="lens-brief">{{project.caption_brief}}</span>
+      <span class="lens-deep">{{project.caption_deep}}</span>
     </figcaption>
     </figure>
     <div id="trace-actions" class="trace-actions" hidden>
-      <p class="trace-title">Визуализация схемы работы команд</p>
-      <button type="button" data-scenario="notes">Заметки из браузера</button>
-      <button type="button" data-scenario="telegram">Те же заметки из Telegram</button>
-      <button type="button" data-scenario="expenses">Страница расходов</button>
-      <button type="button" data-scenario="reminder">Напоминание в Telegram</button>
-      <button type="button" data-scenario="help">Справка</button>
-      <button type="button" data-scenario="unknown">Неизвестная команда</button>
+      <p class="trace-title">{{project.trace_title}}</p>
+      <button type="button" data-scenario="notes">{{project.trace_notes}}</button>
+      <button type="button" data-scenario="telegram">{{project.trace_telegram}}</button>
+      <button type="button" data-scenario="expenses">{{project.trace_expenses}}</button>
+      <button type="button" data-scenario="reminder">{{project.trace_reminder}}</button>
+      <button type="button" data-scenario="help">{{project.trace_help}}</button>
+      <button type="button" data-scenario="unknown">{{project.trace_unknown}}</button>
     </div>
     <p id="trace-result" class="trace-result" aria-live="polite"></p>
 
-    <p class="lens-deep" style="margin-top: 2rem;">Caddy терминирует TLS и подставляет транспортный
-    секрет — доказательство, что запрос прошёл через прокси. Кто пользователь,
-    решает уже сессионная cookie, выданная за <code>POST /login</code>. Пароли
-    хранятся как хэши scrypt с солью, а от сессий в базе остаётся только SHA-256.
-    Пуш в <code>main</code> сначала проходит <code>ruff</code>, аудит зависимостей
-    и <code>pytest</code> в GitHub Actions, а затем проект разворачивается сам: по ключу с единственной
-    разрешённой командой выполняется скрипт деплоя.</p>
-    <p class="lens-deep">Управление сайтом вынесено в админку: режим
-    обслуживания, отключение плагинов, лимиты, журнал ошибок, рассылка и
-    отзывы. Кратковременные сбои связи с Telegram, которые проходят сами, в
-    журнал не пишутся, пишется только простой дольше пяти минут.</p>
-    <p class="lens-deep">Демо доступно без регистрации. У каждого гостя
-    отдельное пространство, привязанное к cookie, есть лимиты на число записей
-    и общий лимит запросов с одного адреса. Данные гостей удаляются раз в
-    сутки.</p>
-    <p class="lens-deep">Страница «Обо мне» получает 100 баллов в
-    PageSpeed на десктопе. Ответы сжимаются, шрифты отдаются с сервера и
-    кешируются на год. Доступность сайта извне проверяет UptimeRobot.</p>
+    <p class="lens-deep" style="margin-top: 2rem;">{{project.how_deep_1}}</p>
+    <p class="lens-deep">{{project.how_deep_2}}</p>
+    <p class="lens-deep">{{project.how_deep_3}}</p>
+    <p class="lens-deep">{{project.how_deep_4}}</p>
   </section>
 
   <section class="about lens-deep">
-    <p class="section-tag" role="heading" aria-level="2">04 / Как делалось</p>
-    <p>Проект собирали несколько AI-агентов — свои и внешние скиллы, задачи
-    ставит человек. Каждое изменение — отдельный коммит с объяснением, почему
-    решено так, а не что поменялось (это видно по диффу). По правилам работы
-    <code>ruff</code> и <code>pytest</code> запускаются перед коммитом, а CI
-    повторяет их перед деплоем. Тесты проверяют и то, что работает, и то, что
-    должно отказывать.</p>
-    <p>Порядок релиза фиксирован: ревью диффа, если он большой; проверка
-    безопасности по затронутым местам; версия по правилу (новое поведение —
-    минорная, исправление — патч); тег на коммите. После деплоя проверяется,
-    что на сервере нужный коммит и сервис запущен. Хук не даёт запушить в
-    <code>main</code> без новой версии и тега.</p>
-    <p>Состояние живёт в файлах, а не в переписке: <code>DECISIONS.md</code>,
-    <code>PROJECT_STATE.md</code>, <code>DEPLOYMENT.md</code>
-    и <code>AI_CONTEXT.md</code>. Правила работы сложились из собственной практики и
-    <a href="https://github.com/multica-ai/andrej-karpathy-skills">заметок Андрея Карпати
-    о том, как модели ошибаются в коде</a>.</p>
+    <p class="section-tag" role="heading" aria-level="2">{{project.tag_process}}</p>
+    <p>{{project.process_1}}</p>
+    <p>{{project.process_2}}</p>
+    <p>{{project.process_3}}</p>
   </section>
 
   <section class="experience lens-deep">
-    <p class="section-tag" role="heading" aria-level="2">05 / Сложности</p>
-    <h3>Переход от общего пароля к аккаунтам</h3>
-    <p>Веб начинал за basicauth Caddy с одним паролем на всех. Пришлось
-    перенести аутентификацию в приложение, не потеряв периметр, — отсюда два
-    слоя вместо одного.</p>
+    <p class="section-tag" role="heading" aria-level="2">{{project.tag_hard}}</p>
+    <h3>{{project.hard_1_title}}</h3>
+    <p>{{project.hard_1_text}}</p>
 
-    <h3>Бэкап, который нельзя восстановить, — не бэкап</h3>
-    <p>Создать дамп просто; убедиться, что он восстанавливается, — нет.
-    Поэтому восстановление проверено на отдельной базе: вернулись таблицы,
-    миграции и последовательности, а новая запись прошла сразу.</p>
+    <h3>{{project.hard_2_title}}</h3>
+    <p>{{project.hard_2_text}}</p>
 
-    <h3>Сервер под постоянным перебором паролей</h3>
-    <p>Журнал показал около 14 тысяч попыток входа по SSH в сутки. Теперь вход
-    только по ключам, снаружи открыты лишь 22, 80 и 443, повторные попытки
-    банит fail2ban, а служебные задачи работают в песочнице systemd. Каждое
-    утро бот присылает сводку: сколько попыток и кто вошёл.</p>
+    <h3>{{project.hard_3_title}}</h3>
+    <p>{{project.hard_3_text}}</p>
 
-    <h3>Аудит, который ничего не проверял</h3>
-    <p>Проверка уязвимостей по виртуальному окружению всегда отвечала «чисто» —
-    оказалось, она находила ноль пакетов. Теперь CI проверяет lock-файл при
-    каждом пуше и раз в сутки по расписанию. Найденная уязвимость блокирует
-    деплой, а Dependabot открывает PR с исправлением сразу после публикации
-    уязвимости.</p>
+    <h3>{{project.hard_4_title}}</h3>
+    <p>{{project.hard_4_text}}</p>
 
-    <h3>Обновления безопасности</h3>
-    <p>Модели всё чаще находят уязвимости в ядре Linux и распространённых
-    программах, поэтому обновления должны доходить до сервера без участия
-    человека. Обновления безопасности ставятся автоматически раз в сутки,
-    включая Caddy из его репозитория. Ядро обновляется через Livepatch без
-    перезагрузки. Если перезагрузка всё же нужна, сервер перезагружается ночью.
-    Раз в сутки скрипт проверяет, что обновления прошли, и пишет в Telegram,
-    только если что-то не так.</p>
+    <h3>{{project.hard_5_title}}</h3>
+    <p>{{project.hard_5_text}}</p>
 
-    <h3>Деплой, который только выглядел успешным</h3>
-    <p>Скрипт деплоя лежит в обновляемом им же репозитории, а Bash читает
-    скрипт по смещению. После <code>git pull</code> выполнился хвост старой
-    версии, поэтому логи не вывелись, хотя сервис перезапустился. Теперь после
-    обновления скрипт перезапускает себя через <code>exec</code>.</p>
+    <h3>{{project.hard_6_title}}</h3>
+    <p>{{project.hard_6_text}}</p>
   </section>
 
   <section class="contact">
-    <p class="section-tag">Дальше</p>
-    <h2>Посмотреть <em>вживую</em>.</h2>
-    <p>Демо открывается без регистрации. Решения и текущее состояние проекта —
-    в <code>DECISIONS.md</code> и <code>PROJECT_STATE.md</code> в репозитории.</p>
+    <p class="section-tag">{{project.tag_next}}</p>
+    <h2>{{project.next_title}}</h2>
+    <p>{{project.next_text}}</p>
     <div class="links">
-      <a href="https://github.com/Dorian101/-automation-platform">Исходный код</a>
-      <a href="/demo">Открыть демо</a>
-      <a href="/about">Обо мне →</a>
+      <a href="https://github.com/Dorian101/-automation-platform">{{project.next_source}}</a>
+      <a href="/demo">{{project.next_demo}}</a>
+      <a href="__PREFIX__/about">{{project.next_about}}</a>
     </div>
   </section>
 
-  <footer><button type="button" class="feedback-open" hidden>Книга отзывов и предложений</button></footer>
+  <footer><button type="button" class="feedback-open" hidden>{{common.feedback}}</button></footer>
 </main>
 <script src="/project-page.js" defer></script>
 <script src="/feedback.js" defer></script>

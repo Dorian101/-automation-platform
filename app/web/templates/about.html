@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{lang}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Лебедев Алексей — BI-аналитик</title>
-<meta name="description" content="Превращаю разрозненные данные в отчётность, которой пользуются руководители.">
+<title>{{about.title}}</title>
+<meta name="description" content="{{about.description}}">
 __PAGE_STYLES__
 __MENU_STYLES__
 </head>
@@ -13,174 +13,143 @@ __MENU_STYLES__
   __NAV__
 
   <section class="hero hero--report">
-    <p class="eyebrow">Алексей Лебедев · BI-аналитик</p>
-    <h1>Превращаю <br>данные в <em>понятные</em> <br>решения.</h1>
+    <p class="eyebrow">{{about.eyebrow}}</p>
+    <h1>{{about.headline}}</h1>
     <p class="print-only">Telegram: @alexeyr6 · alexeyr101@gmail.com ·
     github.com/Dorian101/-automation-platform<span id="site-address"></span></p>
     <div class="links">
-      <a href="#cases">Кейсы</a>
-      <a href="#contact">Контакты</a>
-      <button id="print-resume" type="button" hidden>Сохранить резюме в PDF</button>
+      <a href="#cases">{{about.link_cases}}</a>
+      <a href="#contact">{{about.link_contact}}</a>
+      <button id="print-resume" type="button" hidden>{{about.print}}</button>
     </div>
     <div class="viz">
-      <canvas id="hero-report" role="img" aria-label="Пример отчёта по SLA: 1 240 обращений, 93,7 % выполнено в срок, 4 из 5 услуг укладываются в цель 90 %."></canvas>
-      <button id="hero-replay" type="button" class="viz-replay" hidden>↻ Повторить</button>
+      <canvas id="hero-report" role="img" aria-label="{{about.hero_label}}"></canvas>
+      <button id="hero-replay" type="button" class="viz-replay" hidden>{{about.replay}}</button>
     </div>
   </section>
 
   <section class="about">
-    <p class="section-tag" role="heading" aria-level="2">01 / Коротко</p>
-    <p class="location">Серпухов, Московская область<br>Опыт — более трёх лет</p>
-    <p>Больше трёх лет строю корпоративную аналитику. Автоматизирую расчёт
-    показателей с контролем данных на входе и интерактивным отчётом на
-    выходе. Отдельно интересуюсь системным дизайном, DevOps,
-    кибербезопасностью и нейросетями — этот сайт и есть проявление моего
-    интереса к этим областям.</p>
+    <p class="section-tag" role="heading" aria-level="2">{{about.tag_short}}</p>
+    <p class="location">{{about.location}}</p>
+    <p>{{about.summary}}</p>
     <div class="services">
-      <span>BI-отчётность</span><span>PostgreSQL и ETL</span>
-      <span>Автоматизация процессов</span><span>Сбор бизнес-требований</span>
+      <span>{{about.service_1}}</span><span>{{about.service_2}}</span>
+      <span>{{about.service_3}}</span><span>{{about.service_4}}</span>
     </div>
     <div class="note">
-      <p><strong>Посмотрите платформу в демо-режиме.</strong> Это тот же код
-      и те же плагины, что в личном кабинете. Регистрация не нужна —
-      <a href="/demo">откройте демо</a>. Данные там вымышленные; всё, что вы
-      введёте, удаляется ежедневно.</p>
-      <p><a href="/project">Как это устроено и как делалось →</a></p>
+      <p>{{about.demo_note}}</p>
+      <p><a href="__PREFIX__/project">{{about.project_link}}</a></p>
     </div>
   </section>
 
   <section class="work" id="cases">
     <div class="work-heading">
-      <p class="section-tag">02 / Чем занимаюсь</p>
-      <h2>Задачи, которые<br>я решаю.</h2>
+      <p class="section-tag">{{about.tag_work}}</p>
+      <h2>{{about.work_title}}</h2>
     </div>
 
     <article class="case lime">
       <div>
-        <p class="project-meta"><span>Кейс 01 · SLA / KPI</span></p>
-        <h3>Перевёл отчётность с&nbsp;SSRS на&nbsp;платформу аналитики</h3>
+        <p class="project-meta"><span>{{about.case1_meta}}</span></p>
+        <h3>{{about.case1_title}}</h3>
         <div class="facts">
-          <div class="fact"><b>40+</b><span>отчётов</span></div>
-          <div class="fact"><b>20+</b><span>источников</span></div>
-          <div class="fact"><b>100+</b><span>пользователей</span></div>
+          <div class="fact"><b>40+</b><span>{{about.case1_fact1}}</span></div>
+          <div class="fact"><b>20+</b><span>{{about.case1_fact2}}</span></div>
+          <div class="fact"><b>100+</b><span>{{about.case1_fact3}}</span></div>
         </div>
       </div>
       <dl>
-        <dt>Было</dt>
-        <dd>Отчётность жила в SSRS, и вся нагрузка по ней лежала на разработчиках DWH.</dd>
-        <dt>Что я сделал</dt>
-        <dd>Разработал большинство отчётов и их логику в «Форсайт АП»: многомерные
-        структуры, витрины и ETL на PostgreSQL для кубов, нестандартные требования
-        на языке Fore.</dd>
-        <dt>Что изменилось</dt>
-        <dd>Разработка перешла к аналитикам, а отчёты быстрее доходят до прода. Доступ
-        к отчётности стал шире, настройка визуализаций и прав на объекты — гибче, а данные
-        в формы и справочники вносятся прямо в веб-интерфейсе.</dd>
+        <dt>{{about.before}}</dt>
+        <dd>{{about.case1_before}}</dd>
+        <dt>{{about.done}}</dt>
+        <dd>{{about.case1_done}}</dd>
+        <dt>{{about.after}}</dt>
+        <dd>{{about.case1_after}}</dd>
       </dl>
     </article>
 
     <article class="case coral">
       <div>
-        <p class="project-meta"><span>Кейс 02 · Данные и процессы</span></p>
-        <h3>Собрал единый каталог услуг компании</h3>
+        <p class="project-meta"><span>{{about.case2_meta}}</span></p>
+        <h3>{{about.case2_title}}</h3>
         <div class="facts">
-          <div class="fact"><b>6</b><span>отчётов для руководителей подразделений</span></div>
+          <div class="fact"><b>6</b><span>{{about.case2_fact1}}</span></div>
         </div>
       </div>
       <dl>
-        <dt>Было</dt>
-        <dd>Каталог вёлся в Excel: руководители заполняли файлы, а их сводили в один
-        источник. Централизации не было, автоматизировать такой процесс полноценно
-        не получалось, а ручное заполнение несло риски.</dd>
-        <dt>Что я сделал</dt>
-        <dd>С нуля разработал модель данных, отчётность, автоматизацию и контроль
-        данных, настроил регламентные бэкапы с retention-политикой, участвовал в разработке
-        ролевой модели. Стандартные решения «Форсайт АП», кастомные модули на Fore,
-        триггеры на таблицах PostgreSQL.</dd>
-        <dt>Что изменилось</dt>
-        <dd>Появился централизованный инструмент: сводная отчётность с разными уровнями
-        детализации, формы для точечных и массовых правок и форма согласования, где
-        ответственный подтверждает, удаляет или возвращает изменения в обработку. Ошибок
-        стало меньше: данные чистятся при загрузке, а запросы сверяют правки с имеющимися
-        данными — например, две разные услуги с одним ключом не создадутся.</dd>
+        <dt>{{about.before}}</dt>
+        <dd>{{about.case2_before}}</dd>
+        <dt>{{about.done}}</dt>
+        <dd>{{about.case2_done}}</dd>
+        <dt>{{about.after}}</dt>
+        <dd>{{about.case2_after}}</dd>
       </dl>
     </article>
 
     <article class="case blue">
       <div>
-        <p class="project-meta"><span>Кейс 03 · Мониторинг</span></p>
-        <h3>Показал, кто и&nbsp;как пользуется отчётностью</h3>
+        <p class="project-meta"><span>{{about.case3_meta}}</span></p>
+        <h3>{{about.case3_title}}</h3>
         <div class="facts">
-          <div class="fact"><b>1</b><span>дашборд</span></div>
-          <div class="fact"><b>3</b><span>страницы детализации</span></div>
+          <div class="fact"><b>1</b><span>{{about.case3_fact1}}</span></div>
+          <div class="fact"><b>3</b><span>{{about.case3_fact2}}</span></div>
         </div>
       </div>
       <dl>
-        <dt>Было</dt>
-        <dd>Средств анализа использования отчётов не существовало.</dd>
-        <dt>Что я сделал</dt>
-        <dd>С нуля разработал и внедрил дашборд: логи системы, витрины на PostgreSQL,
-        кубы и «Форсайт АП».</dd>
-        <dt>Что изменилось</dt>
-        <dd>Появились конкретные числа: кто чем пользуется и сколько времени в среднем
-        проводит в отчётах, с детализацией по отделам и типам отчётов. Дашборд используется
-        в service review руководства.</dd>
+        <dt>{{about.before}}</dt>
+        <dd>{{about.case3_before}}</dd>
+        <dt>{{about.done}}</dt>
+        <dd>{{about.case3_done}}</dd>
+        <dt>{{about.after}}</dt>
+        <dd>{{about.case3_after}}</dd>
       </dl>
     </article>
 
     <div class="project-list project-list--brief">
       <article class="project amber">
-        <div class="project-meta"><span>Финансовый блок · В работе</span></div>
-        <h3>Бюджетная модель</h3>
-        <p>Перенос сбора бюджета из множества файлов Excel на «Форсайт АП»,
-        чтобы данные были в одном месте, а процесс — автоматизирован.</p>
+        <div class="project-meta"><span>{{about.budget_meta}}</span></div>
+        <h3>{{about.budget_title}}</h3>
+        <p>{{about.budget_text}}</p>
       </article>
     </div>
   </section>
 
   <section class="experience">
-    <p class="section-tag" role="heading" aria-level="2">03 / Опыт · __EXPERIENCE__</p>
-    <h3>Центр корпоративных решений</h3>
-    <p class="location">Специалист · Октябрь 2023 — настоящее время</p>
-    <p><strong>Техническая часть работы:</strong></p>
+    <p class="section-tag" role="heading" aria-level="2">{{about.tag_experience}} · __EXPERIENCE__</p>
+    <h3>{{about.company}}</h3>
+    <p class="location">{{about.role}}</p>
+    <p><strong>{{about.duties_title}}</strong></p>
     <ul>
-      <li>запросы, функции, процедуры и триггеры в PostgreSQL;</li>
-      <li>ETL-процессы загрузки и трансформации данных — внутри репозитория
-        и с внешними БД через драйверы;</li>
-      <li>витрины, кубы, НСИ и вычисляемые справочники на запросах,
-        регламентная отчётность и её оптимизация;</li>
-      <li>настройка обработчиков форм ввода, модулей кнопок и схем отметок —
-        кастомная интерактивность отчётов за рамками «коробочных» решений
-        платформы;</li>
-      <li>мониторинг производительности и доступности отчётности;</li>
-      <li>сбор требований у бизнес-заказчиков;</li>
-      <li>сопровождение отчётов и их улучшение по эволюционной модели
-        разработки ПО;</li>
-      <li>наставничество новых сотрудников и практикантов.</li>
+      <li>{{about.duty_1}}</li>
+      <li>{{about.duty_2}}</li>
+      <li>{{about.duty_3}}</li>
+      <li>{{about.duty_4}}</li>
+      <li>{{about.duty_5}}</li>
+      <li>{{about.duty_6}}</li>
+      <li>{{about.duty_7}}</li>
+      <li>{{about.duty_8}}</li>
     </ul>
-    <p class="location">Июль — октябрь 2023 · Стажёр специалиста там же: освоение
-    работы с аналитической платформой, погружение в процессы, реализация
-    отчётности на базовом уровне.</p>
+    <p class="location">{{about.internship}}</p>
   </section>
 
   <section class="contact" id="contact">
-    <p class="section-tag">04 / Контакты</p>
-    <h2>Есть задача<br>по аналитике?</h2>
+    <p class="section-tag">{{about.tag_contact}}</p>
+    <h2>{{about.contact_title}}</h2>
     <ul>
       <li>Telegram: <a href="https://t.me/alexeyr6">@alexeyr6</a>
-        <button type="button" class="page-action" data-copy="@alexeyr6" hidden>Копировать</button></li>
-      <li>Почта: <a href="mailto:alexeyr101@gmail.com">alexeyr101@gmail.com</a>
-        <button type="button" class="page-action" data-copy="alexeyr101@gmail.com" hidden>Копировать</button></li>
-      <li>GitHub: <a href="https://github.com/Dorian101/-automation-platform">исходный код</a></li>
+        <button type="button" class="page-action" data-copy="@alexeyr6" hidden>{{about.copy}}</button></li>
+      <li>{{about.mail}}: <a href="mailto:alexeyr101@gmail.com">alexeyr101@gmail.com</a>
+        <button type="button" class="page-action" data-copy="alexeyr101@gmail.com" hidden>{{about.copy}}</button></li>
+      <li>GitHub: <a href="https://github.com/Dorian101/-automation-platform">{{about.source_code}}</a></li>
     </ul>
-    <button id="share-page" type="button" class="page-action" hidden>Поделиться страницей</button>
+    <button id="share-page" type="button" class="page-action" hidden>{{about.share}}</button>
     <div class="orbit orbit-one">ANALYTICS</div>
     <div class="orbit orbit-two">DATA</div>
   </section>
 
-  <footer>Серпухов, Московская область ·
-    <a href="https://github.com/Dorian101/-automation-platform">Исходный код на GitHub</a>
-    <button type="button" class="feedback-open" hidden>Книга отзывов и предложений</button>
+  <footer>{{about.place}} ·
+    <a href="https://github.com/Dorian101/-automation-platform">{{common.source_on_github}}</a>
+    <button type="button" class="feedback-open" hidden>{{common.feedback}}</button>
   </footer>
 </main>
 <script src="/about-hero.js" defer></script>

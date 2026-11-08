@@ -153,6 +153,11 @@ A plugin may also declare:
   plugin does not inspect `identity.kind`.
 - `demo` — whether the page belongs on the public demonstration. **Default
   off.** See "The demonstration" below.
+- Languages: `app/web/i18n.py` and `app/web/locales/*.json`. Templates of
+  /about and /project use `{{key}}`; `__PREFIX__` in a value becomes `/en` on
+  English pages. Script strings sit under `js` and reach the page as
+  `<script type="application/json" id="i18n">`. A language outside
+  `i18n.RELEASED` is admin-only and absent from sitemap, robots and hreflang.
 - Phone layout: the plugin page template has one `@media (max-width: 40rem)`
   block. Tables there become stacked cards whose labels come from each cell's
   `data-label`, set from the column label in `drawTable`.

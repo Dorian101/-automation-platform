@@ -3,6 +3,7 @@
 //
 // Each one does nothing without this script, so they start hidden in the markup.
 (() => {
+  const T = JSON.parse(document.getElementById("i18n").textContent);
   const CONFIRMED_MS = 1500;
 
   const CHECK =
@@ -32,7 +33,7 @@
       await navigator.clipboard.writeText(value);
       confirm(button, done, true);
     } catch {
-      confirm(button, "Не удалось", false);
+      confirm(button, T.copy_failed, false);
     }
   }
 
@@ -50,7 +51,7 @@
     document.querySelectorAll("[data-copy]").forEach((button) => {
       button.hidden = false;
       button.addEventListener("click", () => {
-        copy(button, button.dataset.copy, "Скопировано");
+        copy(button, button.dataset.copy, T.copied);
       });
     });
   }
@@ -63,7 +64,7 @@
       const url = location.origin + location.pathname;
 
       if (!navigator.share) {
-        copy(sharing, url, "Ссылка скопирована");
+        copy(sharing, url, T.link_copied);
         return;
       }
 
@@ -72,7 +73,7 @@
       } catch (error) {
         // Closing the sheet is an answer, not a failure.
         if (error.name !== "AbortError" && navigator.clipboard) {
-          copy(sharing, url, "Ссылка скопирована");
+          copy(sharing, url, T.link_copied);
         }
       }
     });

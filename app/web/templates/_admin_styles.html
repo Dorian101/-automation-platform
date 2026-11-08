@@ -216,4 +216,21 @@
   }
   .count-list li:last-child { border-bottom: none; }
   .count-list li b { font-variant-numeric: tabular-nums; font-weight: 600; }
+  @media (max-width: 40rem) {
+    form.search { flex-wrap: wrap; }
+    form.search > input { flex: 1 1 100%; font-size: 16px; }
+    .hideadmin { white-space: normal; }
+    .pager { flex-wrap: wrap; }
+    table thead { display: none; }
+    table tr {
+      display: flex; flex-wrap: wrap; gap: 0.2rem 1rem;
+      padding: 0.6rem 0; border-bottom: 1px solid var(--border);
+    }
+    table td { display: flex; gap: 0.35rem; padding: 0; border: none; min-width: 0; overflow-wrap: anywhere; }
+    table td[data-label]:not([data-label=""])::before { content: attr(data-label); color: var(--muted); flex: none; }
+    table td:first-child { flex-basis: 100%; }
+    table td[data-label]:first-child::before { content: none; }
+    table td:first-child { font-weight: 500; }
+    table td:empty { display: none; }
+  }
 </style>

@@ -34,8 +34,11 @@
   
     restore();
   
+    let words;
+
     function caption(button) {
-      button.textContent = root.dataset.theme === "light" ? "Тёмная тема" : "Светлая тема";
+      words ??= JSON.parse(document.getElementById("i18n").textContent);
+      button.textContent = root.dataset.theme === "light" ? words.theme_dark : words.theme_light;
     }
   
     document.addEventListener("DOMContentLoaded", () => {

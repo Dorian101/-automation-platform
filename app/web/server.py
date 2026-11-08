@@ -29,6 +29,7 @@ from app.db.users_repo import UsersRepository
 from app.db.visits_repo import SIGNIN, SIGNUP, VIEW, VisitsRepository
 from app.plugins.manager import PluginManager
 
+from . import i18n
 from . import visitor as visit_details
 from .admin import AdminArea
 from .auth import (
@@ -53,6 +54,7 @@ from .demo import VISITOR, DemoService, is_public_demo_path
 from .pages import (
     account_block,
     attic,
+    language_switch,
     menu_styles,
     nav,
     render_not_found,
@@ -96,6 +98,14 @@ APP_ASSETS = {
     "/icon-512.png": ("icon-512.png", "image/png"),
     "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
 }
+
+DOCUMENT_PATHS = ("/about", "/project")
+LOCALIZED_DOCUMENTS = tuple(
+    i18n.prefix(lang) + path for lang in i18n.LANGUAGES for path in DOCUMENT_PATHS
+)
+RELEASED_DOCUMENTS = tuple(
+    i18n.prefix(lang) + path for lang in i18n.RELEASED for path in DOCUMENT_PATHS
+)
 
 SCRIPTS = {
     "/about-hero.js": ABOUT_HERO_JS,
@@ -171,8 +181,7 @@ NONCE_TTL_SECONDS = 600
 PUBLIC_PATHS = {
     "/login",
     "/signup",
-    "/about",
-    "/project",
+    *LOCALIZED_DOCUMENTS,
     "/health",
     "/robots.txt",
     "/sitemap.xml",
@@ -206,20 +215,10 @@ PROBE_HEADER = "X-Platform-Probe"
 # `_sitemap`. Set it in `.env` to the name your readers type.
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 
-#: What the site calls itself, for a link shared in a chat. Without it the
-#: messenger puts the bare address in the card, which is the one line of the
-#: preview nobody reads.
-#:
-#: The same words are written out in the card and console templates. They are
-#: not read from here, and that is on purpose: pulling a heading out of a
-#: template to put it in a meta tag makes the two dependent, and the one that
-#: would break is the one nobody sees on the page.
-SITE_NAME = "Платформа автоматизации"
-
 # What a search engine is allowed to index. Everything else on this site either
 # needs a session or is the console itself, and there is nothing in the
 # console a reader would want in an index anyway.
-INDEXABLE_PATHS = ("/about", "/project", "/demo")
+INDEXABLE_PATHS = (*RELEASED_DOCUMENTS, "/demo")
 
 # Sent on every response, so no page or JSON answer can ever forget one. CSP
 # allows the Telegram Login Widget's script from telegram.org and inline
@@ -579,20 +578,25 @@ class WebServer:
 
         return user
 
-    async def _about(self, request: web.Request) -> web.Response:
-        return _render_page(
-            "about.html",
-            self._nav(request),
-            replacements={"__EXPERIENCE__": _experience(date.today())},
-            path=request.path,
-        )
+    async def _document(self, request: web.Request) -> web.Response:
+        lang, base = i18n.split(request.path)
 
-    async def _project(self, request: web.Request) -> web.Response:
+        if lang not in i18n.RELEASED and not self._is_admin(request):
+            return web.Response(
+                text=render_not_found(), content_type="text/html", status=404
+            )
+
+        replacements = (
+            {"__EXPERIENCE__": _experience(date.today(), lang)}
+            if base == "/about"
+            else self._project_counts()
+        )
         return _render_page(
-            "project.html",
-            self._nav(request),
-            replacements=self._project_counts(),
+            base.lstrip("/") + ".html",
+            self._nav(request, lang),
+            replacements=replacements,
             path=request.path,
+            lang=lang,
         )
 
     def _project_counts(self) -> dict[str, str]:
@@ -863,6 +867,8 @@ class WebServer:
             return web.json_response({"error": "Unknown scenario"}, status=400)
 
         transport, target, reads = scenario
+        lang = request.query.get("lang", "")
+        words = i18n.strings(lang if lang in i18n.LANGUAGES else i18n.DEFAULT)
         identity = (
             telegram(0) if transport == "telegram" else Identity(WEB, "guest:trace")
         )
@@ -875,7 +881,9 @@ class WebServer:
                 plugin = self._manager.find_by_page(target)
                 steps.append("page-route")
                 await plugin.page_view(identity)
-                reply = f"Страница «{plugin.description}» собрана из базы"
+                reply = words["trace.page_built"].format(
+                    name=plugin.description, code=plugin.name
+                )
             else:
                 command, args = parse_command(target)
                 plugin = self._manager.find(command)
@@ -899,7 +907,7 @@ class WebServer:
             # button must not be able to message the owner's. The reply says so.
             if request.query["scenario"] == "reminder":
                 steps.append("notify")
-                reply = "Маршрут: напоминание → чат Telegram"
+                reply = words["trace.reminder_route"]
 
         return web.json_response(
             {
@@ -1271,7 +1279,7 @@ class WebServer:
 
         return _set_csrf_cookie(response, token)
 
-    def _nav(self, request: web.Request) -> str:
+    def _nav(self, request: web.Request, lang: str = i18n.DEFAULT) -> str:
         """The navigation for whoever is asking.
 
         Built per request rather than once at startup because it is not the
@@ -1290,16 +1298,28 @@ class WebServer:
             self._manager.demo_pages() if is_guest else self._manager.pages(),
             guest=is_guest,
             admin=user.is_admin if user is not None else False,
+            lang=lang,
+        )
+        base = i18n.split(request.path)[1]
+        languages = i18n.LANGUAGES if user and user.is_admin else i18n.RELEASED
+        switch = (
+            language_switch(base, lang, languages) if base in DOCUMENT_PATHS else ""
         )
 
         if is_guest or is_public_demo_path(request.path):
-            return menu
+            if not switch:
+                return menu
+            return attic(menu, f'<div class="account">{switch}</div>')
 
         token = self._csrf.session_token(
             request.cookies.get(SESSION_COOKIE, "")
         )
 
-        return attic(menu, account_block(user.username, token))
+        return attic(menu, account_block(user.username, token, extra=switch, lang=lang))
+
+    def _is_admin(self, request: web.Request) -> bool:
+        user = resolve_user(request, self._users, self._sessions)
+        return user is not None and user.is_admin
 
     def _identity(self, request: web.Request) -> Identity | None:
         return resolve_identity(request, self._users, self._sessions)
@@ -1376,7 +1396,7 @@ class WebServer:
             body = response.text
 
             if "</head>" in body:
-                body = body.replace("</head>", _theme_head() + "</head>", 1)
+                body = body.replace("</head>", _theme_head(body) + "</head>", 1)
 
             response.text = body.replace(CSP_NONCE_PLACEHOLDER, value)
 
@@ -1462,8 +1482,7 @@ class WebServer:
                 web.post("/login", self._login_submit),
                 web.get("/signup", self._signup_form),
                 web.post("/signup", self._signup_submit),
-                web.get("/about", self._about),
-                web.get("/project", self._project),
+                *(web.get(path, self._document) for path in LOCALIZED_DOCUMENTS),
                 web.post("/logout", self._logout),
                 web.get("/account/telegram/link", self._telegram_link),
                 web.post("/account/telegram/unlink", self._telegram_unlink),
@@ -1626,31 +1645,22 @@ def _telegram_panel(link, nonce: str, csrf: str) -> str:
     )
 
 
-def _experience(today: date) -> str:
-    """How long the owner has worked, in the words the about page uses.
-
-    Counted rather than typed, because a figure in a template goes stale on the
-    first of every month. July 2023 counts as a whole month.
-    """
+def _experience(today: date, lang: str = i18n.DEFAULT) -> str:
     start = CAREER_START
     months = (today.year - start.year) * 12 + today.month - start.month + 1
     years, months = divmod(months, 12)
+    words = i18n.strings(lang)
     parts = []
 
     if years:
-        parts.append(f"{years} {_plural(years, 'год', 'года', 'лет')}")
+        parts.append(f"{years} {i18n.plural(lang, years, words['experience.years'])}")
 
     if months:
-        parts.append(f"{months} {_plural(months, 'месяц', 'месяца', 'месяцев')}")
+        parts.append(
+            f"{months} {i18n.plural(lang, months, words['experience.months'])}"
+        )
 
     return " ".join(parts)
-
-
-def _plural(number: int, one: str, few: str, many: str) -> str:
-    if 11 <= number % 100 <= 14:
-        return many
-
-    return {1: one, 2: few, 3: few, 4: few}.get(number % 10, many)
 
 
 def _is_a_visit(request: web.Request, response: web.StreamResponse) -> bool:
@@ -1671,7 +1681,7 @@ def _is_a_visit(request: web.Request, response: web.StreamResponse) -> bool:
     if not (200 <= response.status < 400):
         return False
 
-    if request.path in ("/about", "/project"):
+    if request.path in RELEASED_DOCUMENTS:
         return True
 
     return is_public_demo_path(request.path)
@@ -1891,9 +1901,17 @@ def _render_card(
     return web.Response(text=source, content_type="text/html", status=status)
 
 
-def _theme_head() -> str:
+_PAGE_LANG = re.compile(r'<html lang="([a-z]+)"')
+
+
+def _theme_head(body: str = "") -> str:
     """The theme's script and light palette, for every page's head."""
-    return (TEMPLATES_DIR / "_theme.html").read_text(encoding="utf-8")
+    found = _PAGE_LANG.search(body)
+    lang = found.group(1) if found else i18n.DEFAULT
+    if lang not in i18n.LANGUAGES:
+        lang = i18n.DEFAULT
+    theme = (TEMPLATES_DIR / "_theme.html").read_text(encoding="utf-8")
+    return theme + i18n.script_strings(lang)
 
 
 def _render_page(
@@ -1902,16 +1920,19 @@ def _render_page(
     status: int = 200,
     replacements: Mapping[str, str] | None = None,
     path: str = "",
+    lang: str = i18n.DEFAULT,
 ) -> web.Response:
     """Render one of the public document pages.
 
     A page that has to work without a session must not quietly grow a
-    dependency on one, so the substitutions here are the stylesheet and, where
-    a page states a fact about the project, numbers read from the code. If a
+    dependency on one, so the substitutions here are the page language's
+    texts, the stylesheet and, where a page states a fact about the project,
+    numbers read from the code. If a
     page starts needing anything per-visitor, that is the signal to reconsider
     whether it belongs in PUBLIC_PATHS at all.
     """
     source = (TEMPLATES_DIR / template).read_text(encoding="utf-8")
+    source = i18n.localize(source, lang)
     source = source.replace("__NAV__", nav_html)
     source = source.replace("__MENU_STYLES__", menu_styles())
     source = source.replace(
@@ -1925,7 +1946,10 @@ def _render_page(
     if path:
         source = source.replace(
             "</head>",
-            _share_tags(source, path) + _structured_data(source, path) + "</head>",
+            _share_tags(source, path)
+            + _structured_data(source, path, lang)
+            + _alternates(path)
+            + "</head>",
         )
 
     return web.Response(text=source, content_type="text/html", status=status)
@@ -1933,47 +1957,69 @@ def _render_page(
 
 # Who the site is about, for search engines. The author of the code and the
 # subject of /about are one person, so there is one description of them.
-PERSON = {
-    "@type": "Person",
-    "name": "Алексей Лебедев",
-    "jobTitle": "BI-аналитик",
-    "email": "mailto:alexeyr101@gmail.com",
-    "address": {
-        "@type": "PostalAddress",
-        "addressLocality": "Серпухов",
-        "addressRegion": "Московская область",
-        "addressCountry": "RU",
-    },
-    "sameAs": ["https://t.me/alexeyr6"],
-}
+def _person(lang: str) -> dict:
+    words = i18n.strings(lang)
+    return {
+        "@type": "Person",
+        "name": words["person.name"],
+        "jobTitle": words["person.job"],
+        "email": "mailto:alexeyr101@gmail.com",
+        "address": {
+            "@type": "PostalAddress",
+            "addressLocality": words["person.city"],
+            "addressRegion": words["person.region"],
+            "addressCountry": "RU",
+        },
+        "sameAs": ["https://t.me/alexeyr6"],
+    }
 
-SOURCE_CODE = {
-    "@type": "SoftwareSourceCode",
-    "name": "Automation Platform",
-    "codeRepository": "https://github.com/Dorian101/-automation-platform",
-    "programmingLanguage": "Python",
-    "author": PERSON,
-}
 
-STRUCTURED_DATA = {"/about": PERSON, "/project": SOURCE_CODE}
+def _source_code(lang: str) -> dict:
+    return {
+        "@type": "SoftwareSourceCode",
+        "name": "Automation Platform",
+        "codeRepository": "https://github.com/Dorian101/-automation-platform",
+        "programmingLanguage": "Python",
+        "author": _person(lang),
+    }
+
+
+STRUCTURED_DATA = {"/about": _person, "/project": _source_code}
+
+
+def _alternates(path: str) -> str:
+    lang, base = i18n.split(path)
+
+    if not PUBLIC_BASE_URL or base not in DOCUMENT_PATHS or len(i18n.RELEASED) < 2:
+        return ""
+
+    links = [
+        f'<link rel="alternate" hreflang="{other}" '
+        f'href="{PUBLIC_BASE_URL}{i18n.prefix(other)}{base}">'
+        for other in i18n.RELEASED
+    ]
+    links.append(
+        f'<link rel="alternate" hreflang="x-default" href="{PUBLIC_BASE_URL}{base}">'
+    )
+    return "\n".join(links) + "\n"
 
 _TITLE = re.compile(r"<title>(.*?)</title>", re.DOTALL)
 _DESCRIPTION = re.compile(r'name="description" content="(.*?)"', re.DOTALL)
 
 
-def _structured_data(source: str, path: str) -> str:
+def _structured_data(source: str, path: str, lang: str = i18n.DEFAULT) -> str:
     """What a search engine reads about the page, as JSON-LD.
 
     A data block rather than a script, so the browser never runs it and the CSP
     has nothing to say. The description comes from the page, for the reason
     `_share_tags` gives, and the address needs a base URL the same way.
     """
-    data = STRUCTURED_DATA.get(path)
+    build = STRUCTURED_DATA.get(i18n.split(path)[1])
 
-    if data is None:
+    if build is None:
         return ""
 
-    data = {"@context": "https://schema.org", **data}
+    data = {"@context": "https://schema.org", **build(lang)}
     description = _DESCRIPTION.search(source)
 
     if description is not None:
@@ -2010,9 +2056,10 @@ def _share_tags(source: str, path: str) -> str:
     if title is None or description is None:
         return ""
 
+    site_name = i18n.strings(i18n.split(path)[0])["site.name"]
     tags = [
         'property="og:type" content="website"',
-        f'property="og:site_name" content="{SITE_NAME}"',
+        f'property="og:site_name" content="{site_name}"',
         f'property="og:title" content="{title.group(1)}"',
         f'property="og:description" content="{description.group(1)}"',
         'name="twitter:card" content="summary_large_image"',

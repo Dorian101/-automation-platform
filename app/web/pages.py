@@ -18,6 +18,8 @@ import html
 import json
 from pathlib import Path
 
+from . import i18n
+
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
 SESSION_ACTION_URL = "/api/page/action"
@@ -27,7 +29,7 @@ DEMO_PREFIX = "/demo"
 
 # The links that exist on every page, in the order they are read: what can be
 # used first, what can be read afterwards.
-STATIC_LINKS = (("/about", "Обо мне"), ("/project", "Проект и метод"))
+STATIC_LINKS = (("/about", "nav.about"), ("/project", "nav.project"))
 
 #: Spelled out rather than imported from `admin.py`: that module imports this
 #: one for the menu styles, and a cycle would be a poor price for a constant.
@@ -40,6 +42,7 @@ def nav(
     guest: bool,
     admin: bool = False,
     account: str = "",
+    lang: str = i18n.DEFAULT,
 ) -> str:
     """The one navigation, built from what the plugins actually declare.
 
@@ -69,26 +72,27 @@ def nav(
     Rendered into the page rather than fetched by script, so the links are
     there with JavaScript disabled and there is no state to keep in step.
     """
+    words = i18n.strings(lang)
     items = []
 
     # "Платформа" points at the signed-in console. A guest sees it too — the
     # link leads somewhere worth going, and signing in there is better than a
     # menu that hides the front door because it is locked. Everyone gets the
     # demonstration link as well, so the public home is never off the menu.
-    items.append(("/", "Платформа"))
+    items.append(("/", words["nav.platform"]))
 
-    items.append((DEMO_PREFIX, "Демонстрация"))
+    items.append((DEMO_PREFIX, words["nav.demo"]))
 
-    for page in pages:
+    for page in pages if lang == i18n.DEFAULT else ():
         target = page["page"]
         items.append(
             (f"{DEMO_PREFIX}{target}" if guest else target, page["title"] or target)
         )
 
     if admin:
-        items.append((ADMIN_PREFIX, "Админ-панель"))
+        items.append((ADMIN_PREFIX, words["nav.admin"]))
 
-    items.extend(STATIC_LINKS)
+    items.extend((i18n.prefix(lang) + href, words[key]) for href, key in STATIC_LINKS)
 
     links = []
     for href, title in items:
@@ -99,7 +103,7 @@ def nav(
 
     return (
         '<details class="menu">'
-        '<summary>Меню</summary>'
+        f'<summary>{words["nav.menu"]}</summary>'
         f'<nav class="menuitems">{"".join(links)}</nav>'
         "</details>"
         "<script nonce=\"__CSP_NONCE__\">"
@@ -126,19 +130,32 @@ def attic(menu: str, account: str) -> str:
     return f'<header class="attic">{menu}{account}</header>'
 
 
-def account_block(username: str, csrf: str) -> str:
+def language_switch(base: str, lang: str, languages: tuple[str, ...]) -> str:
+    return "".join(
+        f'<a class="lang-switch" href="{i18n.prefix(other)}{base}" '
+        f'hreflang="{other}" lang="{other}">{other.upper()}</a>'
+        for other in languages
+        if other != lang
+    )
+
+
+def account_block(
+    username: str, csrf: str, extra: str = "", lang: str = i18n.DEFAULT
+) -> str:
     """Who is signed in, and the button that ends it.
 
     A POST with a token, as everywhere else: the button is on every page
     now, so a form that could be fired from anywhere had better be one that
     a page could not fire on its own.
     """
+    words = i18n.strings(lang)
     return (
-        f'<div class="account">'
-        f'<span class="who">Вы вошли как <b>{html.escape(username)}</b></span>'
+        f'<div class="account">{extra}'
+        f'<span class="who">{words["nav.signed_in"]} '
+        f'<b>{html.escape(username)}</b></span>'
         '<form method="post" action="/logout">'
         f'<input type="hidden" name="csrf" value="{html.escape(csrf)}">'
-        '<button type="submit" class="secondary">Выйти</button>'
+        f'<button type="submit" class="secondary">{words["nav.sign_out"]}</button>'
         "</form>"
         "</div>"
     )

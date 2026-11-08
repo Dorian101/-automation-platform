@@ -12,19 +12,19 @@
     return;
   }
 
+  const T = JSON.parse(document.getElementById("i18n").textContent);
   const SERVICES = [
-    { name: "Рабочие места", total: 412, late: 14 },
-    { name: "Учётные записи", total: 286, late: 15 },
-    { name: "Корпоративная почта", total: 198, late: 13 },
-    { name: "Отчётность", total: 214, late: 17 },
-    { name: "Оборудование", total: 130, late: 19 },
-  ];
+    { total: 412, late: 14 },
+    { total: 286, late: 15 },
+    { total: 198, late: 13 },
+    { total: 214, late: 17 },
+    { total: 130, late: 19 },
+  ].map((service, i) => ({ ...service, name: T.hero_services[i] }));
   const DUPLICATES = 80;
   const TARGET = 0.9;
   const SCRAPS = [
-    ["NULL", 0.14, 0.22], ["2026-13-41", 0.62, 0.14], ["статус?", 0.8, 0.46],
-    ["дубль", 0.3, 0.58], ["#Н/Д", 0.54, 0.76], ["01.02 или 02.01", 0.08, 0.86],
-  ];
+    [0.14, 0.22], [0.62, 0.14], [0.8, 0.46], [0.3, 0.58], [0.54, 0.76], [0.08, 0.86],
+  ].map(([x, y], i) => [T.hero_scraps[i], x, y]);
   const END = 5.4;
   const SECONDS = 4.8;
   const MANROPE = "Manrope, sans-serif";
@@ -50,7 +50,7 @@
   const clamp = (x) => Math.min(1, Math.max(0, x));
   const lerp = (a, b, k) => a + (b - a) * k;
   const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
-  const percent = (s) => ((1 - s.late / s.total) * 100).toFixed(1).replace(".", ",");
+  const percent = (s) => ((1 - s.late / s.total) * 100).toFixed(1).replace(".", T.decimal);
 
   // A fixed seed, so the page opens the same way for everyone.
   let seed = 20231009;
@@ -134,9 +134,9 @@
   // The headline says what the picture is at each stage, ending on the finding.
   function headline(t) {
     const stages = [
-      [0, 1.3, "1 320 записей из разных систем", "форматы не сходятся, есть дубли"],
-      [1.3, 3.9, "1 240 обращений после проверки", "80 дублей отброшено"],
-      [3.9, Infinity, "4 из 5 услуг укладываются в SLA", "вымышленный пример · 1 240 обращений · 93,7 % в срок"],
+      [0, 1.3, ...T.hero_stage_1],
+      [1.3, 3.9, ...T.hero_stage_2],
+      [3.9, Infinity, ...T.hero_stage_3],
     ];
     for (const [from, to, title, note] of stages) {
       const alpha = clamp((t - from) / 0.3) * clamp((to - t) / 0.2);
@@ -207,10 +207,10 @@
       const share = 1 - service.late / service.total;
       const missed = share < TARGET;
       text(service.name, 0, y - 6, `12px ${MANROPE}`, INK, labels);
-      text(`${percent(service)} %`, width, y - 6, `12px ${MONO}`, INK, figures, "right");
+      text(`${percent(service)}${T.percent}`, width, y - 6, `12px ${MONO}`, INK, figures, "right");
       if (missed) {
-        const shift = ctx.measureText(`${percent(service)} %`).width + 10;
-        text("▼ ниже цели", width - shift, y - 6, `11px ${MONO}`, MUTED, figures, "right");
+        const shift = ctx.measureText(`${percent(service)}${T.percent}`).width + 10;
+        text(T.hero_below, width - shift, y - 6, `11px ${MONO}`, MUTED, figures, "right");
       }
       ctx.globalAlpha = solid;
       ctx.fillStyle = ON_TIME;
@@ -241,9 +241,9 @@
     ctx.fillRect(66, y - 8, 8, 8);
     ctx.fillStyle = INK;
     ctx.fillRect(166.5, y - 10, 1, 12);
-    text("в срок", 12, y, `10px ${MONO}`, MUTED, figures);
-    text("просрочено", 78, y, `10px ${MONO}`, MUTED, figures);
-    text("цель 90 %", 173, y, `10px ${MONO}`, MUTED, figures);
+    text(T.hero_on_time, 12, y, `10px ${MONO}`, MUTED, figures);
+    text(T.hero_late, 78, y, `10px ${MONO}`, MUTED, figures);
+    text(T.hero_target, 173, y, `10px ${MONO}`, MUTED, figures);
   }
 
   function draw(t) {

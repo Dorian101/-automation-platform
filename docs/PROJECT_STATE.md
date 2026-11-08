@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.83.0
+v0.84.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -734,6 +734,16 @@ deployment that never sets it records everything as before.
 
 ## Current limitations
 
+* Since v0.84.0 /about and /project are translatable: their texts live in
+  `app/web/locales/{ru,en}.json`, the templates hold `{{key}}` markers, and
+  `/en/about` and `/en/project` serve the English version. Page scripts read
+  their strings from a JSON block the theme head injects for the page's
+  `<html lang>`. English is not released yet: only administrators get the
+  EN / RU switch and the `/en/` pages (everyone else gets 404), and the
+  sitemap, robots.txt and hreflang list released languages only — adding
+  `"en"` to `i18n.RELEASED` opens it. On phones, form fields now share a row
+  where two fit, buttons keep their own width, and admin tables turn into
+  labelled cards instead of scrolling sideways.
 * Since v0.83.0 plugin pages are laid out for phones below 40rem: the header
   is one row (the "signed in as" line is hidden), form fields and buttons are
   full width with 16px text, touch targets are 44px, bar charts and the funnel

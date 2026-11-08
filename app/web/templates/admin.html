@@ -25,5 +25,13 @@ __MENU_STYLES__
 
   __BODY__
 </main>
+<script nonce="__CSP_NONCE__">
+  for (const table of document.querySelectorAll("table")) {
+    const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent.trim());
+    for (const row of table.querySelectorAll("tbody tr")) {
+      [...row.cells].forEach((cell, i) => { cell.dataset.label = heads[i] || ""; });
+    }
+  }
+</script>
 </body>
 </html>

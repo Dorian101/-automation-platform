@@ -2735,3 +2735,29 @@ The owner wanted a PWA only once the phone layout was right.
 v0.83.0. Checked at 375px on the local stand: no horizontal scroll, the
 desktop layout unchanged. Tests cover the manifest, its icons and the link.
 
+### Decision
+Translate the public pages through locale files and `/en/` addresses, and
+keep a new language admin-only until it is checked
+
+### Reason
+The owner wanted an English /about without a hard-coded second copy. A cookie
+switch on one address was rejected: a crawler never sees the second language,
+a shared link opens in the recipient's language, and there is no direct link to
+the English résumé. Before English goes public the owner wants to check it.
+
+### How it is done
+- One template per page with `{{key}}` markers, one JSON file per language;
+  a test fails when the languages' keys differ or a template uses a missing
+  key.
+- `/en/about` and `/en/project` share the handler with the Russian pages; the
+  menu, the signed-in block, structured data, the experience line and the
+  share tags follow the page language. Plugin pages stay Russian and are left
+  out of the English menu.
+- Script strings are a JSON data block in the head, chosen by the page's
+  `<html lang>`, so every script has one source and no fallback copies.
+- `i18n.RELEASED` is the switch: other languages answer 404 to anyone but an
+  administrator and are not advertised anywhere.
+
+### Result
+v0.84.0. English is reachable by administrators only.
+

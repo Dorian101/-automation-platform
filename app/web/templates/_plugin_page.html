@@ -403,10 +403,12 @@ __STYLES__
   @media (max-width: 40rem) {
     .field input, .field select, .field textarea, .monthpick input,
     .monthpick button, .sortbar select, .viewer-title, textarea.mono { font-size: 16px; }
-    .formrow .field, .formrow .btn { flex: 1 1 100%; }
+    .formrow .field { flex: 1 1 9rem; min-width: 0; }
+    .formrow .field.wide { flex-basis: 100%; }
+    .field input, .field select { width: 100%; box-sizing: border-box; }
     .monthpick { margin-bottom: 1rem; }
     .monthpick input { flex: 1; min-width: 0; }
-    .monthpick button, .btn, table.data td.acts .btn { min-height: 2.75rem; }
+    .monthpick button, .btn, table.data td.acts .btn { min-height: 2.5rem; }
     .totals { gap: 1rem 1.5rem; }
     .totals .big { font-size: 1.8rem; }
     .barrow, .fnrow { flex-wrap: wrap; row-gap: 0.2rem; }
@@ -425,7 +427,7 @@ __STYLES__
     table.data td:empty { display: none; }
     table.data td.acts { flex-basis: 100%; gap: 0.5rem; padding-top: 0.3rem; }
     table.data td.acts .btn { margin: 0; }
-    .kbcard .acts button, .addbtn { min-width: 2.75rem; min-height: 2.75rem; }
+    .kbcard .acts button, .addbtn { min-width: 2.5rem; min-height: 2.5rem; }
   }
 </style>
 __MENU_STYLES__

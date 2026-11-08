@@ -5,6 +5,7 @@
 // nothing, so it only appears once the script has run.
 (() => {
   const MAX = 2000;
+  const T = JSON.parse(document.getElementById("i18n").textContent);
 
   function build() {
     const dialog = document.createElement("dialog");
@@ -12,15 +13,15 @@
     dialog.setAttribute("aria-labelledby", "feedback-title");
     dialog.innerHTML = `
       <form method="dialog">
-        <h3 id="feedback-title">Книга отзывов и предложений</h3>
-        <p>Что понравилось, что сломалось, чего не хватает. Анонимно: сохраняется только текст.</p>
+        <h3 id="feedback-title">${T.feedback_title}</h3>
+        <p>${T.feedback_intro}</p>
         <textarea name="text" rows="6" maxlength="${MAX}" required
-                  aria-label="Текст отзыва"></textarea>
+                  aria-label="${T.feedback_label}"></textarea>
         <input name="trap" tabindex="-1" autocomplete="off" aria-hidden="true">
         <p class="feedback-status" role="status"></p>
         <div class="feedback-buttons">
-          <button type="button" value="cancel">Закрыть</button>
-          <button type="submit" class="primary">Отправить</button>
+          <button type="button" value="cancel">${T.feedback_close}</button>
+          <button type="submit" class="primary">${T.feedback_send}</button>
         </div>
       </form>`;
     document.body.append(dialog);
@@ -36,12 +37,12 @@
       const text = form.text.value.trim();
 
       if (!text) {
-        status.textContent = "Напишите хоть пару слов.";
+        status.textContent = T.feedback_empty;
         return;
       }
 
       send.disabled = true;
-      status.textContent = "Отправляю…";
+      status.textContent = T.feedback_sending;
 
       try {
         const response = await fetch("/feedback", {
@@ -56,16 +57,16 @@
 
         if (response.ok) {
           form.text.value = "";
-          status.textContent = "Спасибо! Отзыв отправлен.";
+          status.textContent = T.feedback_sent;
           return;
         }
 
         const answer = await response.json().catch(() => ({}));
         status.textContent = response.status === 429
-          ? "Слишком много отзывов подряд. Попробуйте через час."
-          : answer.error || "Не получилось отправить. Попробуйте позже.";
+          ? T.feedback_limit
+          : answer.error || T.feedback_failed;
       } catch {
-        status.textContent = "Нет связи с сервером. Попробуйте позже.";
+        status.textContent = T.feedback_offline;
       } finally {
         send.disabled = false;
       }

@@ -3,6 +3,7 @@
 // Without this script the page shows the engineering text and offers neither
 // control, which is why both start hidden in the markup.
 (() => {
+  const T = JSON.parse(document.getElementById("i18n").textContent);
   const main = document.querySelector("main");
   const lens = document.getElementById("lens");
   const actions = document.getElementById("trace-actions");
@@ -146,10 +147,12 @@
 
     try {
       const scenario = encodeURIComponent(button.dataset.scenario);
-      const response = await fetch(`/project/trace?scenario=${scenario}`);
+      const response = await fetch(
+        `/project/trace?scenario=${scenario}&lang=${document.documentElement.lang}`,
+      );
 
       if (response.status === 429) {
-        result.textContent = "Слишком много запросов, попробуйте через минуту.";
+        result.textContent = T.trace_limit;
         return;
       }
       if (!response.ok) {
@@ -166,11 +169,11 @@
       } else {
         dot.style.opacity = 0;
       }
-      const time = `${trace.ms.toFixed(1).replace(".", ",")} мс`;
+      const time = `${trace.ms.toFixed(1).replace(".", T.decimal)} ${T.ms}`;
       result.textContent = `${trace.reply} · ${time}`;
     } catch {
       reset();
-      result.textContent = "Запрос не прошёл, попробуйте ещё раз.";
+      result.textContent = T.trace_failed;
     } finally {
       buttons.forEach((each) => {
         each.disabled = false;

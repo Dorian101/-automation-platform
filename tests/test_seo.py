@@ -181,7 +181,11 @@ class TestReachableFromSomewhere:
         login = await crawler.get(response.headers["Location"])
 
         for path in INDEXABLE_PATHS:
-            assert f'href="{path}"' in await login.text()
+            if path.startswith("/en/"):
+                original = await (await crawler.get(path[3:])).text()
+                assert f'href="{path}"' in original
+            else:
+                assert f'href="{path}"' in await login.text()
 
 
 class TestPublicPages:
