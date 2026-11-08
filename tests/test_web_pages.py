@@ -4,6 +4,8 @@ import re
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
+from app.web.pages import nav
+
 
 @pytest.fixture
 def web_server(expenses_manager, database_with_schema, web_server_factory):
@@ -426,3 +428,59 @@ class TestIsolation:
         assert first_view["totals"]["items"][0]["value"] == "500"
         assert second_view["totals"]["items"][0]["value"] == "0"
         assert second_view["chart"]["items"] == []
+
+
+def _group(body: str) -> str:
+    match = re.search(r'<details class="plugins"[^>]*>.*?</details>', body, re.S)
+    assert match, "no plugins group"
+    return match.group(0)
+
+
+class TestPluginsGroup:
+    async def test_plugin_pages_sit_in_one_group_in_order(self, client):
+        body = await (await client.get("/")).text()
+        menu = body[body.index('<nav class="menuitems">') :]
+
+        group = _group(menu)
+        assert "<summary>Плагины</summary>" in group
+        assert 'href="/expenses"' in group
+        assert 'href="/applications"' in group
+        before, after = menu.split(group, 1)
+        assert 'href="/demo"' in before
+        assert 'href="/about"' in after
+        assert 'href="/expenses"' not in before + after
+
+    async def test_it_opens_on_a_plugin_page(self, client):
+        group = _group(await (await client.get("/expenses")).text())
+
+        assert group.startswith('<details class="plugins" open>')
+        assert '<a href="/expenses" aria-current="page">' in group
+
+    async def test_it_stays_closed_elsewhere(self, client):
+        group = _group(await (await client.get("/about")).text())
+
+        assert group.startswith('<details class="plugins">')
+        assert "aria-current" not in group
+
+    async def test_a_guest_gets_demo_links(self, guest):
+        group = _group(await (await guest.get("/about")).text())
+
+        assert group.startswith('<details class="plugins">')
+        assert 'href="/demo/expenses"' in group
+        assert 'href="/expenses"' not in group
+
+    def test_a_guest_on_a_demo_plugin_page_gets_it_open(self):
+        pages = [{"page": "/expenses", "title": "Расходы"}]
+        group = _group(nav("/demo/expenses", pages, guest=True))
+
+        assert group.startswith('<details class="plugins" open>')
+        assert '<a href="/demo/expenses" aria-current="page">' in group
+
+    def test_no_plugin_pages_means_no_group(self):
+        assert 'class="plugins"' not in nav("/", [], guest=False)
+
+    async def test_the_outer_menu_script_targets_the_outer_menu(self, client):
+        body = await (await client.get("/expenses")).text()
+
+        assert body.index('<details class="menu">') < body.index('class="plugins"')
+        assert "document.querySelector('.menu')" in body

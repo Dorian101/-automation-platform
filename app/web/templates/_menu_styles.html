@@ -61,6 +61,23 @@
 
   .menuitems a:hover { background: var(--bg); color: var(--text); }
 
+  .plugins { display: flex; flex-direction: column; }
+  .plugins > summary {
+    padding: 0.4rem 0.6rem;
+    border-radius: 5px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+  }
+  .plugins > summary::-webkit-details-marker { display: none; }
+  .plugins > summary::after { content: " ▸"; display: inline-block; margin-left: 0.3rem; }
+  .plugins[open] > summary::after { transform: rotate(90deg); }
+  .plugins > summary:hover { background: var(--bg); color: var(--text); }
+  .plugins[open] > summary { color: var(--text); }
+  .plugins > a { display: block; padding-left: 1.6rem; }
+
   /* The attic: the menu and the account, one row above the page. Lives here
      rather than in a page's stylesheet because the page is not the thing
      that has it — every page that has a session does, and they do not share

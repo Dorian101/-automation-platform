@@ -73,33 +73,35 @@ def nav(
     there with JavaScript disabled and there is no state to keep in step.
     """
     words = i18n.strings(lang)
-    items = []
 
-    # "Платформа" points at the signed-in console. A guest sees it too — the
-    # link leads somewhere worth going, and signing in there is better than a
-    # menu that hides the front door because it is locked. Everyone gets the
-    # demonstration link as well, so the public home is never off the menu.
-    items.append(("/", words["nav.platform"]))
+    def link(href: str, title: str) -> str:
+        mark = ' aria-current="page"' if href == current else ""
+        return f'<a href="{html.escape(href)}"{mark}>{html.escape(title)}</a>'
 
-    items.append((DEMO_PREFIX, words["nav.demo"]))
+    links = [link("/", words["nav.platform"]), link(DEMO_PREFIX, words["nav.demo"])]
 
-    for page in pages if lang == i18n.DEFAULT else ():
-        target = page["page"]
-        items.append(
-            (f"{DEMO_PREFIX}{target}" if guest else target, page["title"] or target)
+    plugins = [
+        (
+            f"{DEMO_PREFIX}{page['page']}" if guest else page["page"],
+            page["title"] or page["page"],
+        )
+        for page in (pages if lang == i18n.DEFAULT else ())
+    ]
+    if plugins:
+        opened = " open" if any(href == current for href, _ in plugins) else ""
+        links.append(
+            f'<details class="plugins"{opened}>'
+            f'<summary>{words["nav.plugins"]}</summary>'
+            f'{"".join(link(href, title) for href, title in plugins)}'
+            "</details>"
         )
 
     if admin:
-        items.append((ADMIN_PREFIX, words["nav.admin"]))
+        links.append(link(ADMIN_PREFIX, words["nav.admin"]))
 
-    items.extend((i18n.prefix(lang) + href, words[key]) for href, key in STATIC_LINKS)
-
-    links = []
-    for href, title in items:
-        # `aria-current` is the whole of "you are here": it is what a reader
-        # looks at and what a screen reader announces, and it costs nothing.
-        mark = ' aria-current="page"' if href == current else ""
-        links.append(f'<a href="{html.escape(href)}"{mark}>{html.escape(title)}</a>')
+    links.extend(
+        link(i18n.prefix(lang) + href, words[key]) for href, key in STATIC_LINKS
+    )
 
     return (
         '<details class="menu">'
