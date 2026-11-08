@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.84.0
+v0.85.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -282,6 +282,35 @@ Implemented:
 * since v0.80.0 "Скопировать" in the list copies straight away and shows a
   check mark on the button; "Открыть" opens the snippet for editing, with
   its title and text saved by one button
+
+⸻
+
+Bookmarks (since v0.85.0, page title «Ссылки»)
+
+Purpose:
+
+* links kept for later, saved by sending them to the bot
+
+Implemented:
+
+* any chat message that is not a command and carries a link (a `url` or
+  `text_link` entity, in text or a caption, forwarded posts included) is
+  saved; the rest of the text becomes the description. A message sent while
+  the bot waits for a note or a reminder text still goes there
+* the page title (og:title, else `<title>`) is fetched in the background; until
+  then, or if the fetch fails, the domain stands in. The fetch refuses
+  non-public addresses and ports other than 80 and 443, redirects included
+  (see DECISIONS, "Fetch a saved link's title"),
+  reads at most 256 KB in 8 s, three fetches at a time
+* one link, one row: the address is normalized (scheme and host lower case,
+  default port and trailing `/` dropped; `utm_*`, `fbclid`, `gclid`, `yclid`,
+  `ysclid` and similar removed from the query, which is otherwise kept as
+  written, fragment included); a repeat rises to the top, becomes unread and
+  takes the new description if one was given; a linked pair shares the list
+* a page at /bookmarks: add a link, mark read or unread, edit title and
+  description, delete; /links in the bot lists the last ten
+* the plugin is `bookmarks` in code because `links` already names the
+  Telegram pairing
 
 ⸻
 

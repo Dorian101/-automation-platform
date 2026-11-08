@@ -2761,3 +2761,33 @@ the English résumé. Before English goes public the owner wants to check it.
 ### Result
 v0.84.0. English is reachable by administrators only.
 
+
+## 2026-11-08
+
+### Decision
+Fetch a saved link's title from the server, behind a public-address guard
+
+### Reason
+The owner wanted titles filled in without typing them. Fetching makes the
+server request any address a chat user sends, and the bot is open to anyone,
+so the request must not reach the host itself or its network.
+
+### How it is done
+- The connector uses a resolver that keeps only global addresses (IPv4-mapped,
+  IPv4-compatible and NAT64 IPv6 forms count as non-global). Connections go to
+  the filtered answers, so DNS rebinding has nothing to swap.
+- aiohttp skips the resolver for an IP literal, so each hop also checks the
+  literal host, and it checks the host as `yarl` parses it — the same parse the
+  request uses. Checking `urlsplit`'s host let `１２７。０.0.1` in a redirect
+  through: it is not an IP to `ipaddress`, but yarl normalizes it to
+  `127.0.0.1` and connects directly. Found by the release security review.
+- Ports 80 and 443 only, redirects followed by hand (four at most) and checked
+  each time, 256 KB, 8 s, three fetches at a time, no proxy from the
+  environment.
+- The demo action route now refuses pages not marked `demo`, as the demo page
+  route already did; before, a guest could act on any plugin page under a
+  guest identity.
+
+### Result
+v0.85.0. Tests cover private literals, odd ports, the fullwidth host, IPv6
+translation forms and the demo refusal.

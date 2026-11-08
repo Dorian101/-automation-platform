@@ -20,6 +20,7 @@ from app.notifications import (
 )
 from app.plugins.applications import ApplicationsPlugin
 from app.plugins.automation import AutomationPlugin
+from app.plugins.bookmarks import BookmarksPlugin
 from app.plugins.expenses import ExpensesPlugin
 from app.plugins.manager import PluginManager
 from app.plugins.notes import NotesPlugin
@@ -41,6 +42,7 @@ def build_manager(database, notifier, users, links, logger) -> PluginManager:
     manager.register(RemindersPlugin(notifier, database))
     manager.register(TodoPlugin(notifier, database, persons=persons))
     manager.register(SnippetsPlugin(database, persons=persons))
+    manager.register(BookmarksPlugin(database, persons=persons))
     manager.register(ExpensesPlugin(database, persons=persons))
     manager.register(ApplicationsPlugin(database, persons=persons))
     manager.register(AutomationPlugin(manager, notifier, database, persons=persons))

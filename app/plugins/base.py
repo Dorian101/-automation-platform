@@ -64,6 +64,13 @@ class BasePlugin(ABC):
     ) -> CommandResult:
         raise CommandError(f"{self.name}: files are not accepted")
 
+    accepts_links: bool = False
+
+    async def receive_links(
+        self, identity: Identity, urls: list[str], text: str
+    ) -> CommandResult:
+        raise CommandError(f"{self.name}: links are not accepted")
+
     automation_events: dict[str, tuple[str, list[str]]] = {}
     automation_actions: dict[str, tuple[str, list[tuple[str, str]]]] = {}
     events = None

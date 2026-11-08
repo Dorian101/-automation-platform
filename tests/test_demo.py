@@ -173,6 +173,14 @@ class TestGuestPage:
 
 
 class TestGuestActions:
+    async def test_a_page_kept_off_the_demo_refuses_actions(self, visitor):
+        response = await visitor.post(
+            "/demo/api/action",
+            json={"page": "/snippets", "action": "save", "payload": {"body": "x"}},
+        )
+
+        assert response.status == 404
+
     async def test_an_action_is_accepted(self, visitor):
         response = await visitor.post(
             "/demo/api/action",

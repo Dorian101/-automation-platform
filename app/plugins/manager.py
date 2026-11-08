@@ -209,6 +209,23 @@ class PluginManager:
                 await send_result(message, result)
                 return
 
+            text = message.text or message.caption
+
+            if not text:
+                return
+
+            urls = [] if text.lstrip().startswith("/") else _urls(message)
+
+            if urls:
+                try:
+                    result = await self.receive_links(message, urls)
+                except CommandError as error:
+                    await message.answer(str(error))
+                    return
+
+                await send_result(message, result)
+                return
+
             if not message.text:
                 return
 
@@ -226,16 +243,19 @@ class PluginManager:
 
         return router
 
-    async def receive_file(self, message: Message) -> CommandResult:
+    def _receiver(self, flag: str, refusal: str) -> BasePlugin:
         if self.switches and self.switches.maintenance():
             raise CommandError("Сервис на обслуживании. Попробуйте чуть позже.")
 
-        plugin = next(
-            (one for one in self._enabled() if one.accepts_files), None
-        )
+        plugin = next((one for one in self._enabled() if getattr(one, flag)), None)
 
         if plugin is None:
-            raise CommandError("Файлы сейчас не принимаются.")
+            raise CommandError(refusal)
+
+        return plugin
+
+    async def receive_file(self, message: Message) -> CommandResult:
+        plugin = self._receiver("accepts_files", "Файлы сейчас не принимаются.")
 
         document = message.document
         limit = plugin.max_file_bytes
@@ -252,6 +272,13 @@ class PluginManager:
 
         return await plugin.receive_file(
             telegram(message.chat.id), document.file_name or "", data
+        )
+
+    async def receive_links(self, message: Message, urls: list[str]) -> CommandResult:
+        plugin = self._receiver("accepts_links", "Ссылки сейчас не принимаются.")
+
+        return await plugin.receive_links(
+            telegram(message.chat.id), urls, message.text or message.caption or ""
         )
 
     async def startup(self) -> None:
@@ -274,6 +301,19 @@ class PluginManager:
 
 
 TELEGRAM_LIMIT = 4096
+
+
+def _urls(message: Message) -> list[str]:
+    text = message.text or message.caption or ""
+    urls = []
+
+    for entity in message.entities or message.caption_entities or []:
+        if entity.type == "url":
+            urls.append(entity.extract_from(text))
+        elif entity.type == "text_link" and entity.url:
+            urls.append(entity.url)
+
+    return urls
 
 
 def _utf16(text: str) -> int:

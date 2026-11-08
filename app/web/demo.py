@@ -260,7 +260,7 @@ class DemoService:
 
         plugin = self._manager.find_by_page(payload.get("page", ""))
 
-        if plugin is None:
+        if plugin is None or not plugin.demo:
             return web.json_response({"error": "Unknown page"}, status=404)
 
         # Read from the cookie and nowhere else. See the module docstring:

@@ -124,6 +124,7 @@ Repositories:
 - notes_repo.py
 - reminders_repo.py
 - snippets_repo.py
+- bookmarks_repo.py
 - links_repo.py
 - users_repo.py
 - sessions_repo.py
@@ -175,6 +176,11 @@ A plugin may also declare:
   `number`; the label is the prompt drawn under the input. A command absent
   from it takes no argument and runs on a click; a command present reveals a
   labelled form whose values are joined by spaces into `args`.
+- `accepts_links` / `receive_links(identity, urls, text)` — take a chat
+  message that is not a command and has link entities. `PluginManager` pulls
+  the URLs from the entities and hands them to the first enabled plugin that
+  accepts links, the same way `accepts_files` routes documents. The menu's
+  input flow runs first, so a link typed as a note stays a note.
 - `page_view(identity)` — return a description of the page.
 - `page_action(identity, action, payload)` — handle what the page did, return
   the same description with the change applied. Every payload value arrives as
@@ -247,6 +253,9 @@ renderer calls `showPicker()` to make the whole field behave the same.
 - Reminders: /remind, /reminders, /cancel; delivers through notification channels
 - Snippets: page at /snippets, /snippets, /snippet_get N, text files sent to
   the bot
+- Bookmarks: page at /bookmarks («Ссылки»), /links, links sent to the bot;
+  titles fetched in the background through a resolver that drops non-public
+  addresses; one row per normalized URL
 - Expenses: page at /expenses, web-only; spending by category plus incomes
   (`salary` or `other`), edited in place, categories renamed or archived
 - Applications: page at /applications, web-only, statuses are a state machine
@@ -462,6 +471,10 @@ whether there are four sections or twenty. One tiny inline script (guarded by
 the CSP nonce) closes it when the reader clicks anywhere outside it — a native
 `<details>` has no such gesture, so without it a stray click leaves the menu
 open until the toggle is pressed again.
+
+Plugin pages sit in a nested `<details class="plugins">` («Плагины»), open
+by click so it works on phones and without scripting; it is open when the
+current page is one of them.
 
 A guest is offered a different menu: the plugin pages point at the
 demonstration's copies, because `/expenses` answers a visitor with a login
