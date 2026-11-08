@@ -237,6 +237,16 @@ class TestTransport:
         )
 
 
+class TestLive:
+    async def test_the_page_refreshes_itself(self, plugin, web_identity):
+        assert (await plugin.page_view(web_identity))["live"] is True
+
+    async def test_an_answered_action_stays_live(self, plugin, web_identity):
+        view = await _save(plugin, web_identity, SQL)
+
+        assert view["live"] is True
+
+
 class TestCopyAndEdit:
     async def test_copying_from_the_list_opens_nothing(self, plugin, web_identity):
         view = await _save(plugin, web_identity, SQL)
