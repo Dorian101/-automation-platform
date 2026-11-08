@@ -487,6 +487,7 @@ class TestTheProjectPage:
         """
         from app.plugins.applications import ApplicationsPlugin
         from app.plugins.automation import AutomationPlugin
+        from app.plugins.bookmarks import BookmarksPlugin
         from app.plugins.expenses import ExpensesPlugin
         from app.plugins.notes import NotesPlugin
         from app.plugins.reminders import RemindersPlugin
@@ -498,6 +499,7 @@ class TestTheProjectPage:
             NotesPlugin.name,
             RemindersPlugin.name,
             SnippetsPlugin.name,
+            BookmarksPlugin.name,
             ExpensesPlugin.name,
             ApplicationsPlugin.name,
             AutomationPlugin.name,

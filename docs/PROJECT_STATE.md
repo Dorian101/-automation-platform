@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.86.0
+v0.87.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -317,6 +317,9 @@ Implemented:
   disabled, deleted on a password change), at most 5 per account, revocable, last use shown. The route takes
   no cookie, is throttled per address (60 per 10 minutes, 10 wrong keys) and
   every answer carries `text` for the Shortcut to show
+* on the demo: five sample links with titles; a guest's links get no title
+  fetch (the domain stands in), at most 30, no keys, no live refresh (it
+  would spend the guest's demo request allowance)
 * a bookmarklet from `/links/save` opens a small window with the address and
   a description field; saving needs a click and the session's CSRF token, so
   a page that opens the window cannot save anything by itself

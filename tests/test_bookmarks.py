@@ -317,3 +317,64 @@ class TestBot:
         text = (await plugin.execute("/links", "", telegram(42))).text
 
         assert text == "1. Title of https://example.com\nhttps://example.com"
+
+
+class TestDemo:
+    @pytest.fixture
+    def visitor(self):
+        from app.core.identity import guest
+
+        return guest("t" * 32)
+
+    async def test_the_sample_has_titles_without_fetching(
+        self, database_with_schema, visitor
+    ):
+        fetched = []
+
+        async def spy(url):
+            fetched.append(url)
+            return "x"
+
+        plugin = BookmarksPlugin(database_with_schema, fetch=spy)
+        await plugin.seed_demo(visitor)
+        view = await plugin.page_view(visitor)
+
+        rows = view["list"][0]["rows"]
+        assert len(rows) == len(module.DEMO_BOOKMARKS)
+        assert all(row["title"] != row["site"] for row in rows)
+        assert fetched == []
+
+    async def test_a_guest_link_is_not_fetched(self, database_with_schema, visitor):
+        fetched = []
+
+        async def spy(url):
+            fetched.append(url)
+            return "x"
+
+        plugin = BookmarksPlugin(database_with_schema, fetch=spy)
+        await _save(plugin, visitor, "https://example.com/a")
+        await _settle(plugin)
+
+        assert fetched == []
+        assert plugin.repo.entries(visitor)[0]["title"] == ""
+
+    async def test_a_guest_has_no_keys(self, plugin, visitor):
+        view = await plugin.page_view(visitor)
+
+        assert [form["id"] for form in view["forms"]] == ["save"]
+        assert view["live"] is False
+        assert len(view["list"]) == 1
+        for action, payload in (
+            ("keycreate", {"name": "x"}),
+            ("keyrevoke", {"id": "1"}),
+        ):
+            with pytest.raises(CommandError, match="В демо ключей нет"):
+                await plugin.page_action(visitor, action, payload)
+
+    async def test_a_guest_is_capped(self, plugin, visitor, monkeypatch):
+        monkeypatch.setattr(module, "GUEST_BOOKMARK_LIMIT", 2)
+        await _save(plugin, visitor, "https://example.com/1")
+        await _save(plugin, visitor, "https://example.com/2")
+
+        with pytest.raises(CommandError, match="Демо ограничено"):
+            await _save(plugin, visitor, "https://example.com/3")

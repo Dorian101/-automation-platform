@@ -87,7 +87,7 @@
     identity: [[380, 207]],
     dispatcher: [[380, 287]],
     "to-plugin": [[380, 338]],
-    "page-route": [[100, 207], [100, 330], [425, 330], [425, 342]],
+    "page-route": [[100, 207], [100, 330], [459, 330], [459, 342]],
     postgres: [[380, 400], [380, 488]],
     notify: [[380, 410], [638, 410], [638, 488]],
   };
@@ -96,12 +96,13 @@
     "notes",
     "reminders",
     "snippets",
+    "bookmarks",
     "expenses",
     "applications",
     "todo",
     "automation",
   ].forEach((name, index) => {
-    PATH[`plugin-${name}`] = [[73 + index * 88, 364]];
+    PATH[`plugin-${name}`] = [[64 + index * 79, 364]];
   });
 
   const dot = document.getElementById("trace-dot");

@@ -258,7 +258,8 @@ renderer calls `showPicker()` to make the whole field behave the same.
 - Reminders: /remind, /reminders, /cancel; delivers through notification channels
 - Snippets: page at /snippets, /snippets, /snippet_get N, text files sent to
   the bot
-- Bookmarks: page at /bookmarks («Ссылки»), /links, links sent to the bot,
+- Bookmarks (demo: no fetch, no keys, no live refresh for guests): page at
+  /bookmarks («Ссылки»), /links, links sent to the bot,
   `POST /api/links` with a personal key (iPhone Shortcut), `/links/save`
   (bookmarklet popup, session + CSRF form); keys are created and revoked on
   the page;

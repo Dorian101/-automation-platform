@@ -14,7 +14,7 @@ from aiohttp.resolver import ThreadedResolver
 from yarl import URL
 
 from app.core.config import Config
-from app.core.identity import WEB, Identity
+from app.core.identity import WEB, Identity, is_guest
 from app.core.results import CommandError, CommandResult, reply
 from app.db.api_keys_repo import MAX_KEYS, ApiKeysRepository, TooManyKeys
 from app.db.bookmarks_repo import BookmarksRepository
@@ -29,6 +29,39 @@ LIST_SIZE = 10
 FETCH_BYTES = 256_000
 FETCH_SECONDS = 8
 REDIRECTS = 4
+GUEST_BOOKMARK_LIMIT = 30
+DEMO_BOOKMARKS = [
+    (
+        "https://developer.mozilla.org/ru/docs/Web/HTTP/CSP",
+        "Content Security Policy (CSP) - HTTP | MDN",
+        "nonce вместо unsafe-inline",
+        False,
+    ),
+    (
+        "https://docs.python.org/3/library/ipaddress.html",
+        "ipaddress — IPv4/IPv6 manipulation library",
+        "is_global и IPv4-mapped адреса",
+        False,
+    ),
+    (
+        "https://www.postgresql.org/docs/current/sql-insert.html",
+        "PostgreSQL: Documentation: INSERT",
+        "ON CONFLICT DO UPDATE",
+        True,
+    ),
+    (
+        "https://core.telegram.org/bots/api",
+        "Telegram Bot API",
+        "MessageEntity: url и text_link",
+        False,
+    ),
+    (
+        "https://github.com/astral-sh/uv",
+        "GitHub - astral-sh/uv: An extremely fast Python package and project manager",
+        "",
+        True,
+    ),
+]
 FETCH_PARALLEL = 3
 TRACKING = {
     "fbclid",
@@ -252,9 +285,10 @@ class BookmarksPlugin(BasePlugin):
     name = "bookmarks"
     tables = {"bookmarks": "Ссылки"}
     version = "0.1.0"
-    description = "Ссылки на потом: пришлите ссылку боту, и она сохранится"
+    description = "Ссылки на потом: из бота, с iPhone и кнопкой в браузере"
     page = "/bookmarks"
     page_title = "Ссылки"
+    demo = True
     check = "/links"
 
     commands = {"/links": "Последние ссылки"}
@@ -303,6 +337,13 @@ class BookmarksPlugin(BasePlugin):
 
         return reply("\n".join(lines))
 
+    async def seed_demo(self, identity: Identity) -> None:
+        for url, title, description, read in DEMO_BOOKMARKS:
+            entry, _ = self.repo.save(identity, identity, url, description, "web")
+            self.repo.fill_title(entry["id"], title)
+            if read:
+                self.repo.mark(identity, entry["id"], True)
+
     async def on_shutdown(self) -> None:
         for task in self._pending:
             task.cancel()
@@ -311,11 +352,19 @@ class BookmarksPlugin(BasePlugin):
 
     def _save(self, identity: Identity, readable, raw, description: str):
         url = normalize(raw)
+        guest = is_guest(identity)
+
+        if guest and len(self.repo.entries(readable)) >= GUEST_BOOKMARK_LIMIT:
+            raise CommandError(
+                f"Демо ограничено {GUEST_BOOKMARK_LIMIT} ссылками. "
+                "Удалите лишние, чтобы добавить новые."
+            )
+
         entry, existed = self.repo.save(
             identity, readable, url, description, _source(identity)
         )
 
-        if not entry["title"]:
+        if not entry["title"] and not guest:
             task = asyncio.create_task(self._title(entry["id"], url))
             self._pending.add(task)
             task.add_done_callback(self._pending.discard)
@@ -380,6 +429,8 @@ class BookmarksPlugin(BasePlugin):
         elif action == "delete":
             if not self.repo.delete(readable, _id(payload)):
                 raise CommandError("Ссылка не найдена.")
+        elif action.startswith("key") and is_guest(identity):
+            raise CommandError("В демо ключей нет: они привязаны к учётной записи.")
         elif action == "keycreate":
             notice = self._create_key(identity, payload.get("name"))
         elif action == "keyrevoke":
@@ -465,10 +516,12 @@ class BookmarksPlugin(BasePlugin):
 
         return {
             "title": "Ссылки",
-            "live": True,
+            "live": not is_guest(identity),
             "layout": ["forms", "list"],
-            "forms": [form, KEY_FORM],
-            "list": [self._table(readable), self._keys_table(identity)],
+            "forms": [form] if is_guest(identity) else [form, KEY_FORM],
+            "list": [self._table(readable)]
+            if is_guest(identity)
+            else [self._table(readable), self._keys_table(identity)],
         }
 
     def _keys_table(self, identity: Identity) -> dict:

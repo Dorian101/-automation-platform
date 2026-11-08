@@ -125,6 +125,12 @@ __MENU_STYLES__
         <p class="lens-brief">{{project.snippets_brief}}</p>
         <p class="lens-deep">{{project.snippets_deep}}</p>
       </article>
+      <article class="project blue">
+        <div class="project-meta"><span>07</span><span>{{project.bookmarks_meta}}</span></div>
+        <h3>{{project.bookmarks_title}}</h3>
+        <p class="lens-brief">{{project.bookmarks_brief}}</p>
+        <p class="lens-deep">{{project.bookmarks_deep}}</p>
+      </article>
     </div>
   </section>
 
@@ -155,7 +161,7 @@ __MENU_STYLES__
         .diagram .box, .diagram .edge { transition: stroke 0.2s; }
         .diagram .lit { stroke: var(--lime); stroke-width: 2.5; }
         .diagram .stop { stroke: var(--coral); stroke-width: 2.5; }
-        .diagram .cell { font-size: 12px; font-weight: 600; fill: var(--text); }
+        .diagram .cell { font-size: 11px; font-weight: 600; fill: var(--text); }
         .diagram .page-route { stroke-dasharray: 4 4; }
         .diagram #trace-dot { fill: var(--lime); opacity: 0; }
         .diagram #trace-dot.stopped { fill: var(--coral); }
@@ -167,7 +173,7 @@ __MENU_STYLES__
       </defs>
 
       <path class="edge" data-step="telegram" d="M 205 100 L 205 138 L 380 138" />
-      <path class="edge page-route" data-step="page-route" d="M 270 207 L 100 207 L 100 330 L 425 330 L 425 342" marker-end="url(#d-arrow)" />
+      <path class="edge page-route" data-step="page-route" d="M 270 207 L 100 207 L 100 330 L 459 330 L 459 342" marker-end="url(#d-arrow)" />
       <path class="edge" data-step="identity" d="M 560 100 L 560 138 L 380 138 L 380 182" marker-end="url(#d-arrow)" />
       <path class="edge" data-step="dispatcher" d="M 380 230 L 380 256" marker-end="url(#d-arrow)" />
       <path class="edge" data-step="to-plugin" d="M 380 316 L 380 342" marker-end="url(#d-arrow)" />
@@ -198,22 +204,24 @@ __MENU_STYLES__
       <text class="label" x="380" y="278" text-anchor="middle" dominant-baseline="middle">PluginManager</text>
       <text class="small" x="380" y="298" text-anchor="middle">parse_command → execute → CommandResult</text>
 
-      <rect class="box process" data-step="plugin-system" x="32" y="344" width="82" height="40" rx="8" />
-      <text class="cell" x="73" y="364" text-anchor="middle" dominant-baseline="middle">system</text>
-      <rect class="box process" data-step="plugin-notes" x="120" y="344" width="82" height="40" rx="8" />
-      <text class="cell" x="161" y="364" text-anchor="middle" dominant-baseline="middle">notes</text>
-      <rect class="box process" data-step="plugin-reminders" x="208" y="344" width="82" height="40" rx="8" />
-      <text class="cell" x="249" y="364" text-anchor="middle" dominant-baseline="middle">reminders</text>
-      <rect class="box process" data-step="plugin-snippets" x="296" y="344" width="82" height="40" rx="8" />
-      <text class="cell" x="337" y="364" text-anchor="middle" dominant-baseline="middle">snippets</text>
-      <rect class="box process" data-step="plugin-expenses" x="384" y="344" width="82" height="40" rx="8" />
-      <text class="cell" x="425" y="364" text-anchor="middle" dominant-baseline="middle">expenses</text>
-      <rect class="box process" data-step="plugin-applications" x="472" y="344" width="82" height="40" rx="8" />
-      <text class="cell" x="513" y="364" text-anchor="middle" dominant-baseline="middle">applications</text>
-      <rect class="box process" data-step="plugin-todo" x="560" y="344" width="82" height="40" rx="8" />
-      <text class="cell" x="601" y="364" text-anchor="middle" dominant-baseline="middle">todo</text>
-      <rect class="box process" data-step="plugin-automation" x="648" y="344" width="82" height="40" rx="8" />
-      <text class="cell" x="689" y="364" text-anchor="middle" dominant-baseline="middle">automation</text>
+      <rect class="box process" data-step="plugin-system" x="27" y="344" width="74" height="40" rx="8" />
+      <text class="cell" x="64" y="364" text-anchor="middle" dominant-baseline="middle">system</text>
+      <rect class="box process" data-step="plugin-notes" x="106" y="344" width="74" height="40" rx="8" />
+      <text class="cell" x="143" y="364" text-anchor="middle" dominant-baseline="middle">notes</text>
+      <rect class="box process" data-step="plugin-reminders" x="185" y="344" width="74" height="40" rx="8" />
+      <text class="cell" x="222" y="364" text-anchor="middle" dominant-baseline="middle">reminders</text>
+      <rect class="box process" data-step="plugin-snippets" x="264" y="344" width="74" height="40" rx="8" />
+      <text class="cell" x="301" y="364" text-anchor="middle" dominant-baseline="middle">snippets</text>
+      <rect class="box process" data-step="plugin-bookmarks" x="343" y="344" width="74" height="40" rx="8" />
+      <text class="cell" x="380" y="364" text-anchor="middle" dominant-baseline="middle">bookmarks</text>
+      <rect class="box process" data-step="plugin-expenses" x="422" y="344" width="74" height="40" rx="8" />
+      <text class="cell" x="459" y="364" text-anchor="middle" dominant-baseline="middle">expenses</text>
+      <rect class="box process" data-step="plugin-applications" x="501" y="344" width="74" height="40" rx="8" />
+      <text class="cell" x="538" y="364" text-anchor="middle" dominant-baseline="middle">applications</text>
+      <rect class="box process" data-step="plugin-todo" x="580" y="344" width="74" height="40" rx="8" />
+      <text class="cell" x="617" y="364" text-anchor="middle" dominant-baseline="middle">todo</text>
+      <rect class="box process" data-step="plugin-automation" x="659" y="344" width="74" height="40" rx="8" />
+      <text class="cell" x="696" y="364" text-anchor="middle" dominant-baseline="middle">automation</text>
 
       <rect class="box storage" data-step="postgres" x="240" y="464" width="280" height="48" rx="8" />
       <text class="label" x="380" y="488" text-anchor="middle" dominant-baseline="middle">PostgreSQL</text>
@@ -243,7 +251,7 @@ __MENU_STYLES__
       <li data-step="web telegram"><b>{{project.flow_transport}}</b>{{project.flow_transport_text}}</li>
       <li data-step="identity"><b>Identity</b>{{project.flow_identity_text}}</li>
       <li data-step="dispatcher"><b>PluginManager</b>parse_command → execute → CommandResult</li>
-      <li data-step="plugin-system plugin-notes plugin-reminders plugin-snippets plugin-expenses plugin-applications plugin-todo plugin-automation"><b>{{project.flow_plugins}}</b>system · notes · reminders · snippets · expenses · applications · todo · automation</li>
+      <li data-step="plugin-system plugin-notes plugin-reminders plugin-snippets plugin-bookmarks plugin-expenses plugin-applications plugin-todo plugin-automation"><b>{{project.flow_plugins}}</b>system · notes · reminders · snippets · bookmarks · expenses · applications · todo · automation</li>
       <li data-step="postgres notify"><b>{{project.zone_storage}}</b>{{project.flow_storage_text}}</li>
     </ol>
     <figcaption>

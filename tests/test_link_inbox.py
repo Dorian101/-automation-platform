@@ -255,3 +255,53 @@ class TestBookmarklet:
 
         assert response.headers["X-Frame-Options"] == "DENY"
         assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
+
+
+class TestDemoIsolation:
+    @pytest.fixture
+    async def visitor(self, web_server):
+        async with TestClient(TestServer(web_server.build_app())) as test_client:
+            yield test_client
+
+    async def test_a_guest_cannot_reach_an_account_or_a_key(
+        self, visitor, plugin, create_user
+    ):
+        await _new_key(plugin)
+        key_id = plugin.keys.entries(OWNER)[0]["id"]
+        await plugin.page_action(OWNER, "save", {"url": "https://example.com/mine"})
+
+        page = await visitor.get("/demo/bookmarks")
+        body = await page.text()
+        actions = [
+            ("view", {}),
+            ("delete", {"id": str(plugin.repo.entries(OWNER)[0]["id"])}),
+            ("keyrevoke", {"id": str(key_id)}),
+            ("keycreate", {"name": "x"}),
+        ]
+        answers = [
+            await visitor.post(
+                "/demo/api/action",
+                json={"page": "/bookmarks", "action": action, "payload": payload},
+            )
+            for action, payload in actions
+        ]
+
+        assert page.status == 200
+        assert "example.com/mine" not in body
+        assert "example.com/mine" not in await answers[0].text()
+        assert [a.status for a in answers[1:]] == [400, 400, 400]
+        assert len(plugin.repo.entries(OWNER)) == 1
+        assert len(plugin.keys.entries(OWNER)) == 1
+
+    async def test_a_guest_cookie_does_not_open_the_api(self, visitor):
+        await visitor.get("/demo/bookmarks")
+
+        response = await visitor.post("/api/links", json={"url": "https://example.com"})
+        saved = await visitor.post(
+            "/links/save", data={"url": "https://example.com"}, allow_redirects=False
+        )
+        page = await visitor.get("/bookmarks", allow_redirects=False)
+
+        assert response.status == 401
+        assert saved.status in (302, 303)
+        assert page.status in (302, 303)
