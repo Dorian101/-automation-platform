@@ -150,12 +150,12 @@ class TestSaving:
     async def test_the_title_arrives_after_saving(self, plugin, web_identity):
         view = await _save(plugin, web_identity, "https://example.com/a")
 
-        assert view["list"]["rows"][0]["title"] == "example.com"
+        assert view["list"][0]["rows"][0]["title"] == "example.com"
 
         await _settle(plugin)
         view = await plugin.page_view(web_identity)
 
-        assert view["list"]["rows"][0]["title"] == "Title of https://example.com/a"
+        assert view["list"][0]["rows"][0]["title"] == "Title of https://example.com/a"
 
     async def test_a_failed_fetch_leaves_the_domain(
         self, database_with_schema, web_identity
@@ -167,7 +167,7 @@ class TestSaving:
         await _save(plugin, web_identity, "www.example.com/a")
         await _settle(plugin)
 
-        [row] = (await plugin.page_view(web_identity))["list"]["rows"]
+        [row] = (await plugin.page_view(web_identity))["list"][0]["rows"]
         assert row["title"] == "example.com"
 
     async def test_a_repeat_rises_instead_of_doubling(self, plugin, web_identity):
@@ -180,7 +180,7 @@ class TestSaving:
             plugin, web_identity, "HTTPS://EXAMPLE.com/a/?utm_medium=tg", "again"
         )
 
-        rows = view["list"]["rows"]
+        rows = view["list"][0]["rows"]
         assert len(rows) == 2
         assert rows[0]["url"] == "https://example.com/a"
         assert rows[0]["description"] == "again"
@@ -215,9 +215,9 @@ class TestSaving:
 
     async def test_people_do_not_see_each_others_links(self, plugin, web_identity):
         view = await _save(plugin, web_identity, "https://example.com")
-        params = view["list"]["rows"][0]["actions"][2]["params"]
+        params = view["list"][0]["rows"][0]["actions"][2]["params"]
 
-        assert (await plugin.page_view(OTHER))["list"]["rows"] == []
+        assert (await plugin.page_view(OTHER))["list"][0]["rows"] == []
         with pytest.raises(CommandError, match="не найдена"):
             await plugin.page_action(OTHER, "delete", params)
 
@@ -225,11 +225,11 @@ class TestSaving:
 class TestPage:
     async def test_read_edit_delete(self, plugin, web_identity):
         view = await _save(plugin, web_identity, "https://example.com")
-        params = view["list"]["rows"][0]["actions"][0]["params"]
+        params = view["list"][0]["rows"][0]["actions"][0]["params"]
 
         view = await plugin.page_action(web_identity, "read", params)
-        assert view["list"]["rows"][0]["state"] == "прочитано"
-        assert view["list"]["rows"][0]["actions"][0]["action"] == "unread"
+        assert view["list"][0]["rows"][0]["state"] == "прочитано"
+        assert view["list"][0]["rows"][0]["actions"][0]["action"] == "unread"
 
         view = await plugin.page_action(web_identity, "edit", params)
         assert view["forms"][0]["id"] == "update"
@@ -237,18 +237,18 @@ class TestPage:
         view = await plugin.page_action(
             web_identity, "update", {**params, "title": "Мой", "description": "зачем"}
         )
-        row = view["list"]["rows"][0]
+        row = view["list"][0]["rows"][0]
         assert (row["title"], row["description"]) == ("Мой", "зачем")
         assert view["forms"][0]["id"] == "save"
 
         view = await plugin.page_action(web_identity, "delete", params)
-        assert view["list"]["rows"] == []
+        assert view["list"][0]["rows"] == []
 
     async def test_an_edited_title_is_not_overwritten_by_the_fetch(
         self, plugin, web_identity
     ):
         view = await _save(plugin, web_identity, "https://example.com")
-        params = view["list"]["rows"][0]["actions"][0]["params"]
+        params = view["list"][0]["rows"][0]["actions"][0]["params"]
         await plugin.page_action(
             web_identity, "update", {**params, "title": "Мой", "description": ""}
         )

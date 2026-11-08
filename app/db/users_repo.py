@@ -241,6 +241,7 @@ class UsersRepository:
                     "UPDATE users SET password_hash = %s WHERE id = %s",
                     (password_hash, user_id),
                 )
+                cur.execute("DELETE FROM api_keys WHERE user_id = %s", (user_id,))
             conn.commit()
 
     def identity_for(self, user: User) -> Identity:

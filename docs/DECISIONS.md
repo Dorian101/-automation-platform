@@ -2791,3 +2791,38 @@ so the request must not reach the host itself or its network.
 ### Result
 v0.85.0. Tests cover private literals, odd ports, the fullwidth host, IPv6
 translation forms and the demo refusal.
+
+## 2026-11-08
+
+### Decision
+Personal keys that can only add links, for saving without Telegram
+
+### Reason
+Telegram needs a proxy where the owner lives, so sending links to the bot is
+a chore. An iPhone Shortcut can post to the site but cannot hold a session,
+and the share-sheet entry for web apps does not exist on iOS.
+
+### How it is done
+- `api_keys` rows reference `users(id)` with `ON DELETE CASCADE`, not the
+  username: a deleted account takes its keys along, and a later account under
+  the same name does not inherit them. A disabled account's keys fail.
+- The key is `ap_` plus 32 random bytes, shown once; only SHA-256 is kept
+  (a fast hash is enough for a 256-bit secret), looked up by hash.
+- The only route a key opens is `POST /api/links`, which saves through the
+  same `accepts_links` hook the bot uses. No other route reads the header, and
+  the route ignores cookies.
+- The bookmarklet does not save on GET: `/links/save?url=` shows a form, and
+  the POST needs the session CSRF token, so another site opening the window
+  cannot plant a link. The window cannot be framed (`frame-ancestors 'none'`).
+
+- A new password deletes the account's keys, so a key made from a stolen
+  session does not outlive the password change.
+- Accepted on review: the wrong-key limit turns answers into 429 but still
+  looks the key up (a 256-bit key cannot be guessed at 60 tries per 10
+  minutes); the bookmarklet's `?url=` reaches aiohttp's access log in the
+  owner's own journal, as every request line does.
+
+### Result
+Keys and both routes are covered by tests: a missing, wrong, revoked or
+disabled key, the cap, another user's revoke, throttling, body checks, the
+GET that saves nothing, a forged form and escaping.

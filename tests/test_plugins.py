@@ -722,6 +722,7 @@ class TestPluginTables:
     CORE = {
         "app_errors",
         "clipboard",
+        "api_keys",
         "feedback",
         "schema_migrations",
         "sessions",

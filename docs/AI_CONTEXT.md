@@ -125,6 +125,7 @@ Repositories:
 - reminders_repo.py
 - snippets_repo.py
 - bookmarks_repo.py
+- api_keys_repo.py
 - links_repo.py
 - users_repo.py
 - sessions_repo.py
@@ -181,6 +182,10 @@ A plugin may also declare:
   the URLs from the entities and hands them to the first enabled plugin that
   accepts links, the same way `accepts_files` routes documents. The menu's
   input flow runs first, so a link typed as a note stays a note.
+- `live: true` in a view — the page re-asks for `view` every 10 s while the
+  tab is visible and on return to it, and redraws only if it changed. It
+  waits while the reader types, edits, has a dialog or panel open, or the view
+  carries `hold: true` (the one-time key notice). Bookmarks and Snippets set it.
 - `page_view(identity)` — return a description of the page.
 - `page_action(identity, action, payload)` — handle what the page did, return
   the same description with the change applied. Every payload value arrives as
@@ -253,7 +258,10 @@ renderer calls `showPicker()` to make the whole field behave the same.
 - Reminders: /remind, /reminders, /cancel; delivers through notification channels
 - Snippets: page at /snippets, /snippets, /snippet_get N, text files sent to
   the bot
-- Bookmarks: page at /bookmarks («Ссылки»), /links, links sent to the bot;
+- Bookmarks: page at /bookmarks («Ссылки»), /links, links sent to the bot,
+  `POST /api/links` with a personal key (iPhone Shortcut), `/links/save`
+  (bookmarklet popup, session + CSRF form); keys are created and revoked on
+  the page;
   titles fetched in the background through a resolver that drops non-public
   addresses; one row per normalized URL
 - Expenses: page at /expenses, web-only; spending by category plus incomes

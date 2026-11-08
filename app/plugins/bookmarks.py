@@ -16,6 +16,7 @@ from yarl import URL
 from app.core.config import Config
 from app.core.identity import WEB, Identity
 from app.core.results import CommandError, CommandResult, reply
+from app.db.api_keys_repo import MAX_KEYS, ApiKeysRepository, TooManyKeys
 from app.db.bookmarks_repo import BookmarksRepository
 from app.db.database import Database
 
@@ -237,6 +238,16 @@ async def fetch_title(url: str) -> str:
     return ""
 
 
+KEY_FORM = {
+    "id": "keycreate",
+    "title": "Ключ для iPhone",
+    "submit": "Создать ключ",
+    "fields": [
+        {"name": "name", "label": "Название", "type": "text", "value": "iPhone"}
+    ],
+}
+
+
 class BookmarksPlugin(BasePlugin):
     name = "bookmarks"
     tables = {"bookmarks": "Ссылки"}
@@ -254,6 +265,7 @@ class BookmarksPlugin(BasePlugin):
         self, database: Database | None = None, persons=None, fetch=fetch_title
     ):
         self.repo = BookmarksRepository(database)
+        self.keys = ApiKeysRepository(database)
         self._persons = persons
         self._fetch = fetch
         self._pending: set[asyncio.Task] = set()
@@ -333,7 +345,7 @@ class BookmarksPlugin(BasePlugin):
         )
 
     async def page_view(self, identity: Identity) -> dict:
-        return self._view(self._readable_as(identity), None)
+        return self._view(identity, self._readable_as(identity), None)
 
     async def page_action(self, identity: Identity, action: str, payload: dict) -> dict:
         readable = self._readable_as(identity)
@@ -368,17 +380,44 @@ class BookmarksPlugin(BasePlugin):
         elif action == "delete":
             if not self.repo.delete(readable, _id(payload)):
                 raise CommandError("Ссылка не найдена.")
+        elif action == "keycreate":
+            notice = self._create_key(identity, payload.get("name"))
+        elif action == "keyrevoke":
+            if not self.keys.revoke(identity, _id(payload)):
+                raise CommandError("Ключ не найден.")
+            notice = "Ключ отозван."
         elif action != "view":
             raise CommandError(f"Неизвестное действие: {action}")
 
-        view = self._view(readable, editing)
+        view = self._view(identity, readable, editing)
 
         if notice:
             view["notice"] = notice
 
+        if action == "keycreate":
+            view["hold"] = True
+
         return view
 
-    def _view(self, readable, editing: dict | None) -> dict:
+    def _create_key(self, identity: Identity, raw_name) -> str:
+        name = _clean(raw_name, 40) or "Ключ"
+
+        try:
+            key = self.keys.create(identity, name)
+        except TooManyKeys:
+            raise CommandError(
+                f"Ключей не больше {MAX_KEYS}. Отзовите ненужный."
+            ) from None
+
+        if key is None:
+            raise CommandError("Ключ можно создать только на сайте.")
+
+        return (
+            f"Ключ «{name}»: {key} — он показан один раз. "
+            "Скопируйте его в команду «В ссылки» на iPhone."
+        )
+
+    def _view(self, identity: Identity, readable, editing: dict | None) -> dict:
         if editing:
             form = {
                 "id": "update",
@@ -426,9 +465,38 @@ class BookmarksPlugin(BasePlugin):
 
         return {
             "title": "Ссылки",
+            "live": True,
             "layout": ["forms", "list"],
-            "forms": [form],
-            "list": self._table(readable),
+            "forms": [form, KEY_FORM],
+            "list": [self._table(readable), self._keys_table(identity)],
+        }
+
+    def _keys_table(self, identity: Identity) -> dict:
+        return {
+            "title": "Ключи для iPhone",
+            "empty": "Ключей нет. Кнопка для браузера — на странице /links/save.",
+            "columns": [
+                {"key": "name", "label": "Название"},
+                {"key": "created", "label": "Создан"},
+                {"key": "used", "label": "Последний раз"},
+            ],
+            "rows": [
+                {
+                    "name": key["name"],
+                    "created": _local(key["created_at"]),
+                    "used": _local(key["last_used_at"]) if key["last_used_at"] else "",
+                    "actions": [
+                        {
+                            "action": "keyrevoke",
+                            "label": "Отозвать",
+                            "kind": "ghost",
+                            "params": {"id": str(key["id"])},
+                        }
+                    ],
+                }
+                for key in self.keys.entries(identity)
+            ],
+            "actions": "actions",
         }
 
     def _table(self, readable) -> dict:

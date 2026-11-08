@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.85.0
+v0.86.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -311,6 +311,15 @@ Implemented:
   description, delete; /links in the bot lists the last ten
 * the plugin is `bookmarks` in code because `links` already names the
   Telegram pairing
+* saving without Telegram: an iPhone Shortcut posts to `POST /api/links`
+  with `Authorization: Bearer <key>`; a key is made on the page, shown once,
+  stored as a SHA-256, tied to the account row (gone with it, dead while it is
+  disabled, deleted on a password change), at most 5 per account, revocable, last use shown. The route takes
+  no cookie, is throttled per address (60 per 10 minutes, 10 wrong keys) and
+  every answer carries `text` for the Shortcut to show
+* a bookmarklet from `/links/save` opens a small window with the address and
+  a description field; saving needs a click and the session's CSRF token, so
+  a page that opens the window cannot save anything by itself
 
 ⸻
 

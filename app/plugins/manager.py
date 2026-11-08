@@ -275,11 +275,16 @@ class PluginManager:
         )
 
     async def receive_links(self, message: Message, urls: list[str]) -> CommandResult:
-        plugin = self._receiver("accepts_links", "Ссылки сейчас не принимаются.")
-
-        return await plugin.receive_links(
+        return await self.save_links(
             telegram(message.chat.id), urls, message.text or message.caption or ""
         )
+
+    async def save_links(
+        self, identity: Identity, urls: list[str], text: str
+    ) -> CommandResult:
+        plugin = self._receiver("accepts_links", "Ссылки сейчас не принимаются.")
+
+        return await plugin.receive_links(identity, urls, text)
 
     async def startup(self) -> None:
         for plugin in self._plugins:

@@ -1356,7 +1356,7 @@ __MENU_STYLES__
 
   function readerIsBusy() {
     if (document.querySelector('.dialog-overlay')) return true;
-    if (view.panel) return true;
+    if (view.panel || view.hold) return true;
     if ((view.forms || []).some((f) => f.cancel)) return true;
     const active = document.activeElement;
     if (active && root.contains(active) && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) {
