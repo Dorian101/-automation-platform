@@ -229,6 +229,7 @@ class SnippetsPlugin(BasePlugin):
     def _view(self, identity: Identity, panel: dict | None) -> dict:
         view = {
             "title": "Сниппеты",
+            "live": True,
             "layout": ["panel", "forms", "list"],
             "forms": [
                 {

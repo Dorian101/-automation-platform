@@ -1345,7 +1345,83 @@ __MENU_STYLES__
     }
   }, true);
 
+  const LIVE_EVERY_MS = 10000;
+  let liveTimer = null;
+  let liveBusy = false;
+  let liveStopped = false;
+
+  document.addEventListener('input', (ev) => {
+    if (ev.target && ev.target.dataset) ev.target.dataset.typed = '1';
+  }, true);
+
+  function readerIsBusy() {
+    if (document.querySelector('.dialog-overlay')) return true;
+    if (view.panel) return true;
+    if ((view.forms || []).some((f) => f.cancel)) return true;
+    const active = document.activeElement;
+    if (active && root.contains(active) && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) {
+      return true;
+    }
+    for (const field of root.querySelectorAll('input, textarea, select')) {
+      if (field.dataset.typed && field.value !== '') return true;
+    }
+    return false;
+  }
+
+  function livePayload() {
+    const payload = { ...(view.keep || {}) };
+    if (view.month && payload.month == null) payload.month = view.month.value;
+    return payload;
+  }
+
+  async function refreshLive() {
+    if (!view.live || liveStopped || liveBusy || document.hidden || readerIsBusy()) return;
+    liveBusy = true;
+    try {
+      const response = await fetch(ACTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page: PAGE_PATH, action: 'view', payload: livePayload() }),
+      });
+      if (response.status === 401) {
+        liveStopped = true;
+        stopLive();
+        return;
+      }
+      if (!response.ok) return;
+      const data = await response.json();
+      if (!data.view || readerIsBusy()) return;
+      if (JSON.stringify(data.view) === JSON.stringify(view)) return;
+      view = data.view;
+      draw();
+    } catch (err) {
+      return;
+    } finally {
+      liveBusy = false;
+    }
+  }
+
+  function startLive() {
+    if (!view.live || liveStopped || liveTimer) return;
+    liveTimer = setInterval(refreshLive, LIVE_EVERY_MS);
+  }
+
+  function stopLive() {
+    if (liveTimer) clearInterval(liveTimer);
+    liveTimer = null;
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      stopLive();
+      return;
+    }
+    refreshLive();
+    startLive();
+  });
+
   draw();
+  if (!document.hidden) startLive();
 })();
 </script>
 </body>

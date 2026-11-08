@@ -135,6 +135,18 @@ class TestPageRoute:
         assert 'id="monthpick" hidden' in body
         assert "hasMonth" in body
 
+    async def test_a_live_page_refreshes_itself_only_when_idle(self, client):
+        body = await (await client.get("/applications")).text()
+
+        assert "if (!view.live || liveStopped || liveBusy || document.hidden" in body
+        assert "readerIsBusy()" in body
+        assert "'visibilitychange'" in body
+        assert "setInterval(refreshLive, LIVE_EVERY_MS)" in body
+        assert "const LIVE_EVERY_MS = 10000;" in body
+        assert "response.status === 401" in body
+        assert "JSON.stringify(data.view) === JSON.stringify(view)" in body
+        assert _view(body).get("live") is None
+
     async def test_hidden_survives_a_display_rule(self, client):
         """`hidden` loses to any author `display`.
 
