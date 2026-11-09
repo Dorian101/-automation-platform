@@ -904,6 +904,7 @@ __MENU_STYLES__
 
     for (const col of board.columns) {
       const column = el('section', 'kbcol');
+      column.dataset.status = col.status;
 
       // The column head: label on the left, and the "+" to add a task on the
       // first column only — that is where undone work lands.
@@ -970,6 +971,12 @@ __MENU_STYLES__
       b.title = target.label;
       b.addEventListener('click', (ev) => {
         ev.stopPropagation();
+        const dest = root.querySelector('.kbcol[data-status="' + target.status + '"]');
+        if (dest) {
+          const empty = dest.querySelector('.kbempty');
+          if (empty) empty.remove();
+          dest.appendChild(node);
+        }
         send('move', { id: card.id, status: target.status }, b);
       });
       acts.appendChild(b);
@@ -978,6 +985,7 @@ __MENU_STYLES__
     del.title = 'Удалить';
     del.addEventListener('click', (ev) => {
       ev.stopPropagation();
+      node.hidden = true;
       send('delete', { id: card.id }, del);
     });
     acts.appendChild(del);
@@ -1256,6 +1264,8 @@ __MENU_STYLES__
     // What the plugin asked to have back with every action, such as which of
     // its screens is open; an action that names the value itself wins.
     payload = { ...(view.keep || {}), ...payload };
+    actions += 1;
+    generation += 1;
     if (button) button.disabled = true;
     showMessage('', true);
     try {
@@ -1270,7 +1280,8 @@ __MENU_STYLES__
       });
       const data = await response.json();
       if (!response.ok) {
-        if (response.status === 400) await refreshLive();
+        if (view.live) await refreshLive(true);
+        else if (view.kanban) draw();
         showMessage(data.error || 'Ошибка', false);
         return;
       }
@@ -1279,8 +1290,10 @@ __MENU_STYLES__
       redraw(action);
       if (view.notice) showMessage(view.notice, false);
     } catch (err) {
+      if (view.kanban) draw();
       showMessage('Не удалось связаться с сервером', false);
     } finally {
+      actions -= 1;
       if (button) button.disabled = false;
     }
   }
@@ -1347,6 +1360,8 @@ __MENU_STYLES__
   }, true);
 
   const LIVE_EVERY_MS = 10000;
+  let actions = 0;
+  let generation = 0;
   let liveTimer = null;
   let liveBusy = false;
   let liveStopped = false;
@@ -1375,8 +1390,10 @@ __MENU_STYLES__
     return payload;
   }
 
-  async function refreshLive() {
-    if (!view.live || liveStopped || liveBusy || document.hidden || readerIsBusy()) return;
+  async function refreshLive(force) {
+    if (!view.live || liveStopped || document.hidden) return;
+    if (!force && (liveBusy || actions > 0 || readerIsBusy())) return;
+    const started = generation;
     liveBusy = true;
     try {
       const response = await fetch(ACTION_URL, {
@@ -1391,7 +1408,7 @@ __MENU_STYLES__
       }
       if (!response.ok) return;
       const data = await response.json();
-      if (!data.view || readerIsBusy()) return;
+      if (!data.view || (!force && (generation !== started || actions > 0 || readerIsBusy()))) return;
       if (JSON.stringify(data.view) === JSON.stringify(view)) return;
       view = data.view;
       draw();

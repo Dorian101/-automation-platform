@@ -138,7 +138,9 @@ class TestPageRoute:
     async def test_a_live_page_refreshes_itself_only_when_idle(self, client):
         body = await (await client.get("/applications")).text()
 
-        assert "if (!view.live || liveStopped || liveBusy || document.hidden" in body
+        assert "if (!view.live || liveStopped || document.hidden) return;" in body
+        assert "liveBusy || actions > 0 || readerIsBusy()" in body
+        assert "generation !== started" in body
         assert "readerIsBusy()" in body
         assert "'visibilitychange'" in body
         assert "setInterval(refreshLive, LIVE_EVERY_MS)" in body

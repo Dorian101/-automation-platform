@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.89.1
+v0.89.2
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -271,6 +271,9 @@ Implemented:
   every 10 s while visible and idle, and right after a refused action: with the
   site open on several devices, a stale board made actions on moved or deleted
   tasks fail with «Задача не найдена»
+* since v0.89.2 a move or delete on the board shows at once, before the server
+  answers, and is undone if refused; a background refresh that started before
+  an action is discarded, so it cannot redraw the board in its old state
 
 ⸻
 
