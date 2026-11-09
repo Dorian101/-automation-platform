@@ -1270,6 +1270,7 @@ __MENU_STYLES__
       });
       const data = await response.json();
       if (!response.ok) {
+        if (response.status === 400) await refreshLive();
         showMessage(data.error || 'Ошибка', false);
         return;
       }

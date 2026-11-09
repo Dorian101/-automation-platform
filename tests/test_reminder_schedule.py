@@ -345,3 +345,11 @@ class TestQuietHoursForm:
         )
 
         assert users.quiet_hours(users.get_by_username(TEST_USERNAME).id) is None
+
+
+async def test_the_reminders_page_refreshes_itself(database_with_schema):
+    plugin = RemindersPlugin(Recording(), database_with_schema)
+
+    view = await plugin.page_action(OWNER, "view", {})
+
+    assert view["live"] is True

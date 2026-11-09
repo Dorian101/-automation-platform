@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.89.0
+v0.89.1
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -267,6 +267,10 @@ Implemented:
   from buttons under the bot message; the bot may snooze only reminders of its
   chat or the linked account
 * the bot and the page read reminders across a linked pair, like notes
+* since v0.89.1 the Tasks board and the Reminders page refresh themselves
+  every 10 s while visible and idle, and right after a refused action: with the
+  site open on several devices, a stale board made actions on moved or deleted
+  tasks fail with «Задача не найдена»
 
 ⸻
 

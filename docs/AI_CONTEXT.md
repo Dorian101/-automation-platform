@@ -255,6 +255,9 @@ renderer calls `showPicker()` to make the whole field behave the same.
 ## Current plugins
 
 - Notes: /add, /notes, /del, /clear
+- Live pages (`view.live`, refreshed every 10 s while visible and idle, and
+  after any 400 from an action): bookmarks, snippets, todo (accounts only),
+  reminders
 - Reminders: /remind, /reminders, /cancel, page at /reminders (add with repeat,
   delete, snooze); bot snooze buttons are callbacks `rs:<id>:<10|60|tm>`
   handled by the plugin's own router; delivers through notification channels

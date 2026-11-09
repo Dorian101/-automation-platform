@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from app.core.identity import WEB, Identity
+from app.core.identity import WEB, Identity, guest
 from app.core.results import CommandError
 from app.plugins.todo import STATUS_LABELS, TodoPlugin
 
@@ -341,3 +341,11 @@ async def test_deadline_worker_survives_a_failed_pass(plugin, monkeypatch, caplo
         await plugin._worker()
 
     assert "Deadline reminders failed" in caplog.text
+
+
+class TestTheBoardStaysCurrent:
+    async def test_an_account_board_refreshes_itself(self, plugin, web_identity):
+        assert (await plugin.page_view(web_identity))["live"] is True
+
+    async def test_a_demo_board_does_not(self, plugin):
+        assert (await plugin.page_view(guest("token")))["live"] is False

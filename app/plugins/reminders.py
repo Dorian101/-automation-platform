@@ -238,7 +238,9 @@ class RemindersPlugin(BasePlugin):
     ) -> dict:
         readable = self._readable_as(identity)
 
-        if action == "add":
+        if action == "view":
+            pass
+        elif action == "add":
             self._add(identity, payload)
         elif action == "delete":
             if not self.repo.delete(readable, _reminder_id(payload)):
@@ -386,6 +388,7 @@ class RemindersPlugin(BasePlugin):
 
         return {
             "title": "Напоминания",
+            "live": True,
             "layout": ["forms", "list"],
             "list": lists,
             "forms": [

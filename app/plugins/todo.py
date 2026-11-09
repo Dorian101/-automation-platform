@@ -15,7 +15,7 @@ import calendar
 import logging
 from datetime import UTC, datetime, timedelta
 
-from app.core.identity import Identity
+from app.core.identity import Identity, is_guest
 from app.core.results import CommandError, CommandResult, reply
 from app.db.database import Database
 from app.db.tasks_repo import REPEATS, STATUSES, VALID_PRIORITIES, TasksRepository
@@ -480,6 +480,7 @@ class TodoPlugin(BasePlugin):
             "order": order,
             "layout": LAYOUTS[screen],
             "keep": {"screen": screen, "order": order},
+            "live": not is_guest(identity),
         }
 
         if screen == "archive":
