@@ -2869,3 +2869,30 @@ push services directly.
 ### Result
 v0.88.0. Tests cover the endpoint filter, the device cap and ownership, the
 channel (fan-out, forgetting a gone device, no keys) and the routes.
+
+## 2026-11-09
+
+### Decision
+Reminders get a page, repeats and snooze; quiet hours hold every notification
+
+### Reason
+Push made reminders reachable, but a click opened the console, a reminder could
+not repeat or be put off, and nothing stopped a message at night.
+
+### How it is done
+
+- A repeating reminder is one row per occurrence: delivering one inserts the
+  next, so snoozing a fired occurrence moves only that row (it becomes one-off)
+  and the series goes on. Same idea as repeating tasks.
+- Snooze moves the row back to unsent at the new time; pressing a bot button
+  twice moves it again rather than creating a copy.
+- Quiet hours live in `Notifier`, not in each plugin, because the owner chose
+  "all notifications": automation and feedback messages have no row to retry,
+  so a held message is stored as text, url and buttons and sent later. Only
+  the test push is `urgent`.
+- Quiet hours are per account; a Telegram chat without a linked account has no
+  setting and is never held. The window uses `DISPLAY_TIMEZONE`, like every
+  other time on the site.
+- Push notification actions are not used: Safari on iOS and macOS does not show
+  them, so snooze is on the page the push opens.
+

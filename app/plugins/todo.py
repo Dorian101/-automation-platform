@@ -177,7 +177,9 @@ class TodoPlugin(BasePlugin):
             )
 
             try:
-                delivered = await self._notifier.deliver(target, text)
+                delivered = await self._notifier.deliver(
+                    target, text, url=f"/todo?task={task['id']}"
+                )
             except Exception:
                 logger.exception("Failed to remind about task %s", task["id"])
                 continue

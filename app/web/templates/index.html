@@ -61,7 +61,7 @@
   .args .run {
     margin-top: 0.5rem;
   }
-  input[type=text], input[type=number] {
+  input[type=text], input[type=number], input[type=time] {
     flex: 1;
     background: var(--bg);
     border: 1px solid var(--border);
@@ -70,7 +70,9 @@
     padding: 0.55rem 0.7rem;
     font: inherit;
   }
-  input[type=text]:focus, input[type=number]:focus { outline: none; border-color: var(--accent); }
+  input[type=text]:focus, input[type=number]:focus, input[type=time]:focus { outline: none; border-color: var(--accent); }
+  form.quiet { align-items: center; flex-wrap: wrap; }
+  form.quiet input[type=time] { flex: none; color-scheme: light dark; }
   .args input:focus { outline: none; border-color: var(--accent); }
   button {
     background: var(--accent);
@@ -167,6 +169,11 @@ __MENU_STYLES__
   <div class="panel">
     <h2>Уведомления</h2>
     __PUSH_BLOCK__
+  </div>
+
+  <div class="panel">
+    <h2>Тихие часы</h2>
+    __QUIET_BLOCK__
   </div>
 
   <div class="panel">

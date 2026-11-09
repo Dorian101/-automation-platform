@@ -7,7 +7,7 @@ import os
 import re
 import secrets
 from collections.abc import Mapping
-from datetime import date
+from datetime import date, time
 from pathlib import Path
 from time import perf_counter
 from urllib.parse import urlsplit
@@ -338,6 +338,7 @@ class WebServer:
             self._nav(request),
             csrf=csrf,
             devices=self._push.devices(user.id) if user else [],
+            quiet=self._users.quiet_hours(user.id) if user else None,
         )
 
         response = web.Response(text=body, content_type="text/html")
@@ -1168,7 +1169,7 @@ class WebServer:
             )
 
         delivered = await self._notifier.deliver(
-            identity, "Проверка: уведомления работают."
+            identity, "Проверка: уведомления работают.", urgent=True
         )
 
         return web.json_response(
@@ -1187,6 +1188,36 @@ class WebServer:
 
         if user is not None and device.isdigit():
             self._push.remove(user.id, int(device))
+
+        return _redirect("/")
+
+    async def _quiet_hours(self, request: web.Request) -> web.Response:
+        form = await request.post()
+
+        if not self._csrf.accepts(
+            request.cookies.get(SESSION_COOKIE, ""), _form_value(form, CSRF_FIELD)
+        ):
+            return token_rejected(request, "/")
+
+        user = self._current_user(request)
+
+        if user is None:
+            return _redirect("/login")
+
+        if _form_value(form, "off"):
+            self._users.set_quiet_hours(user.id, None, None)
+            return _redirect("/")
+
+        try:
+            start = time.fromisoformat(_form_value(form, "from"))
+            end = time.fromisoformat(_form_value(form, "to"))
+        except ValueError:
+            return _redirect("/")
+
+        self._users.set_quiet_hours(
+            user.id, start.replace(second=0, microsecond=0),
+            end.replace(second=0, microsecond=0),
+        )
 
         return _redirect("/")
 
@@ -1722,6 +1753,7 @@ class WebServer:
                 web.post("/api/push/unsubscribe", self._push_unsubscribe),
                 web.post("/api/push/test", self._push_test),
                 web.post("/account/push/remove", self._push_remove),
+                web.post("/account/quiet", self._quiet_hours),
                 web.get("/fonts/{name}", self._fonts),
             ],
         )
@@ -1808,6 +1840,7 @@ def _render_index(
     error: str = "",
     csrf: str = "",
     devices: list | None = None,
+    quiet=None,
 ) -> str:
     """Build the console, with the Telegram panel filled in for this account.
 
@@ -1822,6 +1855,7 @@ def _render_index(
     source = source.replace("__MENU_STYLES__", menu_styles())
     source = source.replace("__TELEGRAM_BLOCK__", _telegram_panel(link, nonce, csrf))
     source = source.replace("__PUSH_BLOCK__", _push_panel(devices or [], csrf))
+    source = source.replace("__QUIET_BLOCK__", _quiet_form(quiet, csrf))
     source = source.replace(
         "__ERROR_BLOCK__",
         _error_block(error),
@@ -1861,6 +1895,32 @@ def _push_panel(devices: list, csrf: str) -> str:
         '<button type="button" id="push-on">Включить на этом устройстве</button>'
         f"{test}{listing}</div>"
         '<script src="/push.js" defer></script>'
+    )
+
+
+def _quiet_form(quiet, csrf: str) -> str:
+    start, end = (f"{one:%H:%M}" for one in quiet) if quiet else ("", "")
+    state = (
+        f"Сейчас: с {start} до {end}, утром приходит всё накопленное."
+        if quiet
+        else "Выключены: уведомления приходят в любое время."
+    )
+    off = (
+        '<button type="submit" name="off" value="1" class="secondary">'
+        "Выключить</button>"
+        if quiet
+        else ""
+    )
+
+    return (
+        f'<p class="hint">{state}</p>'
+        '<form method="post" action="/account/quiet" class="quiet">'
+        f'<input type="hidden" name="{CSRF_FIELD}" value="{html.escape(csrf)}">'
+        f'<label>с <input type="time" name="from" value="{start or "23:00"}" '
+        "required></label>"
+        f'<label>до <input type="time" name="to" value="{end or "08:00"}" '
+        "required></label>"
+        f'<button type="submit">Сохранить</button>{off}</form>'
     )
 
 

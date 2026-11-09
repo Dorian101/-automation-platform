@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, time
 
 from app.core.identity import WEB, Identity
 from app.core.passwords import hash_password, verify_password
@@ -244,6 +244,31 @@ class UsersRepository:
                 cur.execute("DELETE FROM api_keys WHERE user_id = %s", (user_id,))
                 cur.execute(
                     "DELETE FROM push_subscriptions WHERE user_id = %s", (user_id,)
+                )
+            conn.commit()
+
+    def quiet_hours(self, user_id: int) -> tuple[time, time] | None:
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT quiet_from, quiet_to FROM users WHERE id = %s",
+                    (user_id,),
+                )
+                row = cur.fetchone()
+
+        if row is None or row[0] is None or row[1] is None or row[0] == row[1]:
+            return None
+
+        return row[0], row[1]
+
+    def set_quiet_hours(
+        self, user_id: int, start: time | None, end: time | None
+    ) -> None:
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE users SET quiet_from = %s, quiet_to = %s WHERE id = %s",
+                    (start, end, user_id),
                 )
             conn.commit()
 

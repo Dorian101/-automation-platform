@@ -21,7 +21,7 @@ class FakeNotifier:
     def __init__(self):
         self.sent = []
 
-    async def deliver(self, target, text):
+    async def deliver(self, target, text, **_):
         self.sent.append((target, text))
         return True
 

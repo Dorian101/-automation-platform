@@ -334,7 +334,7 @@ class RecordingNotifier:
         self.raises = raises
         self.calls: list[tuple[Identity, str]] = []
 
-    async def deliver(self, target, text):
+    async def deliver(self, target, text, **_):
         self.calls.append((target, text))
 
         if self.raises is not None:
@@ -487,7 +487,7 @@ class TestReminderDelivery:
         class PerTarget(RecordingNotifier):
             """Delivers only to Telegram, so the web one has nowhere to go."""
 
-            async def deliver(self, target, text):
+            async def deliver(self, target, text, **_):
                 self.calls.append((target, text))
                 return target.kind == TELEGRAM
 
@@ -724,6 +724,7 @@ class TestPluginTables:
         "clipboard",
         "api_keys",
         "push_subscriptions",
+        "held_notifications",
         "feedback",
         "schema_migrations",
         "sessions",

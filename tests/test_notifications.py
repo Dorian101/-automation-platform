@@ -78,7 +78,7 @@ class RecordingChannel:
         self.kind = kind
         self.received: list[tuple[Identity, str]] = []
 
-    async def deliver(self, target, text):
+    async def deliver(self, target, text, **_):
         self.received.append((target, text))
         return True
 

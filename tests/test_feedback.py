@@ -18,7 +18,7 @@ class FakeNotifier:
         self.fail = fail
         self.hang = False
 
-    async def deliver(self, target, text):
+    async def deliver(self, target, text, **_):
         if self.hang:
             await asyncio.sleep(3600)
         if self.fail:

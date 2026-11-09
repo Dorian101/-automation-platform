@@ -255,7 +255,9 @@ renderer calls `showPicker()` to make the whole field behave the same.
 ## Current plugins
 
 - Notes: /add, /notes, /del, /clear
-- Reminders: /remind, /reminders, /cancel; delivers through notification channels
+- Reminders: /remind, /reminders, /cancel, page at /reminders (add with repeat,
+  delete, snooze); bot snooze buttons are callbacks `rs:<id>:<10|60|tm>`
+  handled by the plugin's own router; delivers through notification channels
 - Snippets: page at /snippets, /snippets, /snippet_get N, text files sent to
   the bot
 - Bookmarks (demo: no fetch, no keys, no live refresh for guests): page at
@@ -310,6 +312,15 @@ what keeps a stored stage real on any path that writes one.
   use it to refuse a reminder with no devices and no chat
 - Subscriptions are taken only for push-service hosts (`push_repo.PUSH_HOSTS`):
   the endpoint comes from the browser and the server POSTs to it
+
+- `Notifier.deliver(target, text, url="/", buttons=(), urgent=False)`: `url`
+  is where a push click leads, `buttons` are `(label, callback_data)` for
+  Telegram only. Channels take the same `url` and `buttons`
+- Quiet hours: `QuietHours(users, links, held)` is passed to `Notifier`; a
+  non-urgent message to an account inside its window (`users.quiet_from/to`,
+  `DISPLAY_TIMEZONE`) is stored in `held_notifications` and reported as
+  delivered. `Notifier.run()`, started in `main.py`, releases held messages
+  every minute once the window is over
 
 Adding a transport means adding a channel, nothing else.
 

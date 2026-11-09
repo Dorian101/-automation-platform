@@ -1420,7 +1420,13 @@ __MENU_STYLES__
     startLive();
   });
 
+  const linked = Number(new URLSearchParams(location.search).get('task'));
+  if (linked) openCards.add(linked);
   draw();
+  if (linked) {
+    const card = root.querySelector('.kbcard[data-id="' + linked + '"]');
+    if (card) card.scrollIntoView({ block: 'center' });
+  }
   if (!document.hidden) startLive();
 })();
 </script>

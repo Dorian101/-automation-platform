@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.88.0
+v0.89.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -259,6 +259,14 @@ Implemented:
   person is told to link Telegram first, since WebChannel only logs and drops
 * an undeliverable reminder is given up on after three passes rather than
   retried for ever; a raising delivery is retried indefinitely
+* since v0.89.0 a page at /reminders («Напоминания»): add with date, time and
+  repeat, upcoming list with «Удалить», and «Сработали за сутки» with snooze
+* repeats: every day, weekdays, weekly, on the local wall clock; a delivered
+  occurrence schedules the next one as a new row, never in the past
+* snooze for 10 minutes, an hour or until 09:00 tomorrow, from the page and
+  from buttons under the bot message; the bot may snooze only reminders of its
+  chat or the linked account
+* the bot and the page read reminders across a linked pair, like notes
 
 ⸻
 
@@ -628,6 +636,13 @@ Implemented:
   only when there are none; reminders, task deadlines and automation messages
   all follow it. `/sw.js` only shows the notification and opens the site on a
   click; it caches nothing. Up to 10 devices per account, gone with it
+* since v0.89.0 a push click opens the right place: a reminder opens
+  /reminders, a task deadline opens /todo with that card expanded; an open
+  window of the site is navigated rather than a new one opened
+* since v0.89.0 quiet hours per account («Тихие часы» on the console, in
+  `DISPLAY_TIMEZONE`): any notification to the account, push or Telegram,
+  waits in `held_notifications` and goes out within a minute after the window
+  ends. The test push is sent at once
 
 ⸻
 

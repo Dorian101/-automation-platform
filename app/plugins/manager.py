@@ -192,7 +192,7 @@ class PluginManager:
         for plugin in self._plugins:
             plugin_router = plugin.router()
 
-            if plugin_router.message.handlers:
+            if plugin_router.message.handlers or plugin_router.callback_query.handlers:
                 router.include_router(plugin_router)
 
         commands_router = Router(name="commands")

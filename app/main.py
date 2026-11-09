@@ -9,6 +9,7 @@ from app.core.person import PersonResolver
 from app.db.backup import BackupManager
 from app.db.database import Database
 from app.db.errors_repo import ErrorLogHandler, ErrorsRepository
+from app.db.held_repo import HeldNotificationsRepository
 from app.db.links_repo import TelegramLinksRepository
 from app.db.migrations import MigrationRunner
 from app.db.push_repo import PushRepository
@@ -16,6 +17,7 @@ from app.db.users_repo import UsersRepository
 from app.notifications import (
     LinkedChatResolver,
     Notifier,
+    QuietHours,
     TelegramChannel,
     WebPushChannel,
 )
@@ -40,7 +42,7 @@ def build_manager(database, notifier, users, links, logger) -> PluginManager:
     persons = PersonResolver(users, links)
     manager = PluginManager(logger)
     manager.register(NotesPlugin(database, persons=persons))
-    manager.register(RemindersPlugin(notifier, database))
+    manager.register(RemindersPlugin(notifier, database, persons=persons))
     manager.register(TodoPlugin(notifier, database, persons=persons))
     manager.register(SnippetsPlugin(database, persons=persons))
     manager.register(BookmarksPlugin(database, persons=persons))
@@ -85,6 +87,7 @@ async def main() -> None:
             WebPushChannel(push, Config.VAPID_PRIVATE_KEY, Config.VAPID_SUBJECT),
         ],
         resolver=LinkedChatResolver(users, links, push),
+        quiet=QuietHours(users, links, HeldNotificationsRepository(database)),
     )
 
     manager = build_manager(database, notifier, users, links, logger)
@@ -109,10 +112,12 @@ async def main() -> None:
     logger.info("Starting %s", Config.APP_NAME)
 
     await web.start()
+    releaser = asyncio.create_task(notifier.run())
 
     try:
         await dp.start_polling(bot)
     finally:
+        releaser.cancel()
         await web.stop()
         await manager.shutdown()
         database.close()

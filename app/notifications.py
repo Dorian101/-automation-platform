@@ -1,11 +1,15 @@
 import asyncio
 import json
 import logging
+from datetime import UTC, datetime, time, timedelta
 from typing import Protocol
+from zoneinfo import ZoneInfo
 
 import requests
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from pywebpush import WebPushException, webpush
 
+from app.core.config import Config
 from app.core.identity import TELEGRAM, WEB, Identity
 
 logger = logging.getLogger("platform")
@@ -21,7 +25,9 @@ class NotificationChannel(Protocol):
 
     kind: str
 
-    async def deliver(self, target: Identity, text: str) -> bool: ...
+    async def deliver(
+        self, target: Identity, text: str, url: str = "/", buttons=()
+    ) -> bool: ...
 
 
 class TelegramChannel:
@@ -30,8 +36,24 @@ class TelegramChannel:
     def __init__(self, bot):
         self._bot = bot
 
-    async def deliver(self, target: Identity, text: str) -> bool:
-        await self._bot.send_message(chat_id=int(target.id), text=text)
+    async def deliver(
+        self, target: Identity, text: str, url: str = "/", buttons=()
+    ) -> bool:
+        if not buttons:
+            await self._bot.send_message(chat_id=int(target.id), text=text)
+            return True
+
+        markup = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(text=label, callback_data=data)
+                    for label, data in buttons
+                ]
+            ]
+        )
+        await self._bot.send_message(
+            chat_id=int(target.id), text=text, reply_markup=markup
+        )
 
         return True
 
@@ -54,7 +76,9 @@ class WebChannel:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    async def deliver(self, target: Identity, text: str) -> bool:
+    async def deliver(
+        self, target: Identity, text: str, url: str = "/", buttons=()
+    ) -> bool:
         self.logger.info(
             "Dropping web notification for %s (%d chars, text withheld)",
             target,
@@ -68,6 +92,8 @@ PUSH_TITLE = "Платформа автоматизации"
 PUSH_TEXT_LIMIT = 1000
 PUSH_TIMEOUT_SECONDS = 10
 PUSH_GONE = (404, 410)
+RELEASE_INTERVAL_SECONDS = 60
+HELD_GIVE_UP = timedelta(days=1)
 
 
 def _session():
@@ -90,12 +116,14 @@ class WebPushChannel:
     def reaches(self, target: Identity) -> bool:
         return bool(self._key and self._subject and self._push.subscriptions(target))
 
-    async def deliver(self, target: Identity, text: str) -> bool:
+    async def deliver(
+        self, target: Identity, text: str, url: str = "/", buttons=()
+    ) -> bool:
         if not self._key or not self._subject:
             return False
 
         payload = json.dumps(
-            {"title": PUSH_TITLE, "body": text[:PUSH_TEXT_LIMIT], "url": "/"},
+            {"title": PUSH_TITLE, "body": text[:PUSH_TEXT_LIMIT], "url": url},
             ensure_ascii=False,
         )
         delivered = False
@@ -147,21 +175,40 @@ class Notifier:
         self,
         channels: list[NotificationChannel],
         resolver=None,
+        quiet=None,
     ):
         self.logger = logging.getLogger(__name__)
         self._channels = {channel.kind: channel for channel in channels}
         self._resolver = resolver
+        self._quiet = quiet
 
     def kinds(self) -> list[str]:
         return list(self._channels)
 
-    async def deliver(self, target: Identity, text: str) -> bool:
+    async def deliver(
+        self,
+        target: Identity,
+        text: str,
+        url: str = "/",
+        buttons=(),
+        urgent: bool = False,
+    ) -> bool:
         """Deliver, reporting whether the message actually went anywhere.
 
         The caller needs the difference between "delivered" and "handled but
         not delivered": a message nobody could receive must not be retried for
         ever, and only the caller knows whether giving up is allowed.
         """
+        if (
+            not urgent
+            and self._quiet is not None
+            and self._quiet.hold(target, text, url, buttons)
+        ):
+            return True
+
+        return await self._send(target, text, url, buttons)
+
+    async def _send(self, target: Identity, text: str, url: str, buttons) -> bool:
         destination = self._destination(target)
 
         if destination is None:
@@ -177,7 +224,35 @@ class Notifier:
             )
             return False
 
-        return bool(await channel.deliver(destination, text))
+        return bool(
+            await channel.deliver(destination, text, url=url, buttons=buttons)
+        )
+
+    async def release_held(self) -> None:
+        if self._quiet is None:
+            return
+
+        for held_id, target, body, stale in self._quiet.releasable():
+            try:
+                await self._send(
+                    target,
+                    body["text"],
+                    body.get("url", "/"),
+                    [tuple(button) for button in body.get("buttons", [])],
+                )
+            except Exception:
+                if not stale:
+                    continue
+                self.logger.exception("Dropping held notification %s", held_id)
+            self._quiet.release(held_id)
+
+    async def run(self) -> None:
+        while True:
+            try:
+                await self.release_held()
+            except Exception:
+                self.logger.exception("Releasing held notifications failed")
+            await asyncio.sleep(RELEASE_INTERVAL_SECONDS)
 
     def reachable(self, target: Identity) -> bool:
         destination = self._destination(target)
@@ -269,3 +344,70 @@ class LinkedChatResolver:
         web = self._users.identity_for(user)
 
         return web if self._push.subscriptions(web) else None
+
+
+def within(window: tuple[time, time], moment: time) -> bool:
+    start, end = window
+
+    if start <= end:
+        return start <= moment < end
+
+    return moment >= start or moment < end
+
+
+class QuietHours:
+    def __init__(self, users, links, held, clock=None):
+        self._users = users
+        self._links = links
+        self._held = held
+        self._clock = clock or (lambda: datetime.now(UTC))
+
+    def _now(self) -> time:
+        local = self._clock().astimezone(ZoneInfo(Config.DISPLAY_TIMEZONE))
+        return local.time().replace(second=0, microsecond=0)
+
+    def _account(self, target: Identity):
+        if target.kind == WEB:
+            return self._users.get_by_username(target.id)
+
+        if target.kind == TELEGRAM:
+            link = self._links.get_by_telegram_id_or_none(target.id)
+            return self._users.get_by_id(link.user_id) if link else None
+
+        return None
+
+    def _quiet(self, user_id: int) -> bool:
+        window = self._users.quiet_hours(user_id)
+        return window is not None and within(window, self._now())
+
+    def hold(self, target: Identity, text: str, url: str, buttons) -> bool:
+        user = self._account(target)
+
+        if user is None or not self._quiet(user.id):
+            return False
+
+        self._held.hold(
+            user.id,
+            str(target),
+            {"text": text, "url": url, "buttons": [list(b) for b in buttons]},
+        )
+
+        return True
+
+    def releasable(self) -> list[tuple[int, Identity, dict, bool]]:
+        quiet: dict[int, bool] = {}
+        ready = []
+        cutoff = self._clock().astimezone(UTC).replace(tzinfo=None) - HELD_GIVE_UP
+
+        for held_id, user_id, target, body, created_at in self._held.entries():
+            if user_id not in quiet:
+                quiet[user_id] = self._quiet(user_id)
+            if not quiet[user_id]:
+                ready.append(
+                    (held_id, Identity.parse(target), body, created_at < cutoff)
+                )
+
+        return ready
+
+    def release(self, held_id: int) -> None:
+        self._held.release(held_id)

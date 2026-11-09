@@ -27,7 +27,13 @@ self.addEventListener("notificationclick", (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
       const open = windows.find((client) => client.url === url);
-      return open ? open.focus() : self.clients.openWindow(url);
+      if (open) return open.focus();
+      const other = windows.find((client) => "navigate" in client);
+      if (!other) return self.clients.openWindow(url);
+      return other
+        .navigate(url)
+        .then((client) => (client || other).focus())
+        .catch(() => self.clients.openWindow(url));
     }),
   );
 });
