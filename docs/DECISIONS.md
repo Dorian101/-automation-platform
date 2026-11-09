@@ -2896,3 +2896,29 @@ not repeat or be put off, and nothing stopped a message at night.
 - Push notification actions are not used: Safari on iOS and macOS does not show
   them, so snooze is on the page the push opens.
 
+## 2026-11-09
+
+### Decision
+Push page changes to open tabs over Server-Sent Events
+
+### Reason
+With the site open on a laptop, a Mac and the iPhone app, each kept the view
+it loaded; polling every 10 s still left boards stale for seconds and raced
+with actions. The owner asked for changes to show on every device in real time.
+
+### How it is done
+
+- SSE rather than WebSocket: data flows one way, actions stay ordinary POSTs
+  with their CSRF and validation, aiohttp streams it natively and Caddy passes
+  it through. No new dependency.
+- An event says only "page X changed" and which tab caused it; the page asks
+  for its own view as before. No data travels on the stream, so it cannot leak
+  more than the page already shows, and the view code is not duplicated.
+- One process holds the hub in memory. A second worker process would need a
+  shared channel (Postgres LISTEN/NOTIFY); not needed now.
+- Ordering is settled on the page, not the server: a refresh that started
+  before an action is discarded, and a card's buttons lock while its action is
+  in flight. Concurrent edits of one task from two devices are last write wins.
+- iOS drops the stream of a backgrounded app; the page closes it when hidden
+  and refreshes on return, so nothing depends on background delivery.
+

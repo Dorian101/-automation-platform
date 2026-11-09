@@ -166,7 +166,9 @@ class PluginManager:
                 f"{command} is available on the web console only.",
             )
 
-        return await plugin.execute(command, args, identity)
+        result = await plugin.execute(command, args, identity)
+        plugin.changed(identity)
+        return result
 
     def build_router(self) -> Router:
         """Build the Telegram router for the whole platform.
@@ -270,9 +272,10 @@ class PluginManager:
         if len(data) > limit:
             raise CommandError(f"Файл больше {limit // 1000} КБ.")
 
-        return await plugin.receive_file(
-            telegram(message.chat.id), document.file_name or "", data
-        )
+        identity = telegram(message.chat.id)
+        result = await plugin.receive_file(identity, document.file_name or "", data)
+        plugin.changed(identity)
+        return result
 
     async def receive_links(self, message: Message, urls: list[str]) -> CommandResult:
         return await self.save_links(
@@ -284,7 +287,9 @@ class PluginManager:
     ) -> CommandResult:
         plugin = self._receiver("accepts_links", "Ссылки сейчас не принимаются.")
 
-        return await plugin.receive_links(identity, urls, text)
+        result = await plugin.receive_links(identity, urls, text)
+        plugin.changed(identity)
+        return result
 
     async def startup(self) -> None:
         for plugin in self._plugins:

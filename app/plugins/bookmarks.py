@@ -365,13 +365,13 @@ class BookmarksPlugin(BasePlugin):
         )
 
         if not entry["title"] and not guest:
-            task = asyncio.create_task(self._title(entry["id"], url))
+            task = asyncio.create_task(self._title(identity, entry["id"], url))
             self._pending.add(task)
             task.add_done_callback(self._pending.discard)
 
         return entry, existed
 
-    async def _title(self, bookmark_id: int, url: str) -> None:
+    async def _title(self, identity: Identity, bookmark_id: int, url: str) -> None:
         try:
             async with self._fetching:
                 title = _clean(await self._fetch(url), MAX_TITLE)
@@ -380,6 +380,7 @@ class BookmarksPlugin(BasePlugin):
 
         if title:
             await asyncio.to_thread(self.repo.fill_title, bookmark_id, title)
+            self.changed(identity)
 
     def _listing(self, identity: Identity) -> str:
         entries = self.repo.entries(self._readable_as(identity), LIST_SIZE)

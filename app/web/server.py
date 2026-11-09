@@ -18,6 +18,7 @@ from psycopg.errors import UniqueViolation
 from app.core.commands import parse_command
 from app.core.config import Config
 from app.core.identity import WEB, Identity, telegram
+from app.core.person import PersonResolver
 from app.core.results import CommandError
 from app.db.api_keys_repo import ApiKeysRepository
 from app.db.database import Database
@@ -53,6 +54,8 @@ from .csrf import (
     new_token,
 )
 from .demo import VISITOR, DemoService, is_public_demo_path
+from .live import LiveHub, notify_all, tab_of
+from .live import stream as live_stream
 from .pages import (
     account_block,
     attic,
@@ -321,6 +324,8 @@ class WebServer:
         self._feedback_log = FeedbackRepository(database)
         self._keys = ApiKeysRepository(database)
         self._push = PushRepository(database)
+        self._live = LiveHub(PersonResolver(self._users, self._links))
+        notify_all(self._live, manager.get_plugins())
 
     async def _index(self, request: web.Request) -> web.Response:
         user = self._current_user(request)
@@ -436,7 +441,23 @@ class WebServer:
             logger.exception("Action %s failed on %s", action, plugin.name)
             return web.json_response({"error": "Internal error"}, status=500)
 
+        if action != "view":
+            plugin.changed(identity, tab_of(request))
+
         return web.json_response({"view": view})
+
+    async def _events(self, request: web.Request) -> web.StreamResponse:
+        identity = self._identity(request)
+
+        if identity is None:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+
+        return await live_stream(
+            request,
+            self._live,
+            identity,
+            lambda: self._identity(request) == identity,
+        )
 
     async def _telegram_link(self, request: web.Request) -> web.Response:
         """Link the signed-in account to the Telegram user in the payload."""
@@ -1731,6 +1752,7 @@ class WebServer:
                 web.get("/api/commands", self._commands),
                 web.post("/api/command", self._execute),
                 web.post("/api/page/action", self._plugin_page_action),
+                web.get("/api/events", self._events),
                 web.get("/robots.txt", self._robots),
                 web.get("/sitemap.xml", self._sitemap),
                 web.get("/health", self._health),
@@ -1798,6 +1820,7 @@ class WebServer:
         if not self._runner:
             return
 
+        self._live.close()
         await self._runner.cleanup()
         self._runner = None
 

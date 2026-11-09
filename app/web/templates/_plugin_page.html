@@ -977,7 +977,8 @@ __MENU_STYLES__
           if (empty) empty.remove();
           dest.appendChild(node);
         }
-        send('move', { id: card.id, status: target.status }, b);
+        for (const other of acts.querySelectorAll('button')) other.disabled = true;
+        cardAction(card, 'move', { id: card.id, status: target.status }, b);
       });
       acts.appendChild(b);
     }
@@ -986,9 +987,10 @@ __MENU_STYLES__
     del.addEventListener('click', (ev) => {
       ev.stopPropagation();
       node.hidden = true;
-      send('delete', { id: card.id }, del);
+      cardAction(card, 'delete', { id: card.id }, del);
     });
     acts.appendChild(del);
+    if (busyCards.has(card.id)) for (const b of acts.querySelectorAll('button')) b.disabled = true;
     node.appendChild(acts);
 
     // The expanded detail, opened by clicking anywhere on the card. Every
@@ -1042,6 +1044,12 @@ __MENU_STYLES__
   }
 
   const openCards = new Set();
+  const busyCards = new Set();
+
+  function cardAction(card, action, payload, button) {
+    busyCards.add(card.id);
+    return send(action, payload, button, () => busyCards.delete(card.id));
+  }
 
   function repeatField(card) {
     const select = document.createElement('select');
@@ -1260,7 +1268,11 @@ __MENU_STYLES__
 
   // -- talking to the plugin ---------------------------------------------
 
-  async function send(action, payload, button) {
+  async function send(action, payload, button, settle) {
+    const settled = () => {
+      if (settle) settle();
+      settle = null;
+    };
     // What the plugin asked to have back with every action, such as which of
     // its screens is open; an action that names the value itself wins.
     payload = { ...(view.keep || {}), ...payload };
@@ -1271,7 +1283,7 @@ __MENU_STYLES__
     try {
       const response = await fetch(ACTION_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Tab': TAB },
         body: JSON.stringify({
           page: PAGE_PATH,
           action: action,
@@ -1280,21 +1292,26 @@ __MENU_STYLES__
       });
       const data = await response.json();
       if (!response.ok) {
-        if (view.live) await refreshLive(true);
-        else if (view.kanban) draw();
+        settled();
+        await refreshLive(true);
+        if (view.kanban) draw();
         showMessage(data.error || 'Ошибка', false);
         return;
       }
       view = data.view;
       if (payload.month) view.month.value = payload.month;
+      settled();
       redraw(action);
       if (view.notice) showMessage(view.notice, false);
     } catch (err) {
+      settled();
       if (view.kanban) draw();
       showMessage('Не удалось связаться с сервером', false);
     } finally {
+      settled();
       actions -= 1;
       if (button) button.disabled = false;
+      if (stale && actions === 0) setTimeout(tick, 0);
     }
   }
 
@@ -1315,7 +1332,9 @@ __MENU_STYLES__
 
     const page = document.documentElement;
     page.classList.add('board-moving');
-    document.startViewTransition(draw).finished.finally(() => {
+    const transition = document.startViewTransition(draw);
+    transition.ready.catch(() => {});
+    transition.finished.finally(() => {
       page.classList.remove('board-moving');
     });
   }
@@ -1360,11 +1379,19 @@ __MENU_STYLES__
   }, true);
 
   const LIVE_EVERY_MS = 10000;
+  const TICK_MS = 1000;
+  const TAB = (crypto.randomUUID && crypto.randomUUID()) || String(Math.random()).slice(2);
   let actions = 0;
   let generation = 0;
-  let liveTimer = null;
   let liveBusy = false;
   let liveStopped = false;
+  let stale = false;
+  let lastFetch = Date.now();
+  let source = null;
+  let lastBeat = 0;
+  const BEAT_MS = 60000;
+  let retryMs = 2000;
+  let retryTimer = null;
 
   document.addEventListener('input', (ev) => {
     if (ev.target && ev.target.dataset) ev.target.dataset.typed = '1';
@@ -1391,10 +1418,15 @@ __MENU_STYLES__
   }
 
   async function refreshLive(force) {
-    if (!view.live || liveStopped || document.hidden) return;
-    if (!force && (liveBusy || actions > 0 || readerIsBusy())) return;
+    if (liveStopped || document.hidden) return false;
+    if (!force && (liveBusy || actions > 0 || readerIsBusy())) {
+      stale = true;
+      return false;
+    }
+    stale = false;
     const started = generation;
     liveBusy = true;
+    lastFetch = Date.now();
     try {
       const response = await fetch(ACTION_URL, {
         method: 'POST',
@@ -1403,40 +1435,94 @@ __MENU_STYLES__
       });
       if (response.status === 401) {
         liveStopped = true;
-        stopLive();
-        return;
+        disconnect();
+        return false;
       }
-      if (!response.ok) return;
+      if (!response.ok) return false;
       const data = await response.json();
-      if (!data.view || (!force && (generation !== started || actions > 0 || readerIsBusy()))) return;
-      if (JSON.stringify(data.view) === JSON.stringify(view)) return;
-      view = data.view;
-      draw();
+      if (!data.view) return false;
+      if (!force && (generation !== started || actions > 0 || readerIsBusy())) {
+        stale = true;
+        return false;
+      }
+      if (JSON.stringify(data.view) !== JSON.stringify(view)) {
+        view = data.view;
+        draw();
+      }
+      return true;
     } catch (err) {
-      return;
+      stale = true;
+      return false;
     } finally {
       liveBusy = false;
     }
   }
 
-  function startLive() {
-    if (!view.live || liveStopped || liveTimer) return;
-    liveTimer = setInterval(refreshLive, LIVE_EVERY_MS);
+  function tick() {
+    if (document.hidden || liveStopped) return;
+    if (stale) {
+      refreshLive();
+      return;
+    }
+    const connected = source && Date.now() - lastBeat < BEAT_MS;
+    if (view.live && !connected && Date.now() - lastFetch >= LIVE_EVERY_MS) refreshLive();
   }
 
-  function stopLive() {
-    if (liveTimer) clearInterval(liveTimer);
-    liveTimer = null;
+  function connect() {
+    if (IS_DEMO || liveStopped || source || document.hidden || !window.EventSource) return;
+    clearTimeout(retryTimer);
+    source = new EventSource('/api/events');
+    source.addEventListener('open', () => {
+      retryMs = 2000;
+      refreshLive();
+    });
+    source.addEventListener('ping', () => {
+      lastBeat = Date.now();
+    });
+    source.addEventListener('change', (ev) => {
+      lastBeat = Date.now();
+      let change = null;
+      try {
+        change = JSON.parse(ev.data);
+      } catch (err) {
+        return;
+      }
+      if (change && change.page === PAGE_PATH && change.origin !== TAB) refreshLive();
+    });
+    source.addEventListener('error', () => {
+      lastBeat = 0;
+      if (source && source.readyState === EventSource.CLOSED) {
+        source = null;
+        retryTimer = setTimeout(async () => {
+          await refreshLive(true);
+          connect();
+        }, retryMs);
+        retryMs = Math.min(retryMs * 2, 60000);
+      }
+    });
   }
+
+  function disconnect() {
+    clearTimeout(retryTimer);
+    if (source) source.close();
+    source = null;
+    lastBeat = 0;
+  }
+
+  document.addEventListener('focusout', () => {
+    if (stale) setTimeout(tick, 0);
+  });
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      stopLive();
+      disconnect();
       return;
     }
     refreshLive();
-    startLive();
+    connect();
   });
+
+  setInterval(tick, TICK_MS);
 
   const linked = Number(new URLSearchParams(location.search).get('task'));
   if (linked) openCards.add(linked);
@@ -1445,7 +1531,7 @@ __MENU_STYLES__
     const card = root.querySelector('.kbcard[data-id="' + linked + '"]');
     if (card) card.scrollIntoView({ block: 'center' });
   }
-  if (!document.hidden) startLive();
+  connect();
 })();
 </script>
 </body>

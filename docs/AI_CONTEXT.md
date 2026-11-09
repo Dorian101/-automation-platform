@@ -255,9 +255,24 @@ renderer calls `showPicker()` to make the whole field behave the same.
 ## Current plugins
 
 - Notes: /add, /notes, /del, /clear
-- Live pages (`view.live`, refreshed every 10 s while visible and idle, and
-  after any 400 from an action): bookmarks, snippets, todo (accounts only),
-  reminders
+- Live updates (`app/web/live.py`): `GET /api/events` is a Server-Sent Events
+  stream per signed-in tab. `LiveHub` keeps one queue per tab, keyed by
+  identity, and `changed(identity, page, origin)` fans out to every identity of
+  the person (`PersonResolver`). Events carry only the page path and the
+  originating tab id (`X-Tab` header, `[A-Za-z0-9-]{1,64}`); the page refetches
+  its own view. Plugins report through `BasePlugin.changed(identity)`; the
+  manager calls it after commands, files and links, the server after a page
+  action other than `view`, and plugins call it from workers and callbacks
+- Stream rules: 20 tabs per identity, 500 in all (429 beyond); a ping event
+  every 25 s, and the session is rechecked on each ping and each event, so a
+  revoked session ends the stream; `WebServer.stop` closes every stream first
+  so a restart is not held up; `Cache-Control: no-transform` keeps Caddy's
+  `encode` from buffering it
+- Page side: a refresh carries the action counter it started at and is dropped
+  if an action happened meanwhile; a refresh that cannot run (an action in
+  flight, a field being edited) is remembered and run when it can. Without a
+  ping for 60 s the page falls back to polling every 10 s on `view.live` pages.
+  A hidden tab closes its stream and refreshes when it is shown again
 - Reminders: /remind, /reminders, /cancel, page at /reminders (add with repeat,
   delete, snooze); bot snooze buttons are callbacks `rs:<id>:<10|60|tm>`
   handled by the plugin's own router; delivers through notification channels

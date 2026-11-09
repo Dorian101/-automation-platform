@@ -208,6 +208,9 @@ class AutomationPlugin(BasePlugin):
             return
 
         self.repo.log(rule, True, message)
+        owner = Identity.parse(rule["user_id"])
+        plugin.changed(owner)
+        self.changed(owner)
 
     async def automation(
         self, identity: Identity, action: str, params: dict, chain: tuple

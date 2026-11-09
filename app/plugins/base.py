@@ -71,6 +71,12 @@ class BasePlugin(ABC):
     ) -> CommandResult:
         raise CommandError(f"{self.name}: links are not accepted")
 
+    notify_change = None
+
+    def changed(self, identity: Identity, origin: str = "") -> None:
+        if self.notify_change is not None and self.page:
+            self.notify_change(identity, self.page, origin)
+
     automation_events: dict[str, tuple[str, list[str]]] = {}
     automation_actions: dict[str, tuple[str, list[tuple[str, str]]]] = {}
     events = None

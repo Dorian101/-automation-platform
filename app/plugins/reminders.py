@@ -228,6 +228,7 @@ class RemindersPlugin(BasePlugin):
                 if repeat
                 else None,
             )
+            self.changed(target)
             self._dropped_attempts.pop(reminder_id, None)
 
     async def page_view(self, identity: Identity) -> dict:
@@ -284,6 +285,8 @@ class RemindersPlugin(BasePlugin):
 
         if at is None:
             return "Напоминание не найдено."
+
+        self.changed(telegram(chat_id))
 
         return f"Отложено до {_format_remind_at(at)}"
 

@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.89.2
+v0.90.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -274,6 +274,11 @@ Implemented:
 * since v0.89.2 a move or delete on the board shows at once, before the server
   answers, and is undone if refused; a background refresh that started before
   an action is discarded, so it cannot redraw the board in its old state
+* since v0.90.0 live updates on every plugin page: a change made on another
+  device, in the bot or by a background job (a reminder fired, an automation,
+  a fetched bookmark title) reaches open pages of the same person within a
+  fraction of a second over `/api/events`; a card's buttons lock while its own
+  action is in flight
 
 ⸻
 

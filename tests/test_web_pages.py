@@ -138,15 +138,15 @@ class TestPageRoute:
     async def test_a_live_page_refreshes_itself_only_when_idle(self, client):
         body = await (await client.get("/applications")).text()
 
-        assert "if (!view.live || liveStopped || document.hidden) return;" in body
+        assert "if (liveStopped || document.hidden) return false;" in body
         assert "liveBusy || actions > 0 || readerIsBusy()" in body
         assert "generation !== started" in body
-        assert "readerIsBusy()" in body
+        assert "new EventSource('/api/events')" in body
+        assert "change.origin !== TAB" in body
         assert "'visibilitychange'" in body
-        assert "setInterval(refreshLive, LIVE_EVERY_MS)" in body
         assert "const LIVE_EVERY_MS = 10000;" in body
         assert "response.status === 401" in body
-        assert "JSON.stringify(data.view) === JSON.stringify(view)" in body
+        assert "JSON.stringify(data.view) !== JSON.stringify(view)" in body
         assert _view(body).get("live") is None
 
     async def test_hidden_survives_a_display_rule(self, client):
