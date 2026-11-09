@@ -263,7 +263,7 @@ class TestPage:
 
         [row] = view["list"]["rows"]
         assert row["result"] == "✗"
-        assert "Telegram не привязан" in row["message"]
+        assert "Некуда отправить" in row["message"]
 
 
 async def test_the_demo_has_examples(platform):

@@ -1,7 +1,12 @@
+import asyncio
+import json
 import logging
 from typing import Protocol
 
-from app.core.identity import WEB, Identity
+import requests
+from pywebpush import WebPushException, webpush
+
+from app.core.identity import TELEGRAM, WEB, Identity
 
 logger = logging.getLogger("platform")
 
@@ -59,6 +64,73 @@ class WebChannel:
         return False
 
 
+PUSH_TITLE = "Платформа автоматизации"
+PUSH_TEXT_LIMIT = 1000
+PUSH_TIMEOUT_SECONDS = 10
+PUSH_GONE = (404, 410)
+
+
+def _session():
+    session = requests.Session()
+    session.trust_env = False
+    session.max_redirects = 0
+    return session
+
+
+class WebPushChannel:
+    kind = WEB
+
+    def __init__(self, push, private_key: str, subject: str, send=webpush):
+        self.logger = logging.getLogger(__name__)
+        self._push = push
+        self._key = private_key
+        self._subject = subject
+        self._send = send
+
+    def reaches(self, target: Identity) -> bool:
+        return bool(self._key and self._subject and self._push.subscriptions(target))
+
+    async def deliver(self, target: Identity, text: str) -> bool:
+        if not self._key or not self._subject:
+            return False
+
+        payload = json.dumps(
+            {"title": PUSH_TITLE, "body": text[:PUSH_TEXT_LIMIT], "url": "/"},
+            ensure_ascii=False,
+        )
+        delivered = False
+
+        for subscription in self._push.subscriptions(target):
+            session = _session()
+            try:
+                await asyncio.to_thread(
+                    self._send,
+                    subscription_info=subscription,
+                    data=payload,
+                    vapid_private_key=self._key,
+                    vapid_claims={"sub": self._subject},
+                    timeout=PUSH_TIMEOUT_SECONDS,
+                    ttl=86400,
+                    requests_session=session,
+                )
+            except WebPushException as error:
+                status = getattr(error.response, "status_code", None)
+                if status in PUSH_GONE:
+                    self._push.forget(subscription["endpoint"])
+                else:
+                    self.logger.warning("Push to %s failed with %s", target, status)
+                continue
+            except Exception:
+                self.logger.exception("Push to %s failed", target)
+                continue
+            finally:
+                session.close()
+
+            delivered = True
+
+        return delivered
+
+
 class Notifier:
     """Routes a message to the channel matching the target's transport.
 
@@ -107,6 +179,21 @@ class Notifier:
 
         return bool(await channel.deliver(destination, text))
 
+    def reachable(self, target: Identity) -> bool:
+        destination = self._destination(target)
+
+        if destination is None:
+            return False
+
+        channel = self._channels.get(destination.kind)
+
+        if channel is None:
+            return False
+
+        reaches = getattr(channel, "reaches", None)
+
+        return reaches(destination) if reaches else destination.kind == TELEGRAM
+
     def destination(self, target: Identity) -> Identity | None:
         """Where a message to ``target`` would be delivered, resolved but not sent."""
         return self._destination(target)
@@ -137,18 +224,25 @@ class LinkedChatResolver:
     exactly as it did.
     """
 
-    def __init__(self, users, links):
+    def __init__(self, users, links, push=None):
         self.logger = logging.getLogger(__name__)
         self._users = users
         self._links = links
+        self._push = push
 
     def __call__(self, target: Identity) -> Identity:
+        if target.kind == TELEGRAM:
+            return self._web_with_devices(target) or target
+
         if target.kind != WEB:
             return target
 
         user = self._users.get_by_username(target.id)
 
         if user is None:
+            return target
+
+        if self._push is not None and self._push.subscriptions(target):
             return target
 
         link = self._links.get_by_user_id(user.id)
@@ -161,3 +255,17 @@ class LinkedChatResolver:
             return target
 
         return Identity(kind="telegram", id=str(link.telegram_id))
+
+    def _web_with_devices(self, target: Identity) -> Identity | None:
+        if self._push is None or not target.id.lstrip("-").isdigit():
+            return None
+
+        link = self._links.get_by_telegram_id(int(target.id))
+        user = self._users.get_by_id(link.user_id) if link else None
+
+        if user is None:
+            return None
+
+        web = self._users.identity_for(user)
+
+        return web if self._push.subscriptions(web) else None

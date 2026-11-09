@@ -124,6 +124,9 @@ class SessionsRepository:
                     (user_id,),
                 )
                 deleted = cur.rowcount
+                cur.execute(
+                    "DELETE FROM push_subscriptions WHERE user_id = %s", (user_id,)
+                )
             conn.commit()
 
         return deleted

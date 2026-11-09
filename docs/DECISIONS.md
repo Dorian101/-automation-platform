@@ -2826,3 +2826,46 @@ and the share-sheet entry for web apps does not exist on iOS.
 Keys and both routes are covered by tests: a missing, wrong, revoked or
 disabled key, the cap, another user's revoke, throttling, body checks, the
 GET that saves nothing, a forged form and escaping.
+
+## 2026-11-09
+
+### Decision
+Deliver notifications by web push first, Telegram only as a fallback
+
+### Reason
+Telegram needs a proxy where the owner lives, so reminders and deadlines that
+only reach Telegram are missed. iOS (from 16.4, home-screen apps) and macOS
+browsers accept web push, and the server reaches Apple, Google and Mozilla
+push services directly.
+
+### How it is done
+- pywebpush (with cryptography, py-vapid, http-ece, requests) signs and
+  encrypts; chosen over a hand-written RFC 8291 implementation so that no
+  crypto is ours. Sends run in a thread with a 10 s timeout.
+- This reverses "installable without a service worker" (v0.83.0): `/sw.js`
+  is needed to receive push. It only shows the notification and focuses or
+  opens a same-origin page; it does not cache or intercept requests.
+- The subscription endpoint is a URL the browser hands over and the server
+  POSTs to, so only https endpoints on known push-service hosts are stored
+  (`PUSH_HOSTS`, suffix match on a dot, no port or userinfo); the keys must
+  decode to 65 and 16 bytes. A device belongs to the last account that
+  subscribed it.
+- Subscribe, unsubscribe and test are JSON posts that carry the session CSRF
+  token; removing a device is a CSRF form. Without VAPID keys in `.env` the
+  panel says push is not set up and delivery falls back to Telegram.
+- Routing stays in `LinkedChatResolver`; plugins did not change except the
+  reminder refusal and the automation action's wording.
+- Found by the review before release: `urlsplit` and urllib3 read
+  the host `evil.test\.fcm.googleapis.com` differently, so the host check passed
+  and the request went to `evil.test`, then on through redirects. The endpoint
+  now has to match a strict pattern before the host check, and sends use a
+  `requests` session with `max_redirects = 0` and `trust_env = False`.
+- A device is bound to the session that enabled it: signing out removes it,
+  revoking sessions or setting a password removes every device, and opening
+  the console re-binds the browser's subscription to whoever is signed in, so
+  a shared browser stops showing the previous person's reminders.
+- The p256dh key must be a valid P-256 point at subscribe time, not at send.
+
+### Result
+v0.88.0. Tests cover the endpoint filter, the device cap and ownership, the
+channel (fan-out, forgetting a gone device, no keys) and the routes.

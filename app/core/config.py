@@ -50,6 +50,10 @@ class Config:
 
     SESSION_TTL_DAYS = int(os.getenv("SESSION_TTL_DAYS", "30"))
 
+    VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
+    VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
+    VAPID_SUBJECT = os.getenv("VAPID_SUBJECT", "")
+
     # Whether registration is open to anyone who reaches the sign-up page.
     # "true" / "1" / "yes" enable it; anything else (and the unset default)
     # leaves sign-up off, which is what a deployment that never thought about

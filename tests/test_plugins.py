@@ -101,7 +101,7 @@ class TestRemindersPlugin:
         )
         plugin = RemindersPlugin(notifier, database_with_schema)
 
-        with pytest.raises(CommandError, match="not linked"):
+        with pytest.raises(CommandError, match="некуда прийти"):
             await plugin.execute(
                 "/remind",
                 "5 call mum",
@@ -723,6 +723,7 @@ class TestPluginTables:
         "app_errors",
         "clipboard",
         "api_keys",
+        "push_subscriptions",
         "feedback",
         "schema_migrations",
         "sessions",

@@ -107,7 +107,7 @@ class AutomationPlugin(BasePlugin):
     demo = True
 
     automation_actions = {
-        "telegram.send": ("Написать в Telegram", [("text", "Текст сообщения")]),
+        "telegram.send": ("Отправить уведомление", [("text", "Текст сообщения")]),
     }
 
     def __init__(
@@ -221,9 +221,11 @@ class AutomationPlugin(BasePlugin):
             raise CommandError("Пустое сообщение.")
 
         if not await self._notifier.deliver(identity, text):
-            raise CommandError("Telegram не привязан: сообщение не отправлено.")
+            raise CommandError(
+                "Некуда отправить: нет устройств с уведомлениями и Telegram."
+            )
 
-        return "Отправлено в Telegram."
+        return "Уведомление отправлено."
 
     async def seed_demo(self, identity: Identity) -> None:
         self.repo.add(

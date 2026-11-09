@@ -11,12 +11,13 @@ from app.db.database import Database
 from app.db.errors_repo import ErrorLogHandler, ErrorsRepository
 from app.db.links_repo import TelegramLinksRepository
 from app.db.migrations import MigrationRunner
+from app.db.push_repo import PushRepository
 from app.db.users_repo import UsersRepository
 from app.notifications import (
     LinkedChatResolver,
     Notifier,
     TelegramChannel,
-    WebChannel,
+    WebPushChannel,
 )
 from app.plugins.applications import ApplicationsPlugin
 from app.plugins.automation import AutomationPlugin
@@ -76,10 +77,14 @@ async def main() -> None:
 
     users = UsersRepository(database)
     links = TelegramLinksRepository(database)
+    push = PushRepository(database)
 
     notifier = Notifier(
-        [TelegramChannel(bot), WebChannel()],
-        resolver=LinkedChatResolver(users, links),
+        [
+            TelegramChannel(bot),
+            WebPushChannel(push, Config.VAPID_PRIVATE_KEY, Config.VAPID_SUBJECT),
+        ],
+        resolver=LinkedChatResolver(users, links, push),
     )
 
     manager = build_manager(database, notifier, users, links, logger)

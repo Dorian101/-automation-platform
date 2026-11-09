@@ -24,7 +24,8 @@ from app.db.database import Database
 from app.db.feedback_repo import FeedbackRepository
 from app.db.links_repo import TelegramLinksRepository
 from app.db.migrations import MigrationRunner
-from app.db.sessions_repo import SessionsRepository
+from app.db.push_repo import BadSubscription, PushRepository, TooManyDevices
+from app.db.sessions_repo import SessionsRepository, digest
 from app.db.settings_repo import DEFAULT_FEEDBACK_PER_HOUR, SettingsRepository
 from app.db.users_repo import UsersRepository
 from app.db.visits_repo import SIGNIN, SIGNUP, VIEW, VisitsRepository
@@ -113,6 +114,8 @@ SCRIPTS = {
     "/about-page.js": ABOUT_PAGE_JS,
     "/project-page.js": PROJECT_PAGE_JS,
     "/feedback.js": FEEDBACK_JS,
+    "/push.js": Path(__file__).resolve().parent / "push.js",
+    "/sw.js": Path(__file__).resolve().parent / "sw.js",
 }
 
 # The live request on the project page. Public and it touches the database, so
@@ -202,6 +205,8 @@ PUBLIC_PATHS = {
     "/project/trace",
     "/feedback",
     LINKS_API_PATH,
+    "/push.js",
+    "/sw.js",
     "/feedback.js",
 }
 
@@ -315,6 +320,7 @@ class WebServer:
         self._visits = VisitsRepository(database)
         self._feedback_log = FeedbackRepository(database)
         self._keys = ApiKeysRepository(database)
+        self._push = PushRepository(database)
 
     async def _index(self, request: web.Request) -> web.Response:
         user = self._current_user(request)
@@ -331,6 +337,7 @@ class WebServer:
             nonce,
             self._nav(request),
             csrf=csrf,
+            devices=self._push.devices(user.id) if user else [],
         )
 
         response = web.Response(text=body, content_type="text/html")
@@ -1082,6 +1089,107 @@ class WebServer:
             "setTimeout(function(){window.close();},1500);</script>",
         )
 
+    async def _push_request(self, request: web.Request):
+        user = self._current_user(request)
+
+        if user is None:
+            refused = web.json_response({"error": "Войдите заново"}, status=401)
+            return None, None, refused
+
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = None
+
+        token = request.cookies.get(SESSION_COOKIE, "")
+
+        if not isinstance(payload, dict) or not self._csrf.accepts(
+            token, payload.get("csrf") if isinstance(payload.get("csrf"), str) else ""
+        ):
+            return None, None, web.json_response(
+                {"error": FORGED_FORM_MESSAGE}, status=403
+            )
+
+        return user, payload, None
+
+    async def _push_subscribe(self, request: web.Request) -> web.Response:
+        user, payload, refused = await self._push_request(request)
+
+        if refused is not None:
+            return refused
+
+        label = visit_details.describe(request.headers.get("User-Agent", ""))
+
+        try:
+            self._push.add(
+                user.id,
+                payload.get("subscription"),
+                label,
+                digest(request.cookies.get(SESSION_COOKIE, "")),
+            )
+        except BadSubscription:
+            return web.json_response(
+                {"error": "Браузер прислал неподходящую подписку"}, status=400
+            )
+        except TooManyDevices:
+            return web.json_response(
+                {"error": "Слишком много устройств. Отключите ненужные."}, status=400
+            )
+
+        return web.json_response({"ok": True})
+
+    async def _push_unsubscribe(self, request: web.Request) -> web.Response:
+        user, payload, refused = await self._push_request(request)
+
+        if refused is not None:
+            return refused
+
+        endpoint = payload.get("endpoint")
+
+        if isinstance(endpoint, str):
+            self._push.remove_endpoint(user.id, endpoint)
+
+        return web.json_response({"ok": True})
+
+    async def _push_test(self, request: web.Request) -> web.Response:
+        user, _, refused = await self._push_request(request)
+
+        if refused is not None:
+            return refused
+
+        if not self._rate.allow(_rate_key(request, "push-test"), 5, 600):
+            return web.json_response({"error": "Слишком часто"}, status=429)
+
+        identity = self._users.identity_for(user)
+
+        if not self._push.subscriptions(identity) or self._notifier is None:
+            return web.json_response(
+                {"error": "Нет устройств с уведомлениями"}, status=400
+            )
+
+        delivered = await self._notifier.deliver(
+            identity, "Проверка: уведомления работают."
+        )
+
+        return web.json_response(
+            {"text": "Отправлено на ваши устройства." if delivered else "Не дошло."}
+        )
+
+    async def _push_remove(self, request: web.Request) -> web.Response:
+        form = await request.post()
+        token = request.cookies.get(SESSION_COOKIE, "")
+
+        if not self._csrf.accepts(token, _form_value(form, CSRF_FIELD)):
+            return token_rejected(request, "/")
+
+        user = self._current_user(request)
+        device = _form_value(form, "id")
+
+        if user is not None and device.isdigit():
+            self._push.remove(user.id, int(device))
+
+        return _redirect("/")
+
     async def _tell_admins(self, text: str) -> None:
         """Send to every active administrator's linked chat. The note is already
         saved, so a failure here costs the message, not the note."""
@@ -1232,6 +1340,7 @@ class WebServer:
         identity = self._identity(request)
 
         self._sessions.delete(token)
+        self._push.forget_session(digest(token))
 
         logger.info("Signed out %r", identity.id if identity else "unknown session")
 
@@ -1607,6 +1716,12 @@ class WebServer:
                 web.post(LINKS_API_PATH, self._api_links),
                 web.get(LINKS_SAVE_PATH, self._save_link_form),
                 web.post(LINKS_SAVE_PATH, self._save_link_submit),
+                web.get("/push.js", self._script),
+                web.get("/sw.js", self._script),
+                web.post("/api/push/subscribe", self._push_subscribe),
+                web.post("/api/push/unsubscribe", self._push_unsubscribe),
+                web.post("/api/push/test", self._push_test),
+                web.post("/account/push/remove", self._push_remove),
                 web.get("/fonts/{name}", self._fonts),
             ],
         )
@@ -1692,6 +1807,7 @@ def _render_index(
     nav_html: str,
     error: str = "",
     csrf: str = "",
+    devices: list | None = None,
 ) -> str:
     """Build the console, with the Telegram panel filled in for this account.
 
@@ -1705,12 +1821,47 @@ def _render_index(
     source = source.replace("__NAV__", nav_html)
     source = source.replace("__MENU_STYLES__", menu_styles())
     source = source.replace("__TELEGRAM_BLOCK__", _telegram_panel(link, nonce, csrf))
+    source = source.replace("__PUSH_BLOCK__", _push_panel(devices or [], csrf))
     source = source.replace(
         "__ERROR_BLOCK__",
         _error_block(error),
     )
 
     return source
+
+
+def _push_panel(devices: list, csrf: str) -> str:
+    if not (
+        Config.VAPID_PUBLIC_KEY and Config.VAPID_PRIVATE_KEY and Config.VAPID_SUBJECT
+    ):
+        return '<p class="hint">Уведомления на этом сервере не настроены.</p>'
+
+    rows = "".join(
+        "<li>"
+        f"{html.escape(device['label'])} · с {device['created_at']:%d.%m.%Y}"
+        '<form method="post" action="/account/push/remove" class="inline">'
+        f'<input type="hidden" name="csrf" value="{html.escape(csrf)}">'
+        f'<input type="hidden" name="id" value="{device["id"]}">'
+        '<button type="submit" class="secondary">Отключить</button>'
+        "</form></li>"
+        for device in devices
+    )
+    listing = f'<ul class="devices">{rows}</ul>' if rows else ""
+    test = (
+        '<button type="button" id="push-test" class="secondary">Проверить</button>'
+        if devices
+        else ""
+    )
+
+    return (
+        f'<div id="push" data-csrf="{html.escape(csrf)}" '
+        f'data-key="{html.escape(Config.VAPID_PUBLIC_KEY)}">'
+        '<p class="hint" id="push-state">Напоминания, сроки задач и сообщения '
+        "автоматизаций приходят сюда, а в Telegram — только если устройств нет.</p>"
+        '<button type="button" id="push-on">Включить на этом устройстве</button>'
+        f"{test}{listing}</div>"
+        '<script src="/push.js" defer></script>'
+    )
 
 
 def _telegram_panel(link, nonce: str, csrf: str) -> str:

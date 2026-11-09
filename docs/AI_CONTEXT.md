@@ -299,9 +299,17 @@ what keeps a stored stage real on any path that writes one.
 `Notifier` routes a message to the channel matching the target's transport.
 
 - TelegramChannel sends through the bot
-- WebChannel is a placeholder that logs the recipient and the message length
-  but never the text, so a notification's contents do not land in journald,
-  pending a web inbox
+- WebPushChannel (kind `web`) sends a web push to every device the account
+  enabled (`push_subscriptions`, pywebpush, VAPID keys from `.env`); a 404/410
+  from the push service forgets the device. WebChannel, the old log-and-drop
+  placeholder, remains for tests only
+- `LinkedChatResolver(users, links, push)` sends to devices first: a web
+  account, or a Telegram chat linked to one, with at least one device resolves
+  to the web identity; otherwise to the linked chat as before
+- `Notifier.reachable` answers whether a message would go anywhere; reminders
+  use it to refuse a reminder with no devices and no chat
+- Subscriptions are taken only for push-service hosts (`push_repo.PUSH_HOSTS`):
+  the endpoint comes from the browser and the server POSTs to it
 
 Adding a transport means adding a channel, nothing else.
 

@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.87.0
+v0.88.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -622,6 +622,12 @@ Implemented:
 * Notifier — routes by identity kind, and returns whether anything was sent
 * LinkedChatResolver — a web account's notification is delivered to its paired
   Telegram chat; the only place where delivery crosses transports
+* since v0.88.0 web push: "Уведомления" on the console enables push on this
+  device (iPhone: from the home-screen app, iOS 16.4+; Mac: any tab), lists
+  the devices with "Отключить" and has "Проверить". Devices first, Telegram
+  only when there are none; reminders, task deadlines and automation messages
+  all follow it. `/sw.js` only shows the notification and opens the site on a
+  click; it caches nothing. Up to 10 devices per account, gone with it
 
 ⸻
 

@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from app.core.config import Config
-from app.core.identity import TELEGRAM, WEB, Identity
+from app.core.identity import WEB, Identity
 from app.core.results import CommandError, CommandResult, reply
 from app.db.database import Database
 from app.db.reminders_repo import RemindersRepository
@@ -87,18 +87,10 @@ class RemindersPlugin(BasePlugin):
         if minutes < 0:
             raise CommandError("Minutes must not be negative")
 
-        # A web account with no Telegram link has nowhere for the reminder to
-        # go: WebChannel only logs and drops. Refused up front rather than
-        # letting it sit long enough to be given up on — the message tells the
-        # person why, and the command fails instead of quietly delivering
-        # nothing.
-        destination = self._notifier.destination(identity)
-        if identity.kind == WEB and (
-            destination is None or destination.kind != TELEGRAM
-        ):
+        if identity.kind == WEB and not self._notifier.reachable(identity):
             raise CommandError(
-                "Reminders are delivered to Telegram, and this web account is "
-                "not linked. Link your Telegram account in the console first."
+                "Напоминанию некуда прийти: включите уведомления на устройстве "
+                "или привяжите Telegram на главной странице."
             )
 
         remind_at = (

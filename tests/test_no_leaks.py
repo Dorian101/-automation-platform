@@ -73,6 +73,7 @@ ALLOWED_HOSTS = {
     "oauth.telegram.org",
     "api.telegram.org",
     "github.com",
+    "web.push.apple.com",
     "core.telegram.org",
     "docs.python.org",
     "developer.mozilla.org",

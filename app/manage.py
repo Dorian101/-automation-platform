@@ -507,6 +507,28 @@ def _read_password() -> str:
     return line
 
 
+def vapid_keys(args: argparse.Namespace) -> int:
+    from base64 import urlsafe_b64encode
+
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+    key = ec.generate_private_key(ec.SECP256R1())
+    private = key.private_numbers().private_value.to_bytes(32, "big")
+    public = key.public_key().public_bytes(
+        Encoding.X962, PublicFormat.UncompressedPoint
+    )
+
+    def encode(raw: bytes) -> str:
+        return urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+    print(f"VAPID_PRIVATE_KEY={encode(private)}")
+    print(f"VAPID_PUBLIC_KEY={encode(public)}")
+    print("VAPID_SUBJECT=mailto:you@example.com")
+
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m app.manage",
@@ -615,6 +637,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Delete visit log entries past the retention window",
     )
     visits.set_defaults(func=prune_visits)
+
+    vapid = subparsers.add_parser(
+        "vapid-keys", help="Print a new key pair for web push, for .env"
+    )
+    vapid.set_defaults(func=vapid_keys)
 
     return parser
 

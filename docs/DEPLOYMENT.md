@@ -317,6 +317,10 @@ PROXY_URL=          # empty: api.telegram.org is reachable from Germany
 TELEGRAM_BOT_USERNAME=   # empty: no Telegram link button (see Telegram linking)
 TELEGRAM_LOGIN_MAX_AGE_SECONDS=300   # how long a Login Widget signature stays fresh
 
+VAPID_PRIVATE_KEY=   # web push; all three from: python -m app.manage vapid-keys
+VAPID_PUBLIC_KEY=    # empty: no push, notifications go to Telegram as before
+VAPID_SUBJECT=mailto:<owner address>   # push services contact on abuse
+
 # How the administration pages print timestamps. Rows are stored in UTC.
 DISPLAY_TIMEZONE=UTC
 
