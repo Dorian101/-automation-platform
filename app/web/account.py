@@ -50,6 +50,7 @@ def _render_index(
     csrf: str = "",
     devices: list | None = None,
     quiet=None,
+    passkeys: str = "",
 ) -> str:
     """Build the console, with the Telegram panel filled in for this account.
 
@@ -65,6 +66,7 @@ def _render_index(
     source = source.replace("__TELEGRAM_BLOCK__", _telegram_panel(link, nonce, csrf))
     source = source.replace("__PUSH_BLOCK__", _push_panel(devices or [], csrf))
     source = source.replace("__QUIET_BLOCK__", _quiet_form(quiet, csrf))
+    source = source.replace("__PASSKEYS_BLOCK__", passkeys)
     source = source.replace(
         "__ERROR_BLOCK__",
         error_block(error),
@@ -240,6 +242,7 @@ class AccountRoutes:
             csrf=csrf,
             devices=self._push.devices(user.id) if user else [],
             quiet=self._users.quiet_hours(user.id) if user else None,
+            passkeys=self._passkeys_block(request, user, csrf),
         )
 
         response = web.Response(text=body, content_type="text/html")
@@ -386,7 +389,7 @@ class AccountRoutes:
 
         return web.Response(text=body, content_type="text/html", status=400)
 
-    async def _push_request(self, request: web.Request):
+    async def _json_request(self, request: web.Request):
         user = self._current_user(request)
 
         if user is None:
@@ -410,7 +413,7 @@ class AccountRoutes:
         return user, payload, None
 
     async def _push_subscribe(self, request: web.Request) -> web.Response:
-        user, payload, refused = await self._push_request(request)
+        user, payload, refused = await self._json_request(request)
 
         if refused is not None:
             return refused
@@ -439,7 +442,7 @@ class AccountRoutes:
         return web.json_response({"ok": True})
 
     async def _push_unsubscribe(self, request: web.Request) -> web.Response:
-        user, payload, refused = await self._push_request(request)
+        user, payload, refused = await self._json_request(request)
 
         if refused is not None:
             return refused
@@ -452,7 +455,7 @@ class AccountRoutes:
         return web.json_response({"ok": True})
 
     async def _push_test(self, request: web.Request) -> web.Response:
-        user, _, refused = await self._push_request(request)
+        user, _, refused = await self._json_request(request)
 
         if refused is not None:
             return refused

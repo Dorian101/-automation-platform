@@ -527,7 +527,12 @@ python -m app.manage disable-user <username>    # stop sign-in, revoke sessions
 python -m app.manage enable-user <username>     # allow sign-in again
 python -m app.manage reset-password <username>  # new password, revoke sessions
 python -m app.manage revoke-sessions <username> # end sessions, keep password
+python -m app.manage reset-passkeys <username>  # remove passkeys, revoke sessions
 ```
+
+`reset-passkeys` is the way back for an account whose only passkey device is
+lost. Passkeys need `PUBLIC_BASE_URL`: its host is the relying party, so it
+must be the domain the browser shows. Without it nobody holds admin rights.
 
 `reset-password` reads the password with `getpass`, like `create-user`, and can
 be piped the same way. `disable-user` and `reset-password` revoke every live

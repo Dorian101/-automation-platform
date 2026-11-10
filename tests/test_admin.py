@@ -11,7 +11,7 @@ import re
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-from tests.conftest import TEST_PASSWORD, TEST_USERNAME
+from tests.conftest import TEST_PASSWORD, TEST_USERNAME, with_passkey
 
 ADMIN_PREFIX = "/admin"
 USERS_PATH = "/admin/users"
@@ -73,6 +73,7 @@ async def admin_client(app_client, login, create_user, users):
     users.set_admin(account.id, True)
 
     await login(app_client)
+    with_passkey(app_client, users)
     return app_client
 
 
@@ -111,6 +112,7 @@ class TestTheFlag:
         users.set_admin(account.id, True)
 
         await login(app_client)
+        with_passkey(app_client, users)
 
         assert (await app_client.get(ADMIN_PREFIX)).status == 200
 

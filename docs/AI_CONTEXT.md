@@ -80,6 +80,21 @@ Two independent layers, both required, doing different jobs.
    `resolve_identity()`. It says who the user is, and it is what separates one
    user's notes from another's.
 
+3. Passkeys (`app/web/passkeys.py`, WebAuthn through the `webauthn` package).
+   An account with a passkey gets no session from the password alone: `POST
+   /login` answers with a second step whose challenge lives in memory for
+   five minutes under a `platform_passkey` cookie, and `POST /login/passkey`
+   opens the session with `sessions.passkey = TRUE`. `resolve_user` drops
+   `is_admin` for a session without that flag, so every admin check — the
+   admin middleware, the menu, maintenance, languages, events — needs a
+   passkey without being told. A password session may add only the first key
+   (and is then marked); later keys and removal need a confirmed session.
+   The relying party is the host of `PUBLIC_BASE_URL`; without it passkeys
+   are off and nobody is an admin. `app.manage reset-passkeys` removes an
+   account's keys and sessions. `/login/passkey` and `/passkey.js` stay open
+   in maintenance, so an admin with a key can still get in to switch it off;
+   a first key cannot be added while maintenance is on.
+
 The sign-in and sign-up pages are public, plus `/health`, which must be able to
 answer while the database is down, and the two static documents `/about` and
 `/project` (they read nothing from the database and render no user data, which
@@ -482,7 +497,8 @@ Account administration lives on the command line, where a leaked credential is
 handled without a browser: `python -m app.manage disable-user|enable-user`
 flips `is_active` (and disabling revokes the account's sessions),
 `reset-password` reads a new password with `getpass` and revokes sessions, and
-`revoke-sessions` ends the sessions alone. None of them delete data. There is
+`revoke-sessions` ends the sessions alone, and `reset-passkeys` removes the
+passkeys and the sessions. None of them delete data. There is
 deliberately no rename: an account's data is keyed by `web:<username>`, so a
 rename would have to move rows across notes, reminders and clipboard and every
 future plugin would have to join in — deferred until identity is anchored to a
@@ -716,6 +732,9 @@ own data. The console already answers for everything else — it is behind a
 sign-in form, which is the "authorised user" role without the name. A second
 kind of person can appear later, and the table can be added then, with
 something to point at.
+
+**Needs a passkey session.** The flag counts only in a session opened or
+confirmed by a passkey; see Access control.
 
 **Read from the database on every request**, not from the session, so
 `revoke-admin` closes the door at once instead of at the next sign-in. That is

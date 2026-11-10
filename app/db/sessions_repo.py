@@ -40,7 +40,13 @@ class SessionsRepository:
     def __init__(self, database: Database | None = None):
         self.database = database or Database()
 
-    def create(self, user_id: int, ttl_seconds: int, agent: str | None = None) -> str:
+    def create(
+        self,
+        user_id: int,
+        ttl_seconds: int,
+        agent: str | None = None,
+        passkey: bool = False,
+    ) -> str:
         token = secrets.token_urlsafe(TOKEN_BYTES)
 
         # Expiry is computed against the database clock on both write and read
@@ -49,15 +55,17 @@ class SessionsRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO sessions (token_hash, user_id, expires_at, agent)
+                    INSERT INTO sessions
+                        (token_hash, user_id, expires_at, agent, passkey)
                     VALUES (
                         %s,
                         %s,
                         CURRENT_TIMESTAMP + make_interval(secs => %s),
+                        %s,
                         %s
                     )
                     """,
-                    (_digest(token), user_id, ttl_seconds, agent),
+                    (_digest(token), user_id, ttl_seconds, agent, passkey),
                 )
             conn.commit()
 
@@ -66,6 +74,10 @@ class SessionsRepository:
         return token
 
     def get_user_id(self, token: str) -> int | None:
+        found = self.lookup(token)
+        return found[0] if found else None
+
+    def lookup(self, token: str) -> tuple[int, bool] | None:
         if not token:
             return None
 
@@ -73,7 +85,7 @@ class SessionsRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT user_id
+                    SELECT user_id, passkey
                     FROM sessions
                     WHERE token_hash = %s
                       AND expires_at > CURRENT_TIMESTAMP
@@ -96,7 +108,16 @@ class SessionsRepository:
                     )
             conn.commit()
 
-        return row[0] if row else None
+        return (row[0], row[1]) if row else None
+
+    def mark_passkey(self, token: str) -> None:
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE sessions SET passkey = TRUE WHERE token_hash = %s",
+                    (_digest(token),),
+                )
+            conn.commit()
 
     def delete(self, token: str) -> None:
         if not token:

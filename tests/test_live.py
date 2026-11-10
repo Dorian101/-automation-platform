@@ -14,7 +14,7 @@ from app.plugins.manager import PluginManager
 from app.plugins.snippets import SnippetsPlugin
 from app.web import live
 from app.web.live import CLOSE, LiveHub, tab_of
-from tests.conftest import TEST_USERNAME
+from tests.conftest import TEST_USERNAME, with_passkey
 
 OWNER = Identity(WEB, TEST_USERNAME)
 
@@ -241,6 +241,7 @@ class TestTheStream:
 
     async def test_an_admin_hears_about_a_visit(self, client, users):
         users.set_admin(users.get_by_username(TEST_USERNAME).id, True)
+        with_passkey(client, users)
         events = await client.get("/api/events")
 
         await client.get("/about")
@@ -260,6 +261,7 @@ class TestTheStream:
 
     async def test_an_admin_hears_about_feedback(self, client, users):
         users.set_admin(users.get_by_username(TEST_USERNAME).id, True)
+        with_passkey(client, users)
         events = await client.get("/api/events")
 
         await client.post("/feedback", json={"text": "Хороший сайт", "page": "/about"})

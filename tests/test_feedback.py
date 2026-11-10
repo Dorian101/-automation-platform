@@ -9,7 +9,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from app.core.identity import WEB
 from app.db.feedback_repo import FeedbackRepository
 from app.web.documents import FEEDBACK_ATTEMPTS, FEEDBACK_MAX_LENGTH
-from tests.conftest import TEST_USERNAME
+from tests.conftest import TEST_USERNAME, with_passkey
 
 
 class FakeNotifier:
@@ -182,10 +182,11 @@ class TestTheButton:
 
 class TestTheAdminPage:
     async def test_it_shows_the_notes_escaped(
-        self, client, admin, login, database_with_schema
+        self, client, admin, login, users, database_with_schema
     ):
         FeedbackRepository(database_with_schema).add("<b>жирно</b>", "/project")
         await login(client)
+        with_passkey(client, users)
 
         body = await (await client.get("/admin/feedback")).text()
 

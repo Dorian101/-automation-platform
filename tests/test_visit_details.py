@@ -8,7 +8,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from app.db.visits_repo import Visit, VisitsRepository
 from app.web import visitor
 from app.web.admin import SESSION_GAP_MINUTES, _sessions
-from tests.conftest import TEST_USERNAME
+from tests.conftest import TEST_USERNAME, with_passkey
 
 IPHONE = (
     "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 "
@@ -175,6 +175,7 @@ class TestTheSessionsPage:
         account = users.get_by_username(TEST_USERNAME)
         users.set_admin(account.id, True)
         await login(client)
+        with_passkey(client, users)
         return client
 
     async def test_bots_are_hidden_until_asked_for(self, admin):

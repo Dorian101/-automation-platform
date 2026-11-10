@@ -186,16 +186,34 @@ class SignInRoutes:
         # than starting the next window from the typos' count.
         self._rate.clear(rate_key(request, "login", username))
 
+        keys = self._passkeys.for_user(user.id)
+
+        if keys:
+            return self._passkey_step(request, user, keys)
+
+        return self._open_session(
+            request,
+            user,
+            _redirect("/"),
+            visit_details.describe(request.headers.get("User-Agent", "")),
+        )
+
+    def _open_session(
+        self,
+        request: web.Request,
+        user,
+        response: web.Response,
+        agent: str,
+        passkey: bool = False,
+    ) -> web.Response:
         token = self._sessions.create(
             user.id,
             Config.SESSION_TTL_DAYS * DAY_SECONDS,
-            agent=visit_details.describe(request.headers.get("User-Agent", "")),
+            agent=agent,
+            passkey=passkey,
         )
 
-        response = _redirect("/")
         set_session_cookie(response, token)
-        # The anonymous token has done its job; the session-backed forms carry
-        # their own token derived from the session.
         response.del_cookie(CSRF_COOKIE, path="/")
 
         logger.info("Signed in %r from %s", user.username, client_ip(request))

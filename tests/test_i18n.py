@@ -40,10 +40,11 @@ def test_every_key_a_template_uses_exists(template):
 
 @pytest.fixture
 async def admin(crawler, login, create_user, users):
-    from tests.conftest import TEST_USERNAME
+    from tests.conftest import TEST_USERNAME, with_passkey
 
     users.set_admin(users.get_by_username(TEST_USERNAME).id, True)
     await login(crawler)
+    with_passkey(crawler, users)
     return crawler
 
 

@@ -8,6 +8,7 @@
     python -m app.manage revoke-admin <username>
     python -m app.manage reset-password <username>
     python -m app.manage revoke-sessions <username>
+    python -m app.manage reset-passkeys <username>
     python -m app.manage link-telegram <username> <chat_id>
     python -m app.manage unlink-telegram <username>
     python -m app.manage list-links
@@ -59,6 +60,7 @@ from app.db.database import Database
 from app.db.links_repo import TelegramLinksRepository
 from app.db.migrations import MigrationRunner
 from app.db.offsite import send_copy
+from app.db.passkeys_repo import PasskeysRepository
 from app.db.sessions_repo import SessionsRepository
 from app.db.users_repo import UsersRepository
 from app.db.visits_repo import RETENTION_DAYS
@@ -241,6 +243,26 @@ def revoke_sessions(args: argparse.Namespace) -> int:
 
     print(f"Revoked {_sessions_revoked(revoked)} for {account.username}")
     logger.info("Revoked sessions for web account %r", account.username)
+    return 0
+
+
+def reset_passkeys(args: argparse.Namespace) -> int:
+    users, sessions = _ready_accounts()
+
+    account = users.get_by_username(args.username)
+
+    if account is None:
+        print(f"error: no user '{args.username}'", file=sys.stderr)
+        return 1
+
+    removed = PasskeysRepository(sessions.database).remove_all(account.id)
+    revoked = sessions.delete_for_user(account.id)
+
+    print(
+        f"Removed {removed} passkey(s) and {_sessions_revoked(revoked)} "
+        f"for {account.username}"
+    )
+    logger.info("Reset passkeys for web account %r", account.username)
     return 0
 
 
@@ -584,6 +606,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     revoke.add_argument("username", help="Account name, matched case-insensitively")
     revoke.set_defaults(func=revoke_sessions)
+
+    passkeys = subparsers.add_parser(
+        "reset-passkeys",
+        help="Remove every passkey of a web account and end its sessions",
+    )
+    passkeys.add_argument("username", help="Account name, matched case-insensitively")
+    passkeys.set_defaults(func=reset_passkeys)
 
     link = subparsers.add_parser(
         "link-telegram",

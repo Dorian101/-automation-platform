@@ -12,6 +12,7 @@ from app.db.api_keys_repo import ApiKeysRepository
 from app.db.database import Database
 from app.db.feedback_repo import FeedbackRepository
 from app.db.links_repo import TelegramLinksRepository
+from app.db.passkeys_repo import PasskeysRepository
 from app.db.push_repo import PushRepository
 from app.db.sessions_repo import SessionsRepository
 from app.db.settings_repo import SettingsRepository
@@ -50,6 +51,7 @@ from .pages import (
     nav,
     render_not_found,
 )
+from .passkeys import PasskeyRoutes
 from .ratelimit import RateLimiter, client_ip
 from .responses import redirect as _redirect
 from .signin import SignInRoutes
@@ -101,6 +103,8 @@ PUBLIC_PATHS = {
     "/feedback",
     LINKS_API_PATH,
     "/push.js",
+    "/passkey.js",
+    "/login/passkey",
     "/live-page.js",
     "/sw.js",
     "/feedback.js",
@@ -152,7 +156,14 @@ SECURITY_HEADERS = {
 }
 
 
-class WebServer(AccountRoutes, SignInRoutes, ConsoleRoutes, DocumentRoutes, LinkRoutes):
+class WebServer(
+    AccountRoutes,
+    SignInRoutes,
+    PasskeyRoutes,
+    ConsoleRoutes,
+    DocumentRoutes,
+    LinkRoutes,
+):
     def __init__(
         self,
         manager: PluginManager,
@@ -184,31 +195,14 @@ class WebServer(AccountRoutes, SignInRoutes, ConsoleRoutes, DocumentRoutes, Link
         self._feedback_log = FeedbackRepository(database)
         self._keys = ApiKeysRepository(database)
         self._push = PushRepository(database)
+        self._passkeys = PasskeysRepository(database)
+        self._pending_logins = {}
+        self._enrolments = {}
         self._live = LiveHub(PersonResolver(self._users, self._links))
         notify_all(self._live, manager.get_plugins())
 
     def _current_user(self, request: web.Request):
-        """The account behind the session, or None.
-
-        Separate from `_identity` because linking needs the row itself: the
-        identity carries a username and no id, and the link is keyed by id.
-        """
-        token = request.cookies.get(SESSION_COOKIE, "")
-
-        if not token:
-            return None
-
-        user_id = self._sessions.get_user_id(token)
-
-        if user_id is None:
-            return None
-
-        user = self._users.get_by_id(user_id)
-
-        if user is None or not user.is_active:
-            return None
-
-        return user
+        return resolve_user(request, self._users, self._sessions)
 
     async def _health(self, request: web.Request) -> web.Response:
         try:
@@ -435,6 +429,7 @@ class WebServer(AccountRoutes, SignInRoutes, ConsoleRoutes, DocumentRoutes, Link
                 web.post("/login", self._login_submit),
                 web.get("/signup", self._signup_form),
                 web.post("/signup", self._signup_submit),
+                web.post("/login/passkey", self._passkey_login),
                 *(web.get(path, self._document) for path in LOCALIZED_DOCUMENTS),
                 web.post("/logout", self._logout),
                 web.get("/account/telegram/link", self._telegram_link),
@@ -468,6 +463,10 @@ class WebServer(AccountRoutes, SignInRoutes, ConsoleRoutes, DocumentRoutes, Link
                 web.post("/api/push/test", self._push_test),
                 web.post("/account/push/remove", self._push_remove),
                 web.post("/account/quiet", self._quiet_hours),
+                web.get("/passkey.js", self._script),
+                web.post("/api/passkeys/options", self._passkey_options),
+                web.post("/api/passkeys", self._passkey_register),
+                web.post("/account/passkeys/remove", self._passkey_remove),
                 web.get("/fonts/{name}", self._fonts),
             ],
         )
@@ -621,7 +620,16 @@ def _open_in_maintenance(path: str) -> bool:
     """The paths that keep working in maintenance: the way in, the admin area,
     the health check and the assets the pages need."""
     return (
-        path in ("/login", "/logout", "/health", "/favicon.ico", "/favicon.svg")
+        path
+        in (
+            "/login",
+            "/login/passkey",
+            "/passkey.js",
+            "/logout",
+            "/health",
+            "/favicon.ico",
+            "/favicon.svg",
+        )
         or path == "/admin"
         or path.startswith(("/admin/", "/fonts/"))
     )

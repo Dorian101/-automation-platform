@@ -12,6 +12,7 @@ dependencies = [
     "psycopg[binary]>=3.3.4",
     "python-dotenv>=1.2.2",
     "pywebpush>=2.5.0",
+    "webauthn==3.0.1",
 ]
 
 [tool.pytest.ini_options]

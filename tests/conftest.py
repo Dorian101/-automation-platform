@@ -27,6 +27,7 @@ from app.core.config import Config
 from app.core.identity import WEB, Identity
 from app.db.database import Database
 from app.db.migrations import MigrationRunner
+from app.db.sessions_repo import SessionsRepository
 from app.db.users_repo import UsersRepository
 from app.notifications import Notifier, TelegramChannel, WebChannel
 from app.plugins.applications import ApplicationsPlugin
@@ -35,7 +36,7 @@ from app.plugins.manager import PluginManager
 from app.plugins.notes import NotesPlugin
 from app.plugins.reminders import RemindersPlugin
 from app.plugins.snippets import SnippetsPlugin
-from app.web.auth import AUTH_HEADER
+from app.web.auth import AUTH_HEADER, SESSION_COOKIE
 from app.web.server import WebServer
 
 TEST_USERNAME = "alexey"
@@ -366,6 +367,11 @@ async def _login(
     assert response.status == expect_status, await response.text()
 
     return response
+
+
+def with_passkey(client, users) -> None:
+    token = next(c.value for c in client.session.cookie_jar if c.key == SESSION_COOKIE)
+    SessionsRepository(users.database).mark_passkey(token)
 
 
 async def _hidden_field(response, name: str) -> str:

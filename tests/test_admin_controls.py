@@ -16,7 +16,7 @@ from app.db.sessions_repo import SessionsRepository
 from app.db.settings_repo import SettingsRepository
 from app.notifications import LinkedChatResolver, Notifier
 from app.plugins.todo import TodoPlugin
-from tests.conftest import TEST_PASSWORD, TEST_USERNAME
+from tests.conftest import TEST_PASSWORD, TEST_USERNAME, with_passkey
 from tests.test_push import _subscription
 
 
@@ -55,6 +55,7 @@ async def admin(client, login, create_user, users):
     account = users.get_by_username(TEST_USERNAME)
     users.set_admin(account.id, True)
     await login(client)
+    with_passkey(client, users)
     return client
 
 

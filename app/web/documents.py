@@ -89,6 +89,7 @@ SCRIPTS = {
     "/project-page.js": PROJECT_PAGE_JS,
     "/feedback.js": FEEDBACK_JS,
     "/push.js": Path(__file__).resolve().parent / "push.js",
+    "/passkey.js": Path(__file__).resolve().parent / "passkey.js",
     "/live-page.js": Path(__file__).resolve().parent / "live_page.js",
     "/sw.js": Path(__file__).resolve().parent / "sw.js",
 }

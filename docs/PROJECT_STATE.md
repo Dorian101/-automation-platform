@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.91.1
+v0.92.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -289,6 +289,10 @@ Implemented:
   отключена» while the plugin is off and refuse during maintenance
 * since v0.91.1 the admin pages refresh while their filter field has focus,
   and fall back to polling every 10 s where the event stream is buffered
+* since v0.92.0 an account can add passkeys on the console; once it has one,
+  the password is followed by a passkey prompt. Admin rights need a session
+  confirmed by a passkey: an admin signed in with the password alone sees the
+  console only, with a prompt to add a key
 
 ⸻
 

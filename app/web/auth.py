@@ -1,4 +1,5 @@
 import hmac
+from dataclasses import replace
 
 from aiohttp import web
 
@@ -55,15 +56,22 @@ def resolve_user(
     if not token:
         return None
 
-    user_id = sessions.get_user_id(token)
+    found = sessions.lookup(token)
 
-    if user_id is None:
+    if found is None:
         return None
 
+    user_id, passkey = found
     user = users.get_by_id(user_id)
 
     if user is None or not user.is_active:
         return None
+
+    request["passkey"] = passkey
+    request["account_admin"] = user.is_admin
+
+    if user.is_admin and not passkey:
+        return replace(user, is_admin=False)
 
     return user
 

@@ -724,6 +724,7 @@ class TestPluginTables:
         "clipboard",
         "api_keys",
         "push_subscriptions",
+        "passkeys",
         "held_notifications",
         "feedback",
         "schema_migrations",

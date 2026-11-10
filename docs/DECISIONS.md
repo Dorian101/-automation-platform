@@ -2945,3 +2945,27 @@ until the page is reloaded, so a half-written form is never wiped.
 The share target for "Поделиться" was dropped: neither iOS nor Safari nor
 desktop Chrome supports it for web apps, and the iPhone Shortcut with a key
 already covers saving a link.
+
+
+## 2026-11-10
+
+### Decision
+Confirm admin rights with a passkey, through the `webauthn` package
+
+### Why
+
+One-time codes and push confirmations can be phished: a proxy page relays the
+code or the person taps "yes" on a prompt they did not start. A passkey is
+bound to the domain by the browser, so a look-alike site gets nothing usable.
+The signature checks are done by `webauthn` (Duo Labs) rather than by hand,
+because CBOR and COSE parsing is where a home-made check goes wrong.
+
+The rights live on the session, not the account: `resolve_user` drops
+`is_admin` for a session that was not opened or confirmed by a passkey. That
+puts the rule in the one function every admin check already goes through.
+
+The first key may be added from a password session, which is a window: whoever
+knows the password before the owner adds a key can add theirs. It is the same
+exposure as before this change and closes once a key exists; after that a new
+key needs a passkey session. Losing every device is answered from the host
+with `app.manage reset-passkeys`.
