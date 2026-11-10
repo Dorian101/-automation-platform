@@ -52,7 +52,7 @@ from .pages import (
     render_not_found,
 )
 from .passkeys import PasskeyRoutes
-from .ratelimit import RateLimiter, client_ip
+from .ratelimit import Blocklist, RateLimiter, client_ip
 from .responses import redirect as _redirect
 from .signin import SignInRoutes
 
@@ -184,6 +184,7 @@ class WebServer(
         self._sessions = SessionsRepository(database)
         self._links = TelegramLinksRepository(database)
         self._rate = RateLimiter()
+        self._blocklist = Blocklist()
         self._csrf = CsrfSigner(Config.CSRF_SECRET)
         self._runner: web.AppRunner | None = None
         self._settings = SettingsRepository(database)
@@ -281,6 +282,29 @@ class WebServer(
             return web.json_response({"error": "Unauthorized"}, status=401)
 
         return _redirect("/login")
+
+    @web.middleware
+    async def _block_abusers(self, request: web.Request, handler):
+        address = client_ip(request)
+
+        if (
+            self._blocklist.blocked(address)
+            and not leaves_no_trace(request)
+            and not self._is_admin(request)
+        ):
+            return web.Response(status=403, text="Доступ временно закрыт.")
+
+        response = await handler(request)
+
+        if (
+            response.status == 429
+            and request.path != "/api/events"
+            and not leaves_no_trace(request)
+            and self._blocklist.strike(address)
+        ):
+            logger.warning("Blocked %s for a day after repeated rate limits", address)
+
+        return response
 
     @web.middleware
     async def _record_visit(self, request: web.Request, handler):
@@ -416,6 +440,7 @@ class WebServer(
                 self._nonce,
                 self._maintenance,
                 self._authenticate,
+                self._block_abusers,
                 self._record_visit,
             ]
         )

@@ -478,6 +478,13 @@ Transport security:
   checked *before* the per-user one, so a fresh username is not a fresh
   allowance; a refused attempt does not create the key it was refused on,
   which bounds the store
+- an address that is answered 429 by any limit three times within an hour
+  (at most one count a minute, so a burst of retries is one) is answered 403
+  on every path for a day: `Blocklist` in `app/web/ratelimit.py`, applied by
+  the `_block_abusers` middleware. The owner's addresses and probe secret
+  (`leaves_no_trace`) are never counted, and an admin session gets through.
+  The event stream's 429 (too many tabs of one person) is not counted.
+  Like the limits it lives in memory, so a restart lifts every block
 - state-changing form posts carry a CSRF token (`app/web/csrf.py`): the two
   anonymous forms use a double submit — a random value in the HttpOnly
   `platform_csrf` cookie echoed into a hidden field — and the session-backed

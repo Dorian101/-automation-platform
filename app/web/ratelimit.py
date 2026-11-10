@@ -105,3 +105,43 @@ class RateLimiter:
         would land on the same block as the typos themselves.
         """
         self._hits.pop(key, None)
+
+
+STRIKES = 3
+STRIKE_GAP_SECONDS = 60
+STRIKE_WINDOW_SECONDS = 3600
+BLOCK_SECONDS = 86400
+
+
+class Blocklist:
+    def __init__(self) -> None:
+        self._strikes = RateLimiter()
+        self._gap = RateLimiter()
+        self._until: dict[str, float] = {}
+
+    def blocked(self, address: str) -> bool:
+        until = self._until.get(address)
+
+        if until is None:
+            return False
+
+        if time.monotonic() < until:
+            return True
+
+        del self._until[address]
+        return False
+
+    def strike(self, address: str) -> bool:
+        if not self._gap.allow(address, 1, STRIKE_GAP_SECONDS):
+            return False
+
+        if self._strikes.allow(address, STRIKES - 1, STRIKE_WINDOW_SECONDS):
+            return False
+
+        self._strikes.clear(address)
+        self._until[address] = time.monotonic() + BLOCK_SECONDS
+
+        while len(self._until) > MAX_KEYS:
+            del self._until[next(iter(self._until))]
+
+        return True

@@ -2969,3 +2969,25 @@ knows the password before the owner adds a key can add theirs. It is the same
 exposure as before this change and closes once a key exists; after that a new
 key needs a passkey session. Losing every device is answered from the host
 with `app.manage reset-passkeys`.
+
+
+## 2026-11-10
+
+### Decision
+Shut out for a day an address that keeps hitting rate limits, in memory
+
+### Why
+
+Each limit only slows its own form; a client that walks from one to the next
+keeps its allowance everywhere. Three 429s within an hour, counted at most
+once a minute so that a person pressing submit on a refusal is not punished
+for it, are a pattern rather than an accident.
+
+Counted at the response, in one middleware, rather than in each limiter: any
+limit added later takes part without being wired in.
+
+Kept in memory like the limits. A deploy lifts every block, which only the
+owner can trigger, and a table would be a migration and a cleanup job for a
+list that holds a handful of addresses. The owner's own addresses and an
+admin session are never blocked, so a typo cannot lock the owner out for a
+day.

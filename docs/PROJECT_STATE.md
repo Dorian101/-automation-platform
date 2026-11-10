@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.92.0
+v0.93.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -293,6 +293,8 @@ Implemented:
   the password is followed by a passkey prompt. Admin rights need a session
   confirmed by a passkey: an admin signed in with the password alone sees the
   console only, with a prompt to add a key
+* since v0.93.0 an address that runs into a rate limit three times within an
+  hour is shut out of the whole site for a day
 
 ⸻
 
