@@ -20,35 +20,35 @@ class TestBlocklist:
     def test_three_strikes_an_hour_block_for_a_day(self, clock):
         blocklist = Blocklist()
 
-        assert blocklist.strike("1.2.3.4") is False
+        assert blocklist.strike("1.1.1.1") is False
         clock[0] += 61
-        assert blocklist.strike("1.2.3.4") is False
+        assert blocklist.strike("1.1.1.1") is False
         clock[0] += 61
-        assert blocklist.strike("1.2.3.4") is True
+        assert blocklist.strike("1.1.1.1") is True
 
-        assert blocklist.blocked("1.2.3.4")
-        assert not blocklist.blocked("5.6.7.8")
+        assert blocklist.blocked("1.1.1.1")
+        assert not blocklist.blocked("8.8.8.8")
         clock[0] += 86400
-        assert not blocklist.blocked("1.2.3.4")
+        assert not blocklist.blocked("1.1.1.1")
 
     def test_a_burst_of_refusals_is_one_strike(self, clock):
         blocklist = Blocklist()
 
         for _ in range(10):
-            blocklist.strike("1.2.3.4")
+            blocklist.strike("1.1.1.1")
 
-        assert not blocklist.blocked("1.2.3.4")
+        assert not blocklist.blocked("1.1.1.1")
 
     def test_strikes_older_than_an_hour_are_forgotten(self, clock):
         blocklist = Blocklist()
 
-        blocklist.strike("1.2.3.4")
+        blocklist.strike("1.1.1.1")
         clock[0] += 1800
-        blocklist.strike("1.2.3.4")
+        blocklist.strike("1.1.1.1")
         clock[0] += 1900
 
-        assert blocklist.strike("1.2.3.4") is False
-        assert not blocklist.blocked("1.2.3.4")
+        assert blocklist.strike("1.1.1.1") is False
+        assert not blocklist.blocked("1.1.1.1")
 
 
 @pytest.fixture
