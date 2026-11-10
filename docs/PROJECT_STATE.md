@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.90.1
+v0.91.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -282,6 +282,11 @@ Implemented:
 * since v0.90.1 nothing changes for a user: `app/web/server.py` is split into
   modules per area, the plugin page script into `app/web/plugin_page/*.js`, and
   each `v*` tag publishes a GitHub release listing its commits
+* since v0.91.0 the console `/` (Telegram, devices, quiet hours) and the admin
+  pages for users, visits, sessions, feedback and errors update live; an
+  announcement reaches every active account, by push when it has the app and
+  by Telegram otherwise; a plugin's bot buttons (snooze) answer «временно
+  отключена» while the plugin is off and refuse during maintenance
 
 ⸻
 
@@ -880,7 +885,7 @@ deployment that never sets it records everything as before.
 * Since v0.75.0 the admin area changes and reads what used to need SSH:
   `/admin/settings` (maintenance, open registration, plugins on or off, the
   feedback and demo limits), `/admin/errors` (the application's ERROR
-  records), `/admin/broadcast` (a message to every linked active account),
+  records), `/admin/broadcast` (a message to every reachable active account, push first),
   task buttons and a demo block on `/admin/status`, and the sign-ins used in
   the last 30 minutes with an end button on `/admin/users` (v0.75.1: only
   those in use, not every unexpired cookie). Switching a plugin off does not refresh the

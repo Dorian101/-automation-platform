@@ -163,17 +163,17 @@ __MENU_STYLES__
 
   <div class="panel">
     <h2>Telegram</h2>
-    __TELEGRAM_BLOCK__
+    <div data-live="telegram">__TELEGRAM_BLOCK__</div>
   </div>
 
   <div class="panel">
     <h2>Уведомления</h2>
-    __PUSH_BLOCK__
+    <div data-live="push">__PUSH_BLOCK__</div>
   </div>
 
   <div class="panel">
     <h2>Тихие часы</h2>
-    __QUIET_BLOCK__
+    <div data-live="quiet">__QUIET_BLOCK__</div>
   </div>
 
   <div class="panel">
@@ -406,5 +406,6 @@ fetch('/api/commands')
     document.getElementById('commands').textContent = 'Не удалось загрузить список команд.';
   });
 </script>
+<script src="/live-page.js" defer></script>
 </body>
 </html>

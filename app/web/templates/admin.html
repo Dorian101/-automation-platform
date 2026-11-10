@@ -23,15 +23,20 @@ __MENU_STYLES__
     <a href="/admin/settings"__ACTIVE_SETTINGS__>Настройки</a>
   </nav>
 
-  __BODY__
+  <div data-live="admin">__BODY__</div>
 </main>
 <script nonce="__CSP_NONCE__">
-  for (const table of document.querySelectorAll("table")) {
-    const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent.trim());
-    for (const row of table.querySelectorAll("tbody tr")) {
-      [...row.cells].forEach((cell, i) => { cell.dataset.label = heads[i] || ""; });
+  function label() {
+    for (const table of document.querySelectorAll("table")) {
+      const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent.trim());
+      for (const row of table.querySelectorAll("tbody tr")) {
+        [...row.cells].forEach((cell, i) => { cell.dataset.label = heads[i] || ""; });
+      }
     }
   }
+  label();
+  document.addEventListener("live-swap", label);
 </script>
+<script src="/live-page.js" defer></script>
 </body>
 </html>

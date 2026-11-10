@@ -268,6 +268,22 @@ renderer calls `showPicker()` to make the whole field behave the same.
   revoked session ends the stream; `WebServer.stop` closes every stream first
   so a restart is not held up; `Cache-Control: no-transform` keeps Caddy's
   `encode` from buffering it
+- Admin channel: a stream opened by an administrator also gets
+  `LiveHub.admin_changed(*pages)` events. Emitted from `WebServer`: a recorded
+  visit → `/admin/visits` and `/admin/sessions`; a sign-in, sign-up, sign-out
+  or an ended or switched account → `/admin/users`; feedback →
+  `/admin/feedback`; a stored ERROR record → `/admin/errors`
+  (`ErrorLogHandler.on_saved`, hopped onto the loop in `main.py`, since a log
+  record can come from any thread). Writes from `app.manage` run in another
+  process and reach no page.
+- The console `/` and the admin pages use `app/web/live_page.js`: on an event
+  for its own path it refetches the page and swaps each `[data-live]` block
+  that changed, re-creating `<script src>` inside it so `push.js` and the
+  Telegram widget run again. A block is left alone while a field in it has
+  focus or has been typed in. The account panels emit `/` for the person on a
+  Telegram link or unlink, a new or removed device, quiet hours and sign-out;
+  `PushRepository.add` reports whether the device is new, because `push.js`
+  re-registers on every load and would otherwise refresh the page in a loop.
 - Page side: a refresh carries the action counter it started at and is dropped
   if an action happened meanwhile; a refresh that cannot run (an action in
   flight, a field being edited) is remembered and run when it can. Without a
@@ -913,9 +929,15 @@ of `/about`, `/project` and `/demo` (`app/web/feedback.js`).
 - The bot's `dp.error()` handler (`app/bot/error_handler.py`) logs the
   exception and answers the message with a fixed `FAILURE_REPLY`; handlers
   catch only `CommandError`, whose text is meant for the user.
-- `/admin/broadcast` sends through the `Notifier` to the linked chats of
-  active accounts. Bot users without a web account are not reachable: there
+- `/admin/broadcast` sends through the `Notifier` to every active account it
+  can reach (`Notifier.reachable`), one message per account: push when the
+  account has devices, else its linked chat. Quiet hours hold it like any
+  other notification. Bot users without a web account are not reachable: there
   is no list of them outside the plugin tables.
+- A plugin's own bot handlers (`BasePlugin.router`) are wrapped by the manager
+  in a middleware that refuses them while the plugin is switched off or the
+  site is in maintenance, with the same texts as commands (`MAINTENANCE`,
+  `DISABLED` in `app/plugins/manager.py`).
 - Task buttons on `/admin/status` run a backup (`manual_…`), the demo
   cleanup and the visit pruning in a thread. The demo cleanup records its
   time under `demo.pruned_at`, which the demo block shows with guest counts

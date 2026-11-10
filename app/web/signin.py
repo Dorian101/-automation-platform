@@ -9,6 +9,7 @@ from app.db.sessions_repo import digest
 from app.db.visits_repo import SIGNIN, SIGNUP
 
 from . import visitor as visit_details
+from .admin import USERS_PATH
 from .auth import (
     SESSION_COOKIE,
     clear_session_cookie,
@@ -206,6 +207,8 @@ class SignInRoutes:
                 identity=str(self._users.identity_for(user)),
                 **self._details(request),
             )
+            self._visit_recorded()
+        self.admin_changed(USERS_PATH)
 
         return response
 
@@ -229,6 +232,9 @@ class SignInRoutes:
 
         self._sessions.delete(token)
         self._push.forget_session(digest(token))
+        self.admin_changed(USERS_PATH)
+        if identity is not None:
+            self._live.changed(identity, "/")
 
         logger.info("Signed out %r", identity.id if identity else "unknown session")
 
@@ -331,6 +337,8 @@ class SignInRoutes:
                 identity=str(self._users.identity_for(user)),
                 **self._details(request),
             )
+            self._visit_recorded()
+        self.admin_changed(USERS_PATH)
 
         return response
 

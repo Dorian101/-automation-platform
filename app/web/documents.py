@@ -18,6 +18,7 @@ from app.db.migrations import MigrationRunner
 from app.db.settings_repo import DEFAULT_FEEDBACK_PER_HOUR
 
 from . import i18n
+from .admin import FEEDBACK_PATH
 from .common import TEMPLATES_DIR
 from .pages import (
     menu_styles,
@@ -88,6 +89,7 @@ SCRIPTS = {
     "/project-page.js": PROJECT_PAGE_JS,
     "/feedback.js": FEEDBACK_JS,
     "/push.js": Path(__file__).resolve().parent / "push.js",
+    "/live-page.js": Path(__file__).resolve().parent / "live_page.js",
     "/sw.js": Path(__file__).resolve().parent / "sw.js",
 }
 
@@ -648,6 +650,7 @@ class DocumentRoutes:
 
         try:
             self._feedback_log.add(text, page)
+            self.admin_changed(FEEDBACK_PATH)
         except Exception:
             logger.exception("Feedback could not be saved")
             return web.json_response({"error": "Не удалось сохранить"}, status=503)

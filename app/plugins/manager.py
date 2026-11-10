@@ -12,6 +12,9 @@ from app.core.results import CommandError, CommandResult
 
 from .base import BasePlugin
 
+MAINTENANCE = "Сервис на обслуживании. Попробуйте чуть позже."
+DISABLED = "Эта команда временно отключена."
+
 
 class PluginManager:
     def __init__(self, logger):
@@ -148,13 +151,13 @@ class PluginManager:
         identity: Identity,
     ) -> CommandResult:
         if self.switches and self.switches.maintenance():
-            raise CommandError("Сервис на обслуживании. Попробуйте чуть позже.")
+            raise CommandError(MAINTENANCE)
 
         plugin = self.find(command)
 
         if plugin is None:
             if any(command in known.commands for known in self._plugins):
-                raise CommandError("Эта команда временно отключена.")
+                raise CommandError(DISABLED)
 
             raise CommandError(f"Unknown command: {command}")
 
@@ -195,6 +198,9 @@ class PluginManager:
             plugin_router = plugin.router()
 
             if plugin_router.message.handlers or plugin_router.callback_query.handlers:
+                gate = self._gate(plugin)
+                plugin_router.message.middleware(gate)
+                plugin_router.callback_query.middleware(gate)
                 router.include_router(plugin_router)
 
         commands_router = Router(name="commands")
@@ -245,9 +251,30 @@ class PluginManager:
 
         return router
 
+    def _refusal(self, plugin: BasePlugin) -> str | None:
+        if self.switches and self.switches.maintenance():
+            return MAINTENANCE
+
+        if plugin not in self._enabled():
+            return DISABLED
+
+        return None
+
+    def _gate(self, plugin: BasePlugin):
+        async def gate(handler, event, data):
+            refusal = self._refusal(plugin)
+
+            if refusal is not None:
+                await event.answer(refusal)
+                return None
+
+            return await handler(event, data)
+
+        return gate
+
     def _receiver(self, flag: str, refusal: str) -> BasePlugin:
         if self.switches and self.switches.maintenance():
-            raise CommandError("Сервис на обслуживании. Попробуйте чуть позже.")
+            raise CommandError(MAINTENANCE)
 
         plugin = next((one for one in self._enabled() if getattr(one, flag)), None)
 

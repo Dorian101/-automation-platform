@@ -301,6 +301,7 @@ class AccountRoutes:
             # is how a stale link gets corrected, and doing it invisibly would
             # leave notifications pointing at a chat nobody expects any more.
             self._links.unlink(user.id)
+            self._account_changed(user)
             logger.info(
                 "Replaced Telegram link for %s: %s -> %s",
                 user.username,
@@ -310,6 +311,7 @@ class AccountRoutes:
 
         try:
             self._links.link(user.id, telegram_user.id)
+            self._account_changed(user)
         except UniqueViolation:
             # Someone else's account holds this chat. Both sides are named:
             # which of the two collided is not something the caller can infer
@@ -353,6 +355,7 @@ class AccountRoutes:
 
         if existing is not None:
             self._links.unlink(user.id)
+            self._account_changed(user)
             logger.info(
                 "Unlinked web account %s from Telegram chat %s",
                 user.username,
@@ -415,7 +418,7 @@ class AccountRoutes:
         label = visit_details.describe(request.headers.get("User-Agent", ""))
 
         try:
-            self._push.add(
+            added = self._push.add(
                 user.id,
                 payload.get("subscription"),
                 label,
@@ -430,6 +433,9 @@ class AccountRoutes:
                 {"error": "Слишком много устройств. Отключите ненужные."}, status=400
             )
 
+        if added:
+            self._account_changed(user)
+
         return web.json_response({"ok": True})
 
     async def _push_unsubscribe(self, request: web.Request) -> web.Response:
@@ -440,8 +446,8 @@ class AccountRoutes:
 
         endpoint = payload.get("endpoint")
 
-        if isinstance(endpoint, str):
-            self._push.remove_endpoint(user.id, endpoint)
+        if isinstance(endpoint, str) and self._push.remove_endpoint(user.id, endpoint):
+            self._account_changed(user)
 
         return web.json_response({"ok": True})
 
@@ -479,8 +485,10 @@ class AccountRoutes:
         user = self._current_user(request)
         device = form_value(form, "id")
 
-        if user is not None and device.isdigit():
-            self._push.remove(user.id, int(device))
+        if user is not None and device.isdigit() and self._push.remove(
+            user.id, int(device)
+        ):
+            self._account_changed(user)
 
         return _redirect("/")
 
@@ -499,6 +507,7 @@ class AccountRoutes:
 
         if form_value(form, "off"):
             self._users.set_quiet_hours(user.id, None, None)
+            self._account_changed(user)
             return _redirect("/")
 
         try:
@@ -511,5 +520,6 @@ class AccountRoutes:
             user.id, start.replace(second=0, microsecond=0),
             end.replace(second=0, microsecond=0),
         )
+        self._account_changed(user)
 
         return _redirect("/")

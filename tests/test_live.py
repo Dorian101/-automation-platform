@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -79,6 +80,24 @@ class TestHub:
         hub.close()
 
         assert hub.subscribe(OWNER) is None
+
+    def test_an_admin_change_reaches_only_admin_tabs(self):
+        hub = LiveHub(Alone())
+        admin, plain = hub.subscribe(OWNER, admin=True), hub.subscribe(OWNER)
+
+        hub.admin_changed("/admin/visits")
+
+        assert admin.get_nowait() == {"page": "/admin/visits", "origin": ""}
+        assert plain.empty()
+
+    def test_an_unsubscribed_admin_tab_hears_nothing(self):
+        hub = LiveHub(Alone())
+        admin = hub.subscribe(OWNER, admin=True)
+
+        hub.unsubscribe(OWNER, admin)
+        hub.admin_changed("/admin/visits")
+
+        assert admin.empty()
 
     def test_close_ends_every_stream(self):
         hub = LiveHub(Alone())
@@ -219,3 +238,52 @@ class TestTheStream:
 
         assert await _next_event(events) == {"page": "/snippets", "origin": ""}
         events.close()
+
+    async def test_an_admin_hears_about_a_visit(self, client, users):
+        users.set_admin(users.get_by_username(TEST_USERNAME).id, True)
+        events = await client.get("/api/events")
+
+        await client.get("/about")
+
+        assert await _next_event(events) == {"page": "/admin/visits", "origin": ""}
+        assert await _next_event(events) == {"page": "/admin/sessions", "origin": ""}
+        events.close()
+
+    async def test_someone_else_does_not_hear_about_visits(self, client):
+        events = await client.get("/api/events")
+
+        await client.get("/about")
+        await self._save(client)
+
+        assert (await _next_event(events))["page"] == "/snippets"
+        events.close()
+
+    async def test_an_admin_hears_about_feedback(self, client, users):
+        users.set_admin(users.get_by_username(TEST_USERNAME).id, True)
+        events = await client.get("/api/events")
+
+        await client.post("/feedback", json={"text": "Хороший сайт", "page": "/about"})
+
+        assert await _next_event(events) == {"page": "/admin/feedback", "origin": ""}
+        events.close()
+
+    async def test_the_console_hears_about_quiet_hours(self, client):
+        page = await (await client.get("/")).text()
+        csrf = re.search(r'name="csrf" value="([^"]+)"', page).group(1)
+        events = await client.get("/api/events")
+
+        await client.post(
+            "/account/quiet",
+            data={"csrf": csrf, "from": "23:00", "to": "08:00"},
+            allow_redirects=False,
+        )
+
+        assert await _next_event(events) == {"page": "/", "origin": ""}
+        events.close()
+
+    async def test_the_console_marks_its_live_blocks(self, client):
+        page = await (await client.get("/")).text()
+
+        assert 'data-live="quiet"' in page
+        assert '<script src="/live-page.js" defer>' in page
+        assert (await client.get("/live-page.js")).status == 200

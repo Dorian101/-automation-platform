@@ -130,6 +130,7 @@ class ConsoleRoutes:
             self._live,
             identity,
             lambda: self._identity(request) == identity,
+            self._is_admin(request),
         )
 
     async def _commands(self, request: web.Request) -> web.Response:

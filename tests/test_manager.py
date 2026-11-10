@@ -1,4 +1,5 @@
 import logging
+from types import SimpleNamespace
 
 import pytest
 
@@ -154,6 +155,60 @@ class TestBuildRouter:
             "menu",
             "commands",
         ]
+
+
+class TestPluginHandlersFollowSwitches:
+    @pytest.fixture
+    def tapped(self, manager):
+        from aiogram import F, Router
+
+        plugin = SnippetsPlugin()
+        own = Router(name="own")
+        seen = []
+
+        @own.callback_query(F.data == "tap")
+        async def tap(callback):
+            seen.append("handled")
+
+        plugin.router = lambda: own
+        manager.register(plugin)
+        state = {"disabled": set(), "maintenance": False}
+        manager.switches = SimpleNamespace(
+            disabled_plugins=lambda: state["disabled"],
+            maintenance=lambda: state["maintenance"],
+        )
+        router = next(
+            sub for sub in manager.build_router().sub_routers if sub.name == "own"
+        )
+
+        class Tap:
+            data = "tap"
+
+            async def answer(self, text):
+                seen.append(text)
+
+        async def press():
+            await router.callback_query.trigger(Tap())
+            return seen
+
+        return state, press
+
+    async def test_an_enabled_plugin_handles_its_button(self, tapped):
+        _, press = tapped
+
+        assert await press() == ["handled"]
+
+    async def test_a_disabled_plugin_refuses_its_button(self, tapped):
+        state, press = tapped
+        state["disabled"] = {"snippets"}
+
+        assert await press() == ["Эта команда временно отключена."]
+
+    async def test_maintenance_refuses_a_plugin_button(self, tapped):
+        state, press = tapped
+        state["maintenance"] = True
+
+        assert await press() == ["Сервис на обслуживании. Попробуйте чуть позже."]
 
 
 class TestTelegramDispatch:

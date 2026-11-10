@@ -2922,3 +2922,26 @@ with actions. The owner asked for changes to show on every device in real time.
 - iOS drops the stream of a backgrounded app; the page closes it when hidden
   and refreshes on return, so nothing depends on background delivery.
 
+
+## 2026-11-10
+
+### Decision
+Update the console and admin pages live: emit from the web server, swap blocks
+
+### Why
+
+Admin events are emitted where `WebServer` writes (visit middleware, sign-in,
+sign-up, sign-out, feedback, admin actions) and from `ErrorLogHandler`, not
+inside the repositories. The repositories are also used by `app.manage`,
+which runs in its own process and cannot reach the in-memory hub anyway, and
+an emit in a repository would mean handing a hub to every place one is built.
+
+The console and admin pages are server-rendered HTML, not plugin views, so
+`live_page.js` refetches the page and replaces the `[data-live]` blocks that
+changed instead of re-rendering from JSON. The command line and its output
+are outside those blocks and survive. A block someone is typing in is skipped
+until the page is reloaded, so a half-written form is never wiped.
+
+The share target for "Поделиться" was dropped: neither iOS nor Safari nor
+desktop Chrome supports it for web apps, and the iPhone Shortcut with a key
+already covers saving a link.

@@ -122,8 +122,8 @@ class TestRepository:
         self, push, owner_id, users
     ):
         other = users.create("other", "another-long-password").id
-        push.add(owner_id, _subscription(), "Mac · Safari")
-        push.add(owner_id, _subscription(), "Mac · Safari")
+        assert push.add(owner_id, _subscription(), "Mac · Safari") is True
+        assert push.add(owner_id, _subscription(), "Mac · Safari") is False
 
         assert len(push.devices(owner_id)) == 1
 

@@ -39,7 +39,6 @@ from app.db.backup import BackupManager
 from app.db.database import Database
 from app.db.errors_repo import AppError, ErrorsRepository
 from app.db.feedback_repo import Feedback, FeedbackRepository
-from app.db.links_repo import TelegramLinksRepository
 from app.db.sessions_repo import (
     ACTIVE_MINUTES,
     ActiveSession,
@@ -72,6 +71,10 @@ USERS_PATH = ADMIN_PREFIX + "/users"
 STATUS_PATH = ADMIN_PREFIX + "/status"
 SETTINGS_PATH = ADMIN_PREFIX + "/settings"
 BROADCAST_PATH = ADMIN_PREFIX + "/broadcast"
+VISITS_PATH = ADMIN_PREFIX + "/visits"
+SESSIONS_PATH = ADMIN_PREFIX + "/sessions"
+FEEDBACK_PATH = ADMIN_PREFIX + "/feedback"
+ERRORS_PATH = ADMIN_PREFIX + "/errors"
 
 #: The longest announcement: one Telegram message.
 BROADCAST_LIMIT = 4096
@@ -136,14 +139,16 @@ class AdminArea:
         settings: SettingsRepository | None = None,
         manager=None,
         notifier=None,
+        *,
+        changed: Callable[..., None],
     ) -> None:
+        self._changed = changed
         self._users = users
         self._sessions = sessions
         self._visits = visits
         self._database = database
         self._feedback = FeedbackRepository(database)
         self._errors = ErrorsRepository(database)
-        self._links = TelegramLinksRepository(database)
         # The same switches the web server and the bot read, so a change here
         # applies at once rather than after the cache runs out.
         self._settings = settings or SettingsRepository(database)
@@ -397,15 +402,17 @@ class AdminArea:
         """The application's recent ERROR records, newest first."""
         return self._page("errors", _error_rows(self._errors.recent()), request)
 
-    def _broadcast_chats(self) -> list[int]:
-        chats = []
+    def _broadcast_targets(self) -> list[Identity]:
+        if self._notifier is None:
+            return []
 
-        for link in self._links.list_all():
-            account = self._users.get_by_id(link.user_id)
-            if account is not None and account.is_active:
-                chats.append(link.telegram_id)
+        targets = (
+            self._users.identity_for(account)
+            for account in self._users.list_all()
+            if account.is_active
+        )
 
-        return chats
+        return [target for target in targets if self._notifier.reachable(target)]
 
     async def broadcast_page(self, request: web.Request) -> web.Response:
         flash = ""
@@ -416,7 +423,7 @@ class AdminArea:
 
         body = _fragment("admin_broadcast.html", {
             "__FLASH__": flash,
-            "__COUNT__": str(len(self._broadcast_chats())),
+            "__COUNT__": str(len(self._broadcast_targets())),
             "__CSRF_FIELD__": CSRF_FIELD,
             "__CSRF__": self._token(request),
             "__MAX__": str(BROADCAST_LIMIT),
@@ -425,34 +432,27 @@ class AdminArea:
         return self._page("broadcast", body, request)
 
     async def broadcast_send(self, request: web.Request) -> web.Response:
-        """Send the text to every linked active account, one chat at a time.
-
-        A short pause between chats keeps well under Telegram's limit of
-        thirty messages a second; a failed chat is counted and skipped.
-        """
         form = await request.post()
 
         if not self._token_ok(request, form):
             return token_rejected(request, BROADCAST_PATH)
 
         text = _form_value(form, "text").strip()[:BROADCAST_LIMIT]
-        chats = self._broadcast_chats()
+        targets = self._broadcast_targets()
         sent = 0
 
-        if text and self._notifier is not None:
-            for chat in chats:
+        if text:
+            for target in targets:
                 try:
-                    if await self._notifier.deliver(
-                        Identity("telegram", str(chat)), text
-                    ):
+                    if await self._notifier.deliver(target, text):
                         sent += 1
                 except Exception:
-                    logger.exception("Announcement to %s failed", chat)
+                    logger.exception("Announcement to %s failed", target)
                 await asyncio.sleep(0.05)
 
-        logger.info("Announcement sent to %s of %s chat(s)", sent, len(chats))
+        logger.info("Announcement sent to %s of %s account(s)", sent, len(targets))
 
-        return redirect(f"{BROADCAST_PATH}?sent={sent}&of={len(chats)}")
+        return redirect(f"{BROADCAST_PATH}?sent={sent}&of={len(targets)}")
 
     async def run_task(self, request: web.Request) -> web.Response:
         """Run one of the scheduled jobs now: a backup or a cleanup."""
@@ -493,6 +493,7 @@ class AdminArea:
 
         if self._sessions.delete_by_id(int(request.match_info["session_id"])):
             logger.info("Session ended from the admin area")
+            self._changed(USERS_PATH)
 
         return redirect(USERS_PATH)
 
@@ -566,6 +567,7 @@ class AdminArea:
 
         if account is not None:
             self._users.set_active(account.id, active)
+            self._changed(USERS_PATH)
 
             logger.info(
                 "%s web account %r",

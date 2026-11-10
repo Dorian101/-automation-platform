@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from contextlib import suppress
 
 from app.bot.bot import create_bot, create_dispatcher
 from app.bot.error_handler import register_error_handler
@@ -32,6 +33,7 @@ from app.plugins.snippets import SnippetsPlugin
 from app.plugins.system import SystemPlugin
 from app.plugins.todo import TodoPlugin
 from app.web import WebServer
+from app.web.admin import ERRORS_PATH
 
 # sysexits EX_CONFIG: the process is misconfigured and retrying will not help.
 # Distinct from other failures so systemd can keep restarting those.
@@ -73,7 +75,8 @@ async def main() -> None:
 
     # After the migrations, so the table exists. Errors from here on are also
     # readable on /admin/errors, which the journal is not to this user.
-    logging.getLogger().addHandler(ErrorLogHandler(ErrorsRepository(database)))
+    error_log = ErrorLogHandler(ErrorsRepository(database))
+    logging.getLogger().addHandler(error_log)
 
     register_error_handler(dp)
 
@@ -106,6 +109,13 @@ async def main() -> None:
         port=Config.WEB_PORT,
         notifier=notifier,
     )
+    loop = asyncio.get_running_loop()
+
+    def errors_changed() -> None:
+        with suppress(RuntimeError):
+            loop.call_soon_threadsafe(web.admin_changed, ERRORS_PATH)
+
+    error_log.on_saved = errors_changed
 
     await manager.startup()
 

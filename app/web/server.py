@@ -22,7 +22,7 @@ from app.plugins.manager import PluginManager
 from . import i18n
 from . import visitor as visit_details
 from .account import AccountRoutes
-from .admin import AdminArea
+from .admin import SESSIONS_PATH, VISITS_PATH, AdminArea
 from .auth import (
     SESSION_COOKIE,
     resolve_identity,
@@ -101,6 +101,7 @@ PUBLIC_PATHS = {
     "/feedback",
     LINKS_API_PATH,
     "/push.js",
+    "/live-page.js",
     "/sw.js",
     "/feedback.js",
 }
@@ -259,6 +260,15 @@ class WebServer(AccountRoutes, SignInRoutes, ConsoleRoutes, DocumentRoutes, Link
 
         return attic(menu, account_block(user.username, token, extra=switch, lang=lang))
 
+    def _account_changed(self, user) -> None:
+        self._live.changed(self._users.identity_for(user), "/")
+
+    def admin_changed(self, *pages: str) -> None:
+        self._live.admin_changed(*pages)
+
+    def _visit_recorded(self) -> None:
+        self._live.admin_changed(VISITS_PATH, SESSIONS_PATH)
+
     def _is_admin(self, request: web.Request) -> bool:
         user = resolve_user(request, self._users, self._sessions)
         return user is not None and user.is_admin
@@ -290,6 +300,7 @@ class WebServer(AccountRoutes, SignInRoutes, ConsoleRoutes, DocumentRoutes, Link
                 referrer=_referrer_origin(request),
                 **self._details(request),
             )
+            self._visit_recorded()
 
         return response
 
@@ -450,6 +461,7 @@ class WebServer(AccountRoutes, SignInRoutes, ConsoleRoutes, DocumentRoutes, Link
                 web.get(LINKS_SAVE_PATH, self._save_link_form),
                 web.post(LINKS_SAVE_PATH, self._save_link_submit),
                 web.get("/push.js", self._script),
+                web.get("/live-page.js", self._script),
                 web.get("/sw.js", self._script),
                 web.post("/api/push/subscribe", self._push_subscribe),
                 web.post("/api/push/unsubscribe", self._push_unsubscribe),
@@ -482,6 +494,7 @@ class WebServer(AccountRoutes, SignInRoutes, ConsoleRoutes, DocumentRoutes, Link
             settings=self._settings,
             manager=self._manager,
             notifier=self._notifier,
+            changed=self.admin_changed,
         ).install(app)
 
         return app

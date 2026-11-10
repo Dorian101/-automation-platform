@@ -6,15 +6,18 @@ import re
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-from app.core.identity import Identity, guest
+from app.core.identity import TELEGRAM, WEB, Identity, guest
 from app.core.results import CommandError
 from app.db import errors_repo
 from app.db.errors_repo import ErrorLogHandler, ErrorsRepository
 from app.db.links_repo import TelegramLinksRepository
+from app.db.push_repo import PushRepository
 from app.db.sessions_repo import SessionsRepository
 from app.db.settings_repo import SettingsRepository
+from app.notifications import LinkedChatResolver, Notifier
 from app.plugins.todo import TodoPlugin
 from tests.conftest import TEST_PASSWORD, TEST_USERNAME
+from tests.test_push import _subscription
 
 
 class FakeNotifier:
@@ -23,6 +26,9 @@ class FakeNotifier:
 
     async def deliver(self, target, text, **_):
         self.sent.append((target, text))
+        return True
+
+    def reachable(self, target):
         return True
 
 
@@ -154,24 +160,64 @@ class TestErrors:
         assert "&lt;b&gt;boom&lt;/b&gt;" in body
 
 
-class TestBroadcast:
-    async def test_every_linked_active_account_gets_it(
-        self, admin, users, create_user, notifier, database_with_schema
-    ):
-        links = TelegramLinksRepository(database_with_schema)
-        links.link(users.get_by_username(TEST_USERNAME).id, 111)
-        off = create_user(username="gone", password=TEST_PASSWORD)
-        links.link(off.id, 222)
-        users.set_active(off.id, False)
+class Channel:
+    def __init__(self, kind, reaches=None):
+        self.kind = kind
+        self.received = []
+        if reaches is not None:
+            self.reaches = reaches
 
+    async def deliver(self, target, text, **_):
+        self.received.append((target, text))
+        return True
+
+
+class TestBroadcast:
+    @pytest.fixture
+    def channels(self, database_with_schema):
+        push = PushRepository(database_with_schema)
+        return (
+            Channel(WEB, reaches=lambda target: bool(push.subscriptions(target))),
+            Channel(TELEGRAM),
+        )
+
+    @pytest.fixture
+    def notifier(self, channels, users, database_with_schema):
+        return Notifier(
+            list(channels),
+            resolver=LinkedChatResolver(
+                users,
+                TelegramLinksRepository(database_with_schema),
+                PushRepository(database_with_schema),
+            ),
+        )
+
+    async def test_push_first_then_telegram_for_every_active_account(
+        self, admin, users, create_user, channels, database_with_schema
+    ):
+        web_channel, telegram_channel = channels
+        links = TelegramLinksRepository(database_with_schema)
+        PushRepository(database_with_schema).add(
+            users.get_by_username(TEST_USERNAME).id, _subscription(), "Mac"
+        )
+        chat_only = create_user(username="chat", password=TEST_PASSWORD)
+        links.link(chat_only.id, 111)
+        create_user(username="nowhere", password=TEST_PASSWORD)
+        gone = create_user(username="gone", password=TEST_PASSWORD)
+        links.link(gone.id, 222)
+        users.set_active(gone.id, False)
+
+        page = await (await admin.get("/admin/broadcast")).text()
         response = await admin.post(
             "/admin/broadcast",
             data={"csrf": await _token(admin, "/admin/broadcast"), "text": "Привет"},
             allow_redirects=False,
         )
 
-        assert response.headers["Location"] == "/admin/broadcast?sent=1&of=1"
-        assert notifier.sent == [(Identity("telegram", "111"), "Привет")]
+        assert "сейчас" in page.lower() and "<b>2</b>" in page
+        assert response.headers["Location"] == "/admin/broadcast?sent=2&of=2"
+        assert web_channel.received == [(Identity(WEB, TEST_USERNAME), "Привет")]
+        assert telegram_channel.received == [(Identity(TELEGRAM, "111"), "Привет")]
 
 
 class TestTasks:
@@ -250,6 +296,25 @@ def test_a_database_outage_pauses_the_error_log(monkeypatch):
     handler.emit(record)
 
     assert len(calls) == 1
+
+
+def test_a_saved_error_is_announced_and_a_lost_one_is_not(database_with_schema):
+    announced = []
+    record = logging.LogRecord("x", logging.ERROR, "", 0, "boom", None, None)
+    saving = ErrorLogHandler(ErrorsRepository(database_with_schema))
+    saving.on_saved = lambda: announced.append("saved")
+
+    class Down:
+        def add(self, *args):
+            raise ConnectionError("database is down")
+
+    losing = ErrorLogHandler(Down())
+    losing.on_saved = lambda: announced.append("lost")
+
+    saving.emit(record)
+    losing.emit(record)
+
+    assert announced == ["saved"]
 
 
 class TestActiveMeansInUse:

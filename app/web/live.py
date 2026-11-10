@@ -24,12 +24,15 @@ class LiveHub:
     def __init__(self, persons):
         self._persons = persons
         self._queues: dict[str, set[asyncio.Queue]] = {}
+        self._admins: set[asyncio.Queue] = set()
         self._closed = False
 
     def _keys(self, identity: Identity) -> set[str]:
         return set(ids_of(self._persons.identities(identity)))
 
-    def subscribe(self, identity: Identity) -> asyncio.Queue | None:
+    def subscribe(
+        self, identity: Identity, admin: bool = False
+    ) -> asyncio.Queue | None:
         if self._closed:
             return None
 
@@ -43,11 +46,14 @@ class LiveHub:
 
         queue = asyncio.Queue(QUEUE_SIZE)
         mine.add(queue)
+        if admin:
+            self._admins.add(queue)
         return queue
 
     def unsubscribe(self, identity: Identity, queue: asyncio.Queue) -> None:
         key = str(identity)
         mine = self._queues.get(key)
+        self._admins.discard(queue)
 
         if mine is None:
             return
@@ -67,10 +73,11 @@ class LiveHub:
         message = {"page": page, "origin": origin}
 
         for key in self._keys(identity):
-            for queue in self._queues.get(key, ()):
-                if queue.full():
-                    continue
-                queue.put_nowait(message)
+            _offer(self._queues.get(key, ()), message)
+
+    def admin_changed(self, *pages: str) -> None:
+        for page in pages:
+            _offer(self._admins, {"page": page, "origin": ""})
 
     def close(self) -> None:
         self._closed = True
@@ -81,13 +88,20 @@ class LiveHub:
                 queue.put_nowait(CLOSE)
 
 
+def _offer(queues: Iterable[asyncio.Queue], message: dict) -> None:
+    for queue in queues:
+        if not queue.full():
+            queue.put_nowait(message)
+
+
 async def stream(
     request: web.Request,
     hub: LiveHub,
     identity: Identity,
     still_signed_in,
+    admin: bool = False,
 ) -> web.StreamResponse:
-    queue = hub.subscribe(identity)
+    queue = hub.subscribe(identity, admin)
 
     if queue is None:
         return web.json_response({"error": "Too many connections"}, status=429)

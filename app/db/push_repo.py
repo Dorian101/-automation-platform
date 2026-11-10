@@ -94,7 +94,7 @@ class PushRepository:
     def __init__(self, database: Database | None = None):
         self.database = database or Database()
 
-    def add(self, user_id: int, subscription, label: str, session: str = "") -> None:
+    def add(self, user_id: int, subscription, label: str, session: str = "") -> bool:
         endpoint, p256dh, auth = checked(subscription)
 
         with self.database.connect() as conn:
@@ -118,10 +118,14 @@ class PushRepository:
                     SET user_id = EXCLUDED.user_id, p256dh = EXCLUDED.p256dh,
                         auth = EXCLUDED.auth, label = EXCLUDED.label,
                         session_hash = EXCLUDED.session_hash
+                    RETURNING xmax = 0
                     """,
                     (user_id, endpoint, p256dh, auth, label[:80], session),
                 )
+                added = cur.fetchone()[0]
             conn.commit()
+
+        return added
 
     def devices(self, user_id: int) -> list[dict]:
         with self.database.connect() as conn:

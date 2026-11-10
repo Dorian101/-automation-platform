@@ -80,6 +80,7 @@ class ErrorLogHandler(logging.Handler):
     def __init__(self, repository: ErrorsRepository):
         super().__init__(level=logging.ERROR)
         self._repository = repository
+        self.on_saved = None
         self._paused_until = 0.0
         self._outage_start = None
         self._outage_last = None
@@ -108,6 +109,10 @@ class ErrorLogHandler(logging.Handler):
             self._repository.add(record.name, message, details)
         except Exception:  # noqa: BLE001 — see the class docstring
             self._paused_until = time.monotonic() + PAUSE_SECONDS
+            return
+
+        if self.on_saved is not None:
+            self.on_saved()
 
     def _outage_lasts(self, now: float) -> bool:
         if self._outage_last is None or now - self._outage_last > OUTAGE_GAP_SECONDS:
