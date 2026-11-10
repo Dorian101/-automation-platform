@@ -279,8 +279,11 @@ renderer calls `showPicker()` to make the whole field behave the same.
 - The console `/` and the admin pages use `app/web/live_page.js`: on an event
   for its own path it refetches the page and swaps each `[data-live]` block
   that changed, re-creating `<script src>` inside it so `push.js` and the
-  Telegram widget run again. A block is left alone while a field in it has
-  focus or has been typed in. The account panels emit `/` for the person on a
+  Telegram widget run again. A block someone has typed in is left alone until
+  the page is reloaded; focus alone does not hold a refresh back (`/admin/visits`
+  autofocuses its filter) and is put back on the same field after the swap.
+  Without a ping for 30 s the page polls itself every 10 s: some networks (a
+  corporate proxy on the work laptop) buffer the event stream. The account panels emit `/` for the person on a
   Telegram link or unlink, a new or removed device, quiet hours and sign-out;
   `PushRepository.add` reports whether the device is new, because `push.js`
   re-registers on every load and would otherwise refresh the page in a loop.

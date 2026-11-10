@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.91.0
+v0.91.1
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -287,6 +287,8 @@ Implemented:
   announcement reaches every active account, by push when it has the app and
   by Telegram otherwise; a plugin's bot buttons (snooze) answer «временно
   отключена» while the plugin is off and refuse during maintenance
+* since v0.91.1 the admin pages refresh while their filter field has focus,
+  and fall back to polling every 10 s where the event stream is buffered
 
 ⸻
 
