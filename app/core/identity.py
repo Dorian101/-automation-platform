@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 TELEGRAM = "telegram"
@@ -71,3 +72,14 @@ def is_guest(identity: Identity) -> bool:
     carry it, because a username is restricted to `[A-Za-z0-9._-]`.
     """
     return identity.kind == WEB and identity.id.startswith(f"{GUEST}:")
+
+
+def as_tuple(identity: Identity | Iterable[Identity]) -> tuple[Identity, ...]:
+    if isinstance(identity, Identity):
+        return (identity,)
+
+    return tuple(identity)
+
+
+def ids_of(identity: Identity | Iterable[Identity]) -> list[str]:
+    return [str(one) for one in as_tuple(identity)]

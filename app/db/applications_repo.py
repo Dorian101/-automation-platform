@@ -1,21 +1,9 @@
 from collections.abc import Iterable
 from datetime import date
 
-from app.core.identity import Identity
+from app.core.identity import Identity, as_tuple, ids_of
 
 from .database import Database
-
-
-def _as_tuple(identity: Identity | Iterable[Identity]) -> tuple[Identity, ...]:
-    """Accept one identity or several, so callers can widen a read."""
-    if isinstance(identity, Identity):
-        return (identity,)
-
-    return tuple(identity)
-
-
-def _ids(identity: Identity | Iterable[Identity]) -> list[str]:
-    return [str(one) for one in _as_tuple(identity)]
 
 
 class ApplicationsRepository:
@@ -73,7 +61,7 @@ class ApplicationsRepository:
         Widened across a linked pair the same way notes and expenses are, so
         an application added in the bot is listed in the console.
         """
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -84,7 +72,7 @@ class ApplicationsRepository:
                     WHERE user_id = ANY(%s)
                     ORDER BY applied_at DESC, id DESC
                     """,
-                    ([str(one) for one in identities],),
+                    (ids_of(identities),),
                 )
 
                 return [
@@ -120,7 +108,7 @@ class ApplicationsRepository:
                     SET status = %s
                     WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (status, application_id, _ids(identity)),
+                    (status, application_id, ids_of(identity)),
                 )
                 updated = cur.rowcount
             conn.commit()
@@ -135,7 +123,7 @@ class ApplicationsRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     "DELETE FROM job_applications WHERE id = %s AND user_id = ANY(%s)",
-                    (application_id, _ids(identity)),
+                    (application_id, ids_of(identity)),
                 )
                 deleted = cur.rowcount
             conn.commit()
@@ -152,7 +140,7 @@ class ApplicationsRepository:
         the page turns these numbers into shares rather than counting rows
         itself, so the chart and the table below it cannot disagree.
         """
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -163,7 +151,7 @@ class ApplicationsRepository:
                     WHERE user_id = ANY(%s)
                     GROUP BY status
                     """,
-                    ([str(one) for one in identities],),
+                    (ids_of(identities),),
                 )
 
                 return {row[0]: row[1] for row in cur.fetchall()}

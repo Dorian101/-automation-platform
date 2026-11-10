@@ -106,17 +106,3 @@ class NotesPlugin(BasePlugin):
             return reply("Deleted 1 note")
 
         return reply(f"Deleted {removed} notes")
-
-    def _readable_as(self, identity: Identity):
-        """The identities whose notes are this person's to read and delete.
-
-        Widening a read without widening deletion would leave a note visible in
-        the console and impossible to remove from it.
-
-        Falls back to the identity alone, so a plugin built without a resolver
-        behaves exactly as it did before pairing existed.
-        """
-        if self._persons is None:
-            return identity
-
-        return self._persons.identities(identity)

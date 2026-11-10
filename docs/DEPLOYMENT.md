@@ -773,7 +773,7 @@ action and an attempted one are distinguishable in `journalctl`.
 ## Search engines
 
 Nothing here is a file. `/robots.txt` and `/sitemap.xml` are routes generated
-per request, from `INDEXABLE_PATHS` in `app/web/server.py`, so `find` will not
+per request, from `INDEXABLE_PATHS` in `app/web/documents.py`, so `find` will not
 turn either one up on disk. Check them over HTTP:
 
 ```bash

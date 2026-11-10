@@ -661,7 +661,7 @@ async def _verify() -> int:
     from app.main import build_manager
     from app.notifications import Notifier
     from app.web.auth import AUTH_HEADER
-    from app.web.server import TRACE_SCENARIOS
+    from app.web.documents import TRACE_SCENARIOS
 
     base = f"http://{Config.WEB_HOST}:{Config.WEB_PORT}"
     failures = []

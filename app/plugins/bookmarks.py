@@ -603,12 +603,6 @@ class BookmarksPlugin(BasePlugin):
             "actions": "actions",
         }
 
-    def _readable_as(self, identity: Identity):
-        if self._persons is None:
-            return identity
-
-        return self._persons.identities(identity)
-
 
 def _id(payload: dict) -> int:
     value = payload.get("id", "")

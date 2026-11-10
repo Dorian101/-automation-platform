@@ -1212,15 +1212,3 @@ class ExpensesPlugin(BasePlugin):
         return self.repo.add_category(self._readable_as(identity), name)
 
     # -- shared -------------------------------------------------------------
-
-    def _readable_as(self, identity: Identity):
-        """Whose spending this read covers.
-
-        Widened across a linked pair, the same rule notes and clipboard follow,
-        so an expense entered in the bot appears in the console. Falls back to
-        the identity alone for a plugin built without a resolver.
-        """
-        if self._persons is None:
-            return identity
-
-        return self._persons.identities(identity)

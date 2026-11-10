@@ -2,21 +2,9 @@ from collections.abc import Iterable
 from datetime import date
 from decimal import Decimal
 
-from app.core.identity import Identity
+from app.core.identity import Identity, as_tuple, ids_of
 
 from .database import Database
-
-
-def _as_tuple(identity: Identity | Iterable[Identity]) -> tuple[Identity, ...]:
-    """Accept one identity or several, so callers can widen a read."""
-    if isinstance(identity, Identity):
-        return (identity,)
-
-    return tuple(identity)
-
-
-def _ids(identity: Identity | Iterable[Identity]) -> list[str]:
-    return [str(one) for one in _as_tuple(identity)]
 
 
 class ExpensesRepository:
@@ -38,7 +26,7 @@ class ExpensesRepository:
         name: str,
     ) -> int:
         """Create a category at the end of the list, returning its id."""
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -55,7 +43,7 @@ class ExpensesRepository:
                     ), 1))
                     RETURNING id
                     """,
-                    (str(identities[0]), name, [str(one) for one in identities]),
+                    (str(identities[0]), name, ids_of(identities)),
                 )
                 category_id = cur.fetchone()[0]
             conn.commit()
@@ -73,7 +61,7 @@ class ExpensesRepository:
         count, so the interface can say whether retiring it would leave rows
         behind rather than letting the user discover it afterwards.
         """
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -90,7 +78,7 @@ class ExpensesRepository:
                     GROUP BY c.id
                     ORDER BY c.position, c.id
                     """,
-                    ([str(one) for one in identities], include_archived),
+                    (ids_of(identities), include_archived),
                 )
 
                 return [
@@ -115,7 +103,7 @@ class ExpensesRepository:
         A delete would cascade into the expenses and silently rewrite a month's
         total. Returns whether the category was there and still active.
         """
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -127,7 +115,7 @@ class ExpensesRepository:
                         AND user_id = ANY(%s)
                         AND NOT is_archived
                     """,
-                    (category_id, [str(one) for one in identities]),
+                    (category_id, ids_of(identities)),
                 )
                 archived = cur.rowcount
             conn.commit()
@@ -144,7 +132,7 @@ class ExpensesRepository:
         A name taken by an active category makes the unique index refuse,
         which the caller words.
         """
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -159,7 +147,7 @@ class ExpensesRepository:
                         LIMIT 1
                     )
                     """,
-                    ([str(one) for one in identities], name),
+                    (ids_of(identities), name),
                 )
                 restored = cur.rowcount
             conn.commit()
@@ -177,7 +165,7 @@ class ExpensesRepository:
         The unique index on active names refuses a name already taken, and the
         caller words that. Returns whether the category was there.
         """
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -189,7 +177,7 @@ class ExpensesRepository:
                         AND user_id = ANY(%s)
                         AND NOT is_archived
                     """,
-                    (name, category_id, [str(one) for one in identities]),
+                    (name, category_id, ids_of(identities)),
                 )
                 renamed = cur.rowcount
             conn.commit()
@@ -248,7 +236,7 @@ class ExpensesRepository:
 
         ``limit=None`` is every row: a month is bounded by the month itself.
         """
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -265,7 +253,7 @@ class ExpensesRepository:
                     LIMIT %s
                     """,
                     (
-                        [str(one) for one in identities],
+                        ids_of(identities),
                         month,
                         month,
                         category_id,
@@ -299,7 +287,7 @@ class ExpensesRepository:
                     JOIN expense_categories c ON c.id = e.category_id
                     WHERE e.id = %s AND e.user_id = ANY(%s)
                     """,
-                    (expense_id, _ids(identity)),
+                    (expense_id, ids_of(identity)),
                 )
                 row = cur.fetchone()
 
@@ -348,7 +336,7 @@ class ExpensesRepository:
                         spent_at,
                         note,
                         expense_id,
-                        _ids(identity),
+                        ids_of(identity),
                         category_id,
                     ),
                 )
@@ -363,7 +351,7 @@ class ExpensesRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     "DELETE FROM expenses WHERE id = %s AND user_id = ANY(%s)",
-                    (expense_id, _ids(identity)),
+                    (expense_id, ids_of(identity)),
                 )
                 deleted = cur.rowcount
             conn.commit()
@@ -380,13 +368,13 @@ class ExpensesRepository:
         and would report the cap instead of the truth once a namespace is
         past it.
         """
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "SELECT count(*) FROM expenses WHERE user_id = ANY(%s)",
-                    ([str(one) for one in identities],),
+                    (ids_of(identities),),
                 )
 
                 return cur.fetchone()[0]
@@ -405,7 +393,7 @@ class ExpensesRepository:
         report is not, and a month boundary shifted by an offset puts the
         first expense of the month into the previous one.
         """
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -420,7 +408,7 @@ class ExpensesRepository:
                     GROUP BY c.id, c.name
                     ORDER BY total DESC
                     """,
-                    ([str(one) for one in identities], month),
+                    (ids_of(identities), month),
                 )
 
                 return [
@@ -439,7 +427,7 @@ class ExpensesRepository:
         month: str,
     ) -> Decimal:
         """Everything spent in a month, across all categories."""
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -451,7 +439,7 @@ class ExpensesRepository:
                         AND date_trunc('month', spent_at)
                             = to_date(%s || '-01', 'YYYY-MM-DD')
                     """,
-                    ([str(one) for one in identities], month),
+                    (ids_of(identities), month),
                 )
 
                 return Decimal(cur.fetchone()[0])
@@ -465,7 +453,7 @@ class ExpensesRepository:
         The dropdown is built from what is actually there, so it cannot offer a
         month with nothing in it and cannot omit one that has data.
         """
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -478,7 +466,7 @@ class ExpensesRepository:
                     WHERE user_id = ANY(%s)
                     ORDER BY 1 DESC
                     """,
-                    ([str(one) for one in identities],) * 2,
+                    (ids_of(identities),) * 2,
                 )
 
                 return [row[0] for row in cur.fetchall()]
@@ -511,7 +499,7 @@ class ExpensesRepository:
         month: str,
     ) -> list[dict]:
         """One month's incomes, newest first."""
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -524,7 +512,7 @@ class ExpensesRepository:
                             = to_date(%s || '-01', 'YYYY-MM-DD')
                     ORDER BY received_at DESC, id DESC
                     """,
-                    ([str(one) for one in identities], month),
+                    (ids_of(identities), month),
                 )
 
                 return [
@@ -549,7 +537,7 @@ class ExpensesRepository:
                     SELECT id, kind, amount, received_at, note
                     FROM incomes WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (income_id, _ids(identity)),
+                    (income_id, ids_of(identity)),
                 )
                 row = cur.fetchone()
 
@@ -582,7 +570,7 @@ class ExpensesRepository:
                     SET kind = %s, amount = %s, received_at = %s, note = %s
                     WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (kind, amount, received_at, note, income_id, _ids(identity)),
+                    (kind, amount, received_at, note, income_id, ids_of(identity)),
                 )
                 updated = cur.rowcount
             conn.commit()
@@ -597,7 +585,7 @@ class ExpensesRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     "DELETE FROM incomes WHERE id = %s AND user_id = ANY(%s)",
-                    (income_id, _ids(identity)),
+                    (income_id, ids_of(identity)),
                 )
                 deleted = cur.rowcount
             conn.commit()
@@ -606,13 +594,13 @@ class ExpensesRepository:
 
     def income_count(self, identity: Identity | Iterable[Identity]) -> int:
         """How many incomes this read would see, for the guest cap."""
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "SELECT count(*) FROM incomes WHERE user_id = ANY(%s)",
-                    ([str(one) for one in identities],),
+                    (ids_of(identities),),
                 )
 
                 return cur.fetchone()[0]

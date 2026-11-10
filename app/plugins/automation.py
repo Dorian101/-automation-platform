@@ -632,9 +632,3 @@ class AutomationPlugin(BasePlugin):
                 for run in self.repo.runs(readable)
             ],
         }
-
-    def _readable_as(self, identity: Identity):
-        if self._persons is None:
-            return identity
-
-        return self._persons.identities(identity)

@@ -72,6 +72,13 @@ class BasePlugin(ABC):
         raise CommandError(f"{self.name}: links are not accepted")
 
     notify_change = None
+    _persons = None
+
+    def _readable_as(self, identity: Identity):
+        if self._persons is None:
+            return identity
+
+        return self._persons.identities(identity)
 
     def changed(self, identity: Identity, origin: str = "") -> None:
         if self.notify_change is not None and self.page:

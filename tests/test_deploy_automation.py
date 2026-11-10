@@ -293,6 +293,20 @@ class TestDailyAudit:
         assert all("uses" not in step for step in audit["jobs"]["audit"]["steps"])
 
 
+class TestRelease:
+    @pytest.fixture
+    def release(self) -> dict:
+        path = ROOT / ".github" / "workflows" / "release.yml"
+        return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    def test_it_runs_only_for_version_tags(self, release):
+        assert _triggers(release) == {"push": {"tags": ["v*"]}}
+
+    def test_it_writes_only_releases(self, release):
+        assert release["permissions"] == {"contents": "write"}
+        assert all("uses" not in step for step in release["jobs"]["release"]["steps"])
+
+
 UPDATE_CHECK = ROOT / "scripts" / "update-check.sh"
 
 

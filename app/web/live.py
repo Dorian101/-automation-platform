@@ -5,7 +5,7 @@ from collections.abc import Iterable
 
 from aiohttp import web
 
-from app.core.identity import Identity
+from app.core.identity import Identity, ids_of
 
 MAX_PER_PERSON = 20
 MAX_TOTAL = 500
@@ -27,7 +27,7 @@ class LiveHub:
         self._closed = False
 
     def _keys(self, identity: Identity) -> set[str]:
-        return {str(one) for one in self._persons.identities(identity)}
+        return set(ids_of(self._persons.identities(identity)))
 
     def subscribe(self, identity: Identity) -> asyncio.Queue | None:
         if self._closed:

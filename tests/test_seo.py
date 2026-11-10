@@ -17,7 +17,7 @@ import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
 from app.core.config import Config
-from app.web.server import INDEXABLE_PATHS
+from app.web.documents import INDEXABLE_PATHS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -30,7 +30,7 @@ TEST_BASE_URL = "https://public.example"
 @pytest.fixture
 def web_server(pages_manager, database_with_schema, monkeypatch,
                web_server_factory):
-    monkeypatch.setattr("app.web.server.PUBLIC_BASE_URL", TEST_BASE_URL)
+    monkeypatch.setattr("app.web.documents.PUBLIC_BASE_URL", TEST_BASE_URL)
 
     return web_server_factory(pages_manager, database_with_schema)
 
@@ -659,7 +659,7 @@ class TestWhenTheLinkIsShared:
         """`PUBLIC_BASE_URL` is unset on a fresh clone. A url built from
         nothing would name a host this deployment has never heard of — which
         is why the setting has no default either."""
-        monkeypatch.setattr("app.web.server.PUBLIC_BASE_URL", "")
+        monkeypatch.setattr("app.web.documents.PUBLIC_BASE_URL", "")
 
         async with TestClient(TestServer(web_server.build_app())) as client:
             body = await self._page(client, "/about")

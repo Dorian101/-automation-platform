@@ -366,6 +366,21 @@ to read as MSK.
 
 ## Web interface
 
+`app/web/server.py` holds `WebServer`: its state, the middlewares and the one
+route table. The handlers live in mixin classes it inherits, one module per
+area: `account.py` (console home, Telegram link, push, quiet hours),
+`signin.py` (login, signup, logout), `console.py` (plugin pages, commands,
+`/api/events`), `documents.py` (public pages, SEO, `/project/trace`,
+feedback), `links.py` (links API and save form). Helpers more than one of them
+needs are in `common.py`. Mixins rather than `install(app)` like the admin area
+and the demo: the handlers share the server's repositories, limiter and CSRF
+signer instead of owning their own.
+
+The plugin page script lives in `app/web/plugin_page/` as `draw.js`,
+`actions.js` and `live.js`. `render_plugin_page` joins them, in that order,
+into the one inline script of `_plugin_page.html`, inside the same function
+scope, so they share names and the page costs no extra request.
+
 An address nothing serves gets `templates/not_found.html` with a 404, and so does
 a non-admin asking for the administration, so the two answers are identical. A
 missing demonstration page gets the same page.
@@ -385,7 +400,7 @@ colour goes in as a variable with a light value, and a colour used as text must
 pass the contrast test in `tests/test_seo.py`.
 
 The résumé is `/about` under `@media print` in `_page_styles.html`. Its contacts
-replace the contact section through `.print-only`, and `PERSON` in `server.py`
+replace the contact section through `.print-only`, and `_person` in `app/web/documents.py`
 holds them for JSON-LD, so a changed contact changes in all three.
 
 Decorative motion stays out of print and honours `prefers-reduced-motion`. The
@@ -458,11 +473,11 @@ stable key.
 
 `robots.txt` and `sitemap.xml` are routes, not files: there is no `sitemap.xml`
 on disk and `find` will not find one. Both are generated per request by
-`_robots` and `_sitemap` in `app/web/server.py`, from the same
+`_robots` and `_sitemap` in `app/web/documents.py`, from the same
 `INDEXABLE_PATHS` tuple beside them.
 
 **Adding a public page means adding its path to `INDEXABLE_PATHS` in
-`app/web/server.py`.** That is the one place to remember, and nothing will
+`app/web/documents.py`.** That is the one place to remember, and nothing will
 tell you if it is forgotten: the page renders, every test passes, and the
 crawler simply never hears about it.
 

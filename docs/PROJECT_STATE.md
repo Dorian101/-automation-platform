@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.90.0
+v0.90.1
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -279,6 +279,9 @@ Implemented:
   a fetched bookmark title) reaches open pages of the same person within a
   fraction of a second over `/api/events`; a card's buttons lock while its own
   action is in flight
+* since v0.90.1 nothing changes for a user: `app/web/server.py` is split into
+  modules per area, the plugin page script into `app/web/plugin_page/*.js`, and
+  each `v*` tag publishes a GitHub release listing its commits
 
 ⸻
 

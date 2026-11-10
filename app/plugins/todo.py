@@ -634,12 +634,6 @@ class TodoPlugin(BasePlugin):
             }
         ]
 
-    def _readable_as(self, identity: Identity):
-        if self._persons is None:
-            return identity
-
-        return self._persons.identities(identity)
-
 
 def _format_due(due_at: datetime) -> str:
     """A deadline as a plain date.

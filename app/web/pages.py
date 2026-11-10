@@ -21,6 +21,10 @@ from pathlib import Path
 from . import i18n
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
+PAGE_SCRIPTS = tuple(
+    TEMPLATES_DIR.parent / "plugin_page" / name
+    for name in ("draw.js", "actions.js", "live.js")
+)
 
 SESSION_ACTION_URL = "/api/page/action"
 DEMO_ACTION_URL = "/demo/api/action"
@@ -207,6 +211,10 @@ def render_plugin_page(
     source = source.replace(
         "__STYLES__",
         (TEMPLATES_DIR / "_page_styles.html").read_text(encoding="utf-8"),
+    )
+    source = source.replace(
+        "__PAGE_SCRIPT__",
+        "\n".join(path.read_text(encoding="utf-8") for path in PAGE_SCRIPTS),
     )
     source = source.replace(
         "__INITIAL_VIEW__",

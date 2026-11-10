@@ -1,16 +1,8 @@
 from collections.abc import Iterable
 
-from app.core.identity import Identity
+from app.core.identity import Identity, as_tuple, ids_of
 
 from .database import Database
-
-
-def _as_tuple(identity: Identity | Iterable[Identity]) -> tuple[Identity, ...]:
-    """Accept one identity or several, so callers can widen a read."""
-    if isinstance(identity, Identity):
-        return (identity,)
-
-    return tuple(identity)
 
 
 class NotesRepository:
@@ -44,7 +36,7 @@ class NotesRepository:
         two transports interleave by when they were actually written instead of
         arriving as two blocks.
         """
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -55,20 +47,20 @@ class NotesRepository:
                     WHERE user_id = ANY(%s)
                     ORDER BY id DESC
                     """,
-                    ([str(one) for one in identities],),
+                    (ids_of(identities),),
                 )
 
                 return [(row[0], row[1]) for row in cur.fetchall()]
 
     def count(self, identity: Identity | Iterable[Identity]) -> int:
         """How many notes this read would see."""
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "SELECT count(*) FROM notes WHERE user_id = ANY(%s)",
-                    ([str(one) for one in identities],),
+                    (ids_of(identities),),
                 )
 
                 return cur.fetchone()[0]
@@ -86,7 +78,7 @@ class NotesRepository:
         a linked pair read across transports has to let it delete across them,
         or a note visible in the console could not be removed from it.
         """
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -95,7 +87,7 @@ class NotesRepository:
                     DELETE FROM notes
                     WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (note_id, [str(one) for one in identities]),
+                    (note_id, ids_of(identities)),
                 )
                 deleted = cur.rowcount
             conn.commit()
@@ -104,13 +96,13 @@ class NotesRepository:
 
     def clear(self, identity: Identity | Iterable[Identity]) -> int:
         """Remove every note this read would see, returning how many."""
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "DELETE FROM notes WHERE user_id = ANY(%s)",
-                    ([str(one) for one in identities],),
+                    (ids_of(identities),),
                 )
                 deleted = cur.rowcount
             conn.commit()

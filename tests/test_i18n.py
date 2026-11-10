@@ -5,7 +5,8 @@ import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
 from app.web import i18n
-from app.web.server import TEMPLATES_DIR, _experience
+from app.web.common import TEMPLATES_DIR
+from app.web.documents import _experience
 
 BASE_URL = "https://public.example"
 CYRILLIC = re.compile("[А-Яа-яЁё]")
@@ -13,7 +14,7 @@ CYRILLIC = re.compile("[А-Яа-яЁё]")
 
 @pytest.fixture
 async def crawler(pages_manager, database_with_schema, monkeypatch, web_server_factory):
-    monkeypatch.setattr("app.web.server.PUBLIC_BASE_URL", BASE_URL)
+    monkeypatch.setattr("app.web.documents.PUBLIC_BASE_URL", BASE_URL)
     server = web_server_factory(pages_manager, database_with_schema)
     async with TestClient(TestServer(server.build_app())) as client:
         yield client

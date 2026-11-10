@@ -1,17 +1,10 @@
 from collections.abc import Iterable
 
-from app.core.identity import Identity
+from app.core.identity import Identity, ids_of
 
 from .database import Database
 
 KEEP = 100
-
-
-def _ids(identity: Identity | Iterable[Identity]) -> list[str]:
-    if isinstance(identity, Identity):
-        return [str(identity)]
-
-    return [str(one) for one in identity]
 
 
 class SnippetsRepository:
@@ -56,7 +49,7 @@ class SnippetsRepository:
                     ORDER BY id DESC
                     LIMIT %s
                     """,
-                    (_ids(identity), limit),
+                    (ids_of(identity), limit),
                 )
                 return [
                     {
@@ -78,7 +71,7 @@ class SnippetsRepository:
                 cur.execute(
                     "SELECT id, title, body FROM snippets "
                     "WHERE id = %s AND user_id = ANY(%s)",
-                    (snippet_id, _ids(identity)),
+                    (snippet_id, ids_of(identity)),
                 )
                 row = cur.fetchone()
 
@@ -99,7 +92,7 @@ class SnippetsRepository:
                 cur.execute(
                     "UPDATE snippets SET title = %s, body = %s "
                     "WHERE id = %s AND user_id = ANY(%s)",
-                    (title, body, snippet_id, _ids(identity)),
+                    (title, body, snippet_id, ids_of(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()
@@ -111,7 +104,7 @@ class SnippetsRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     "DELETE FROM snippets WHERE id = %s AND user_id = ANY(%s)",
-                    (snippet_id, _ids(identity)),
+                    (snippet_id, ids_of(identity)),
                 )
                 deleted = cur.rowcount
             conn.commit()

@@ -8,7 +8,7 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from app.core.identity import WEB
 from app.db.feedback_repo import FeedbackRepository
-from app.web.server import FEEDBACK_ATTEMPTS, FEEDBACK_MAX_LENGTH
+from app.web.documents import FEEDBACK_ATTEMPTS, FEEDBACK_MAX_LENGTH
 from tests.conftest import TEST_USERNAME
 
 

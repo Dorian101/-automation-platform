@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from psycopg.types.json import Jsonb
 
-from app.core.identity import Identity
+from app.core.identity import Identity, ids_of
 
 from .database import Database
 
@@ -14,13 +14,6 @@ COLUMNS = """
     id, user_id, name, trigger, schedule, condition_text, condition_amount,
     action, params, enabled, last_fired_on
 """
-
-
-def _ids(identity: Identity | Iterable[Identity]) -> list[str]:
-    if isinstance(identity, Identity):
-        return [str(identity)]
-
-    return [str(one) for one in identity]
 
 
 def _rule(row) -> dict:
@@ -85,7 +78,7 @@ class RulesRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     f"SELECT {COLUMNS} FROM rules WHERE user_id = ANY(%s) ORDER BY id",
-                    (_ids(identity),),
+                    (ids_of(identity),),
                 )
                 return [_rule(row) for row in cur.fetchall()]
 
@@ -98,7 +91,7 @@ class RulesRepository:
                     f"SELECT {COLUMNS} FROM rules "
                     "WHERE user_id = ANY(%s) AND trigger = %s AND enabled "
                     "ORDER BY id",
-                    (_ids(identity), trigger),
+                    (ids_of(identity), trigger),
                 )
                 return [_rule(row) for row in cur.fetchall()]
 
@@ -118,7 +111,7 @@ class RulesRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     "UPDATE rules SET enabled = %s WHERE id = %s AND user_id = ANY(%s)",
-                    (enabled, rule_id, _ids(identity)),
+                    (enabled, rule_id, ids_of(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()
@@ -130,7 +123,7 @@ class RulesRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     "DELETE FROM rules WHERE id = %s AND user_id = ANY(%s)",
-                    (rule_id, _ids(identity)),
+                    (rule_id, ids_of(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()
@@ -179,7 +172,7 @@ class RulesRepository:
                     ORDER BY r.id DESC
                     LIMIT %s
                     """,
-                    (_ids(identity), limit),
+                    (ids_of(identity), limit),
                 )
                 return [
                     {"at": row[0], "ok": row[1], "message": row[2], "rule": row[3]}
@@ -195,6 +188,6 @@ class RulesRepository:
                     FROM rule_runs WHERE user_id = ANY(%s)
                     GROUP BY rule_id
                     """,
-                    (_ids(identity),),
+                    (ids_of(identity),),
                 )
                 return {row[0]: (row[1], row[2]) for row in cur.fetchall()}

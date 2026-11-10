@@ -5,7 +5,8 @@ import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
 from app.core.identity import WEB, Identity, telegram
-from app.web.server import TRACE_ATTEMPTS, WebServer, _experience
+from app.web.documents import TRACE_ATTEMPTS, _experience
+from app.web.server import WebServer
 from tests.conftest import TEST_USERNAME
 
 

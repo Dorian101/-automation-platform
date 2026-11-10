@@ -523,14 +523,3 @@ class ApplicationsPlugin(BasePlugin):
             )
 
     # -- shared -------------------------------------------------------------
-
-    def _readable_as(self, identity: Identity):
-        """Whose applications this read covers.
-
-        Widened across a linked pair like notes, clipboard and expenses. Falls
-        back to the identity alone for a plugin built without a resolver.
-        """
-        if self._persons is None:
-            return identity
-
-        return self._persons.identities(identity)

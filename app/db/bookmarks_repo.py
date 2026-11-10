@@ -1,18 +1,11 @@
 from collections.abc import Iterable
 
-from app.core.identity import Identity
+from app.core.identity import Identity, ids_of
 
 from .database import Database
 
 FIELDS = ("id", "url", "title", "description", "is_read", "source", "saved_at")
 COLUMNS = ", ".join(FIELDS)
-
-
-def _ids(identity: Identity | Iterable[Identity]) -> list[str]:
-    if isinstance(identity, Identity):
-        return [str(identity)]
-
-    return [str(one) for one in identity]
 
 
 def _row(row) -> dict:
@@ -46,7 +39,7 @@ class BookmarksRepository:
                     )
                     RETURNING {COLUMNS}
                     """,
-                    (description, description, url, _ids(readable)),
+                    (description, description, url, ids_of(readable)),
                 )
                 row = cur.fetchone()
                 existed = row is not None
@@ -79,7 +72,7 @@ class BookmarksRepository:
                     ORDER BY saved_at DESC, id DESC
                     LIMIT %s
                     """,
-                    (_ids(identity), limit or None),
+                    (ids_of(identity), limit or None),
                 )
                 return [_row(row) for row in cur.fetchall()]
 
@@ -91,7 +84,7 @@ class BookmarksRepository:
                 cur.execute(
                     f"SELECT {COLUMNS} FROM bookmarks "
                     "WHERE id = %s AND user_id = ANY(%s)",
-                    (bookmark_id, _ids(identity)),
+                    (bookmark_id, ids_of(identity)),
                 )
                 row = cur.fetchone()
 
@@ -137,7 +130,7 @@ class BookmarksRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     f"{statement} WHERE id = %s AND user_id = ANY(%s)",
-                    (*values, bookmark_id, _ids(identity)),
+                    (*values, bookmark_id, ids_of(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()

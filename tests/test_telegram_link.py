@@ -17,7 +17,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from app.core.config import Config
 from app.db.links_repo import TelegramLinksRepository
 from app.db.users_repo import UsersRepository
-from app.web.server import LINK_NONCE_COOKIE
+from app.web.account import LINK_NONCE_COOKIE
 from tests.conftest import (
     TEST_PASSWORD,
     TEST_USERNAME,

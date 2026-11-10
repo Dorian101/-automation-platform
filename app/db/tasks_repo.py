@@ -9,7 +9,7 @@ already uses.
 from collections.abc import Iterable
 from datetime import datetime
 
-from app.core.identity import Identity
+from app.core.identity import Identity, as_tuple, ids_of
 
 from .database import Database
 
@@ -23,17 +23,6 @@ VALID_PRIORITIES = {1, 2, 3}
 
 # How often a repeating task comes back once it is done.
 REPEATS = ("daily", "weekly", "monthly")
-
-
-def _as_tuple(identity: Identity | Iterable[Identity]) -> tuple[Identity, ...]:
-    if isinstance(identity, Identity):
-        return (identity,)
-
-    return tuple(identity)
-
-
-def _ids(identity: Identity | Iterable[Identity]) -> list[str]:
-    return [str(one) for one in _as_tuple(identity)]
 
 
 class TasksRepository:
@@ -87,10 +76,10 @@ class TasksRepository:
         `order` picks the sort: ``created``, ``priority``, ``due``. ``status``
         narrows to one of the three; None returns all.
         """
-        identities = _as_tuple(identity)
+        identities = as_tuple(identity)
 
         where = ""
-        arguments: list = [[str(one) for one in identities]]
+        arguments: list = [ids_of(identities)]
 
         if status is not None:
             where = " AND status = %s"
@@ -145,7 +134,7 @@ class TasksRepository:
                                        THEN CURRENT_TIMESTAMP END
                     WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (status, status, task_id, _ids(identity)),
+                    (status, status, task_id, ids_of(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()
@@ -166,7 +155,7 @@ class TasksRepository:
                     SET priority = %s
                     WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (priority, task_id, _ids(identity)),
+                    (priority, task_id, ids_of(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()
@@ -189,7 +178,7 @@ class TasksRepository:
                                            THEN NULL ELSE notified_at END
                     WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (due_at, due_at, task_id, _ids(identity)),
+                    (due_at, due_at, task_id, ids_of(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()
@@ -211,7 +200,7 @@ class TasksRepository:
                     SET text = %s, description = %s
                     WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (text, description, task_id, _ids(identity)),
+                    (text, description, task_id, ids_of(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()
@@ -229,7 +218,7 @@ class TasksRepository:
                     SET repeat = %s
                     WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (repeat, task_id, _ids(identity)),
+                    (repeat, task_id, ids_of(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()
@@ -250,7 +239,7 @@ class TasksRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     "DELETE FROM tasks WHERE id = %s AND user_id = ANY(%s)",
-                    (task_id, _ids(identity)),
+                    (task_id, ids_of(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()

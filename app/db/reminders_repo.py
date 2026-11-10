@@ -1,16 +1,9 @@
 from collections.abc import Iterable
 from datetime import datetime
 
-from app.core.identity import Identity
+from app.core.identity import Identity, ids_of
 
 from .database import Database
-
-
-def _ids(identity: Identity | Iterable[Identity]) -> list[str]:
-    if isinstance(identity, Identity):
-        return [str(identity)]
-
-    return [str(one) for one in identity]
 
 
 class RemindersRepository:
@@ -73,7 +66,7 @@ class RemindersRepository:
                     WHERE user_id = ANY(%s) AND is_sent = FALSE
                     ORDER BY remind_at, id
                     """,
-                    (_ids(identity),),
+                    (ids_of(identity),),
                 )
 
                 return cur.fetchall()
@@ -93,7 +86,7 @@ class RemindersRepository:
                         CASE WHEN is_sent THEN remind_at END DESC,
                         remind_at, id
                     """,
-                    (_ids(identity), fired_since),
+                    (ids_of(identity), fired_since),
                 )
                 rows = cur.fetchall()
 
@@ -119,7 +112,7 @@ class RemindersRepository:
                     DELETE FROM reminders
                     WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (reminder_id, _ids(identity)),
+                    (reminder_id, ids_of(identity)),
                 )
                 deleted = cur.rowcount
             conn.commit()
@@ -142,7 +135,7 @@ class RemindersRepository:
                         is_sent = FALSE
                     WHERE id = %s AND user_id = ANY(%s)
                     """,
-                    (remind_at, reminder_id, _ids(identity)),
+                    (remind_at, reminder_id, ids_of(identity)),
                 )
                 changed = cur.rowcount
             conn.commit()
