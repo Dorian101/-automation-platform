@@ -6,15 +6,17 @@ page is a kanban board — three columns, one per status — because a pile that
 grows should be read at a glance, not as a long vertical list.
 
 Deadlines notify through the platform's notification layer, so a web account
-paired with Telegram gets a message as the deadline approaches; an unpaired one
+paired with Telegram gets a message on the morning of the deadline; an unpaired one
 is simply not reminded, and the task stays in the pile.
 """
 
 import asyncio
 import calendar
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
+from app.core.config import Config
 from app.core.identity import Identity, is_guest
 from app.core.results import CommandError, CommandResult, reply
 from app.db.database import Database
@@ -25,14 +27,9 @@ from .base import BasePlugin
 
 logger = logging.getLogger(__name__)
 
-# The check is coarse on purpose: deadlines are set days ahead, not minutes, and
-# an hourly pass is enough to catch one and remind once. Finer resolution would
-# be a wake-up for nothing.
 POLL_INTERVAL_SECONDS = 3600
 
-# How far ahead of a deadline the owner is told. A window of a day means the
-# hourly pass always lands inside it at least once before the deadline arrives.
-REMIND_LEAD = timedelta(days=1)
+REMIND_FROM = time(9, 0)
 
 # The statuses a task may move to from each status. A linear flow with the
 # option to step back: todo -> doing -> done, plus the reverse of each move so
@@ -152,15 +149,14 @@ class TodoPlugin(BasePlugin):
             await asyncio.sleep(POLL_INTERVAL_SECONDS)
 
     async def process_due(self) -> None:
-        """Remind about tasks whose deadline is inside the lead window.
+        now = _local_now()
 
-        Separate from the loop so the decision — remind, and mark as reminded —
-        can be exercised without a task that never returns.
-        """
-        now = datetime.now(UTC).replace(tzinfo=None)
-        horizon = (now + REMIND_LEAD).replace(tzinfo=None)
+        if now.time() < REMIND_FROM:
+            return
 
-        for task in self.repo.due_soon(now, horizon):
+        today = _midnight(now)
+
+        for task in self.repo.due_soon(today - timedelta(days=1), today):
             try:
                 target = Identity.parse(task["user_id"])
             except ValueError:
@@ -205,7 +201,7 @@ class TodoPlugin(BasePlugin):
         ahead of tomorrow: a task due a week out would be indistinguishable
         from one that was never due at all.
         """
-        now = datetime.now(UTC).replace(tzinfo=None)
+        now = _local_now()
         yesterday = now - timedelta(days=1)
         tomorrow = now + timedelta(days=1)
         in_two_days = now + timedelta(days=2)
@@ -302,7 +298,7 @@ class TodoPlugin(BasePlugin):
         due_at = None
 
         if days:
-            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            today = _midnight(_local_now())
             due_at = today + timedelta(days=int(days))
 
         self.repo.add(identity, text, due_at=due_at)
@@ -361,7 +357,7 @@ class TodoPlugin(BasePlugin):
         if not task["repeat"] or task["repeated"]:
             return
 
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today = _midnight(_local_now())
         due = _after(task["due_at"] or today, task["repeat"])
 
         while due < today:
@@ -464,7 +460,7 @@ class TodoPlugin(BasePlugin):
         readable = self._readable_as(identity)
         tasks = self.repo.entries(readable, order=order)
 
-        now = datetime.now(UTC).replace(tzinfo=None)
+        now = _local_now()
         shown_since = datetime.now() - DONE_ON_BOARD
         archived = [
             task
@@ -676,6 +672,14 @@ def _parse_repeat(raw) -> str | None:
         raise CommandError("Некорректный повтор.")
 
     return raw
+
+
+def _local_now() -> datetime:
+    return datetime.now(ZoneInfo(Config.DISPLAY_TIMEZONE)).replace(tzinfo=None)
+
+
+def _midnight(moment: datetime) -> datetime:
+    return moment.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 def _after(moment: datetime, repeat: str) -> datetime:

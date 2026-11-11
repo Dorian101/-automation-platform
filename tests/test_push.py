@@ -195,6 +195,7 @@ class TestChannel:
         assert await channel.deliver(OWNER, "Позвонить") is True
         assert len(sender.calls) == 2
         assert sender.calls[0]["requests_session"].max_redirects == 0
+        assert sender.calls[0]["headers"] == {"Urgency": "high"}
         body = json.loads(sender.calls[0]["data"])
         assert body["body"] == "Позвонить"
         assert body["url"] == "/"

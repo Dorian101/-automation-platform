@@ -3016,3 +3016,33 @@ only when something is wrong, once a day. RDAP failing is logged rather than
 sent, since a registry being slow is not the owner's problem to wake up to;
 the certificate failing to answer is sent, since that is the site being down
 for browsers.
+
+
+## 2026-11-11
+
+### Decision
+Remind about a task on the morning of its deadline, on the display clock
+
+### Why
+
+The worker used to remind about any deadline inside the next 24 hours of UTC.
+A deadline is a date, stored as its midnight, so a task due tomorrow was
+already inside the window when it was created and the push arrived within the
+hour; a task due today had its midnight behind it and was never reminded at
+all.
+
+Now the hourly pass does nothing before 09:00 in `DISPLAY_TIMEZONE` and then
+reminds about tasks due that day, once. Only that day is looked at, so
+deadlines that passed unreminded under the old rule are not all sent at once
+after the deploy; the cost is that a day the process is down is a day whose
+reminders are lost. "Today" for `due_days`, for the next copy of a repeating
+task and for the overdue mark is read from the same clock, so the board and
+the reminder agree on what day it is. Production must set
+`DISPLAY_TIMEZONE=Europe/Moscow`; with the default `UTC` the morning is 12:00
+Moscow time.
+
+Web push is sent with `Urgency: high`. Without the header a push has normal
+urgency, which Apple delivers to an iPhone when power allows: on a locked
+phone that was minutes, while a Mac got the same message at once. Every
+notification here is something a person asked to be told about, so none is
+worth delaying.

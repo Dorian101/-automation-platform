@@ -141,6 +141,7 @@ class WebPushChannel:
                     vapid_claims={"sub": self._subject},
                     timeout=PUSH_TIMEOUT_SECONDS,
                     ttl=86400,
+                    headers={"Urgency": "high"},
                     requests_session=session,
                 )
             except WebPushException as error:

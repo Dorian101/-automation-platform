@@ -3,9 +3,9 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from app.core.identity import WEB, Identity, guest
+from app.core.identity import WEB, Identity, guest, telegram
 from app.core.results import CommandError
-from app.plugins.todo import STATUS_LABELS, TodoPlugin
+from app.plugins.todo import STATUS_LABELS, TodoPlugin, _local_now, _midnight
 
 
 class RecordingChannel:
@@ -143,43 +143,95 @@ class TestMove:
         assert plugin.repo.entries(web_identity) == []
 
 
+MORNING = datetime(2026, 11, 12, 9, 30)
+DUE_DAY = datetime(2026, 11, 12)
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    def set_to(moment):
+        monkeypatch.setattr("app.plugins.todo._local_now", lambda: moment)
+
+    set_to(MORNING)
+    return set_to
+
+
+@pytest.fixture
+def sent(plugin):
+    channel = RecordingChannel("telegram")
+    plugin._notifier._channels["telegram"] = channel
+    return channel
+
+
 class TestWorker:
-    async def test_process_due_delivers_once(self, plugin):
-        from app.core.identity import telegram
-
-        sent = RecordingChannel("telegram")
-        plugin._notifier._channels["telegram"] = sent
-
-        now = datetime.now()
-        # A task owned by a Telegram chat is delivered straight back to it,
-        # since there is no resolver to redirect a web identity.
-        plugin.repo.add(telegram(4242), "Напомнить", due_at=now + timedelta(hours=1))
+    async def test_process_due_delivers_once(self, plugin, sent, clock):
+        plugin.repo.add(telegram(4242), "Напомнить", due_at=DUE_DAY)
 
         await plugin.process_due()
 
         assert len(sent.received) == 1
         assert "Напомнить" in sent.received[0][1]
 
-        # A second pass finds nothing: the task is marked as notified.
         await plugin.process_due()
         assert len(sent.received) == 1
 
-    async def test_a_moved_deadline_is_reminded_again(self, plugin):
-        from app.core.identity import telegram
+    async def test_a_deadline_tomorrow_waits_for_its_day(self, plugin, sent, clock):
+        plugin.repo.add(
+            telegram(4242), "Завтра", due_at=DUE_DAY + timedelta(days=1)
+        )
 
-        sent = RecordingChannel("telegram")
-        plugin._notifier._channels["telegram"] = sent
+        await plugin.process_due()
+        assert sent.received == []
+
+        clock(MORNING + timedelta(days=1))
+        await plugin.process_due()
+        assert len(sent.received) == 1
+
+    async def test_nothing_is_sent_before_the_morning(self, plugin, sent, clock):
+        plugin.repo.add(telegram(4242), "Сегодня", due_at=DUE_DAY)
+
+        clock(DUE_DAY.replace(hour=8, minute=59))
+        await plugin.process_due()
+        assert sent.received == []
+
+        clock(DUE_DAY.replace(hour=9))
+        await plugin.process_due()
+        assert len(sent.received) == 1
+
+    async def test_an_old_deadline_is_not_dug_up(self, plugin, sent, clock):
+        plugin.repo.add(
+            telegram(4242), "Давно", due_at=DUE_DAY - timedelta(days=1)
+        )
+
+        await plugin.process_due()
+
+        assert sent.received == []
+
+    async def test_the_day_follows_the_display_zone(self, monkeypatch):
+        from app.core.config import Config
+        from app.plugins.todo import _local_now
+
+        monkeypatch.setattr(Config, "DISPLAY_TIMEZONE", "Europe/Moscow")
+        moscow = _local_now()
+        monkeypatch.setattr(Config, "DISPLAY_TIMEZONE", "UTC")
+
+        assert timedelta(hours=2, minutes=59) < moscow - _local_now() < timedelta(
+            hours=3, minutes=1
+        )
+
+    async def test_a_moved_deadline_is_reminded_again(self, plugin, sent, clock):
         owner = telegram(4242)
-        due = (datetime.now() + timedelta(hours=1)).replace(microsecond=0)
-        plugin.repo.add(owner, "Напомнить", due_at=due)
+        plugin.repo.add(owner, "Напомнить", due_at=DUE_DAY)
         task_id = plugin.repo.entries(owner)[0]["id"]
         await plugin.process_due()
 
-        plugin.repo.set_due(owner, task_id, due)
+        plugin.repo.set_due(owner, task_id, DUE_DAY)
         await plugin.process_due()
         assert len(sent.received) == 1
 
-        plugin.repo.set_due(owner, task_id, due + timedelta(hours=2))
+        moved = DUE_DAY + timedelta(days=2)
+        plugin.repo.set_due(owner, task_id, moved)
+        clock(moved.replace(hour=10))
         await plugin.process_due()
         assert len(sent.received) == 2
 
@@ -291,7 +343,7 @@ class TestRepeat:
         await self._finish(plugin, web_identity, task_id)
 
         [nxt] = [t for t in plugin.repo.entries(web_identity) if t["status"] == "todo"]
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today = _midnight(_local_now())
         assert today <= nxt["due_at"] < today + timedelta(days=1)
 
     def test_a_month_keeps_the_day_where_it_can(self):
