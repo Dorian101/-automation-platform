@@ -17,14 +17,15 @@ from app.core.commands import parse_command
 from app.core.identity import WEB, Identity, telegram
 from app.core.results import CommandError
 from app.db.migrations import MigrationRunner
-from app.db.settings_repo import DEFAULT_FEEDBACK_PER_HOUR
 from app.db.visits_repo import CONTACT
+from app.notifications import tell_admins
 
 from . import i18n
 from .admin import FEEDBACK_PATH
 from .common import TEMPLATES_DIR, leaves_no_trace
 from .pages import (
     menu_styles,
+    page_styles,
     render_not_found,
 )
 from .ratelimit import client_ip
@@ -95,6 +96,7 @@ SCRIPTS = {
     "/push.js": Path(__file__).resolve().parent / "push.js",
     "/passkey.js": Path(__file__).resolve().parent / "passkey.js",
     "/live-page.js": Path(__file__).resolve().parent / "live_page.js",
+    "/events.js": Path(__file__).resolve().parent / "events.js",
     "/sw.js": Path(__file__).resolve().parent / "sw.js",
 }
 
@@ -116,12 +118,6 @@ TRACE_SCENARIOS = {
     "reminder": ("web", "/reminders", True),
     "unknown": ("web", "/nosuchcommand", False),
 }
-
-
-# The guest book on the public pages. A person writes once or twice; more than
-# a handful an hour from one address is somebody filling the owner's chat.
-# The default; the administrator can change it on /admin/settings.
-FEEDBACK_ATTEMPTS = DEFAULT_FEEDBACK_PER_HOUR
 
 
 FEEDBACK_WINDOW_SECONDS = 3600
@@ -249,7 +245,7 @@ def _render_page(
     source = source.replace("__MENU_STYLES__", menu_styles())
     source = source.replace(
         "__PAGE_STYLES__",
-        (TEMPLATES_DIR / "_page_styles.html").read_text(encoding="utf-8"),
+        page_styles(),
     )
 
     for name, value in (replacements or {}).items():
@@ -741,13 +737,5 @@ class DocumentRoutes:
         return web.json_response({"ok": True})
 
     async def _tell_admins(self, text: str) -> None:
-        """Send to every active administrator's linked chat. The note is already
-        saved, so a failure here costs the message, not the note."""
-        if self._notifier is None:
-            return
-
-        for user in self._users.active_admins():
-            try:
-                await self._notifier.deliver(self._users.identity_for(user), text)
-            except Exception:
-                logger.exception("Feedback could not be sent to %s", user.username)
+        if self._notifier is not None:
+            await tell_admins(self._notifier, self._users, text)

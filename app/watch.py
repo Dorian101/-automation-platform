@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from aiohttp import ClientSession, ClientTimeout
 
 from app.core.config import Config
+from app.notifications import tell_admins
 from app.web.system import disk
 
 logger = logging.getLogger(__name__)
@@ -116,13 +117,6 @@ class Watch:
         try:
             found = await problems(self._host, datetime.now(UTC))
             if found and notify:
-                await self._tell_admins("\n".join(found))
+                await tell_admins(self._notifier, self._users, "\n".join(found))
         except Exception:
             logger.exception("Expiry and disk check failed")
-
-    async def _tell_admins(self, text: str) -> None:
-        for user in self._users.active_admins():
-            try:
-                await self._notifier.deliver(self._users.identity_for(user), text)
-            except Exception:
-                logger.exception("Watch warning could not reach %s", user.username)

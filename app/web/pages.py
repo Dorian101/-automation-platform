@@ -24,7 +24,7 @@ TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 PAGE_SCRIPTS = tuple(
     TEMPLATES_DIR.parent / "plugin_page" / name
     for name in ("draw.js", "actions.js", "live.js")
-)
+) + (TEMPLATES_DIR.parent / "events.js",)
 
 SESSION_ACTION_URL = "/api/page/action"
 DEMO_ACTION_URL = "/demo/api/action"
@@ -179,6 +179,10 @@ def menu_styles() -> str:
     return (TEMPLATES_DIR / "_menu_styles.html").read_text(encoding="utf-8")
 
 
+def page_styles() -> str:
+    return (TEMPLATES_DIR / "_page_styles.html").read_text(encoding="utf-8")
+
+
 def render_plugin_page(
     page_path: str,
     view: dict,
@@ -210,7 +214,7 @@ def render_plugin_page(
     source = source.replace("__IS_DEMO__", "true" if demo else "false")
     source = source.replace(
         "__STYLES__",
-        (TEMPLATES_DIR / "_page_styles.html").read_text(encoding="utf-8"),
+        page_styles(),
     )
     source = source.replace(
         "__PAGE_SCRIPT__",
@@ -237,7 +241,7 @@ def render_demo_landing(links: list[dict], nav_html: str) -> str:
 
     source = source.replace(
         "__STYLES__",
-        (TEMPLATES_DIR / "_page_styles.html").read_text(encoding="utf-8"),
+        page_styles(),
     )
 
     cards = []
@@ -269,5 +273,5 @@ def render_not_found() -> str:
 
     return source.replace(
         "__PAGE_STYLES__",
-        (TEMPLATES_DIR / "_page_styles.html").read_text(encoding="utf-8"),
+        page_styles(),
     )

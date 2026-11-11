@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.94.0
+v0.94.1
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -302,6 +302,9 @@ Implemented:
   deploy; every morning the app checks the certificate (<14 days), the domain
   (<30 days, by RDAP) and the disk (≥80%) and tells the admins only when
   something is wrong, with the dates on `/admin/status`
+* since v0.94.1 nothing changes for a user: the live-update client is one
+  shared script, a device dropped by push updates the console, and small
+  duplicates are gone
 
 ⸻
 

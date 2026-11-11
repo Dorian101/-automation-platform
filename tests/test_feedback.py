@@ -8,7 +8,8 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from app.core.identity import WEB
 from app.db.feedback_repo import FeedbackRepository
-from app.web.documents import FEEDBACK_ATTEMPTS, FEEDBACK_MAX_LENGTH
+from app.db.settings_repo import DEFAULT_FEEDBACK_PER_HOUR
+from app.web.documents import FEEDBACK_MAX_LENGTH
 from tests.conftest import TEST_USERNAME, with_passkey
 
 
@@ -135,7 +136,7 @@ class TestFeedback:
         assert notifier.sent == []
 
     async def test_one_address_is_limited(self, client):
-        for _ in range(FEEDBACK_ATTEMPTS):
+        for _ in range(DEFAULT_FEEDBACK_PER_HOUR):
             await client.post("/feedback", json={"text": "раз"})
 
         response = await client.post("/feedback", json={"text": "ещё"})

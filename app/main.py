@@ -86,11 +86,9 @@ async def main() -> None:
     links = TelegramLinksRepository(database)
     push = PushRepository(database)
 
+    web_push = WebPushChannel(push, Config.VAPID_PRIVATE_KEY, Config.VAPID_SUBJECT)
     notifier = Notifier(
-        [
-            TelegramChannel(bot),
-            WebPushChannel(push, Config.VAPID_PRIVATE_KEY, Config.VAPID_SUBJECT),
-        ],
+        [TelegramChannel(bot), web_push],
         resolver=LinkedChatResolver(users, links, push),
         quiet=QuietHours(users, links, HeldNotificationsRepository(database)),
     )
@@ -118,6 +116,7 @@ async def main() -> None:
             loop.call_soon_threadsafe(web.admin_changed, ERRORS_PATH)
 
     error_log.on_saved = errors_changed
+    web_push.on_forgotten = web.console_changed
 
     await manager.startup()
 

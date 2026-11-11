@@ -303,15 +303,22 @@ notifier; the last dates are on `/admin/status`.
   (`ErrorLogHandler.on_saved`, hopped onto the loop in `main.py`, since a log
   record can come from any thread). Writes from `app.manage` run in another
   process and reach no page.
+- Both kinds of page connect through `app/web/events.js` (`liveEvents`):
+  `/api/events` with retry backing off from 2 s to 60 s, closed while the tab
+  is hidden, a resync on reconnect, on return and before each retry, and
+  `connected()` false after 60 s without a ping. The plugin page has it
+  inlined after `plugin_page/*.js`; the console and admin pages load
+  `/events.js` before `/live-page.js`.
 - The console `/` and the admin pages use `app/web/live_page.js`: on an event
   for its own path it refetches the page and swaps each `[data-live]` block
   that changed, re-creating `<script src>` inside it so `push.js` and the
   Telegram widget run again. A block someone has typed in is left alone until
   the page is reloaded; focus alone does not hold a refresh back (`/admin/visits`
   autofocuses its filter) and is put back on the same field after the swap.
-  Without a ping for 30 s the page polls itself every 10 s: some networks (a
+  Without a ping for 60 s the page polls itself every 10 s: some networks (a
   corporate proxy on the work laptop) buffer the event stream. The account panels emit `/` for the person on a
-  Telegram link or unlink, a new or removed device, quiet hours and sign-out;
+  Telegram link or unlink, a new or removed device (also one push drops after a
+  404/410, through `WebPushChannel.on_forgotten`), quiet hours and sign-out;
   `PushRepository.add` reports whether the device is new, because `push.js`
   re-registers on every load and would otherwise refresh the page in a loop.
 - Page side: a refresh carries the action counter it started at and is dropped

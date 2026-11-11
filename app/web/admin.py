@@ -59,6 +59,7 @@ from app.db.users_repo import User, UsersRepository
 from app.db.visits_repo import CONTACT, DEFAULT_LIMIT, Visit, VisitsRepository
 from app.plugins.tables import data_tables, demo_tables
 from app.web.auth import SESSION_COOKIE, resolve_user
+from app.web.common import form_value
 from app.web.csrf import CSRF_FIELD, CsrfSigner
 from app.web.demo import PRUNED_AT, DemoService
 from app.web.pages import menu_styles, render_not_found
@@ -327,7 +328,7 @@ class AdminArea:
 
     def _token_ok(self, request: web.Request, form) -> bool:
         return self._csrf.accepts(
-            request.cookies.get(SESSION_COOKIE, ""), _form_value(form, CSRF_FIELD)
+            request.cookies.get(SESSION_COOKIE, ""), form_value(form, CSRF_FIELD)
         )
 
     def _token(self, request: web.Request) -> str:
@@ -389,7 +390,7 @@ class AdminArea:
             (FEEDBACK_PER_HOUR, "feedback_per_hour", 1, 100),
             (DEMO_PER_HOUR, "demo_per_hour", 10, 10000),
         ):
-            raw = _form_value(form, field_name).strip()
+            raw = form_value(form, field_name).strip()
             if raw.isdigit() and low <= int(raw) <= high:
                 self._settings.put(key, raw)
 
@@ -439,7 +440,7 @@ class AdminArea:
         if not self._token_ok(request, form):
             return token_rejected(request, BROADCAST_PATH)
 
-        text = _form_value(form, "text").strip()[:BROADCAST_LIMIT]
+        text = form_value(form, "text").strip()[:BROADCAST_LIMIT]
         targets = self._broadcast_targets()
         sent = 0
 
@@ -555,7 +556,7 @@ class AdminArea:
         """
         if not self._csrf.accepts(
             request.cookies.get(SESSION_COOKIE, ""),
-            _form_value(await request.post(), CSRF_FIELD),
+            form_value(await request.post(), CSRF_FIELD),
         ):
             return token_rejected(request, USERS_PATH)
 
@@ -763,12 +764,6 @@ def _user_rows(found: list[User], token: str, actor: User | None) -> str:
 
 def _when(moment: datetime) -> str:
     return moment.strftime("%d.%m.%Y")
-
-
-def _form_value(form, name: str) -> str:
-    value = form.get(name, "")
-
-    return value if isinstance(value, str) else ""
 
 
 def _admin_styles() -> str:

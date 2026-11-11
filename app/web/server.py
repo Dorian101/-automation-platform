@@ -51,6 +51,7 @@ from .pages import (
     attic,
     language_switch,
     nav,
+    page_styles,
     render_not_found,
 )
 from .passkeys import PasskeyRoutes
@@ -108,6 +109,7 @@ PUBLIC_PATHS = {
     "/passkey.js",
     "/login/passkey",
     "/live-page.js",
+    "/events.js",
     "/sw.js",
     "/feedback.js",
     "/contact",
@@ -262,7 +264,10 @@ class WebServer(
         return attic(menu, account_block(user.username, token, extra=switch, lang=lang))
 
     def _account_changed(self, user) -> None:
-        self._live.changed(self._users.identity_for(user), "/")
+        self.console_changed(self._users.identity_for(user))
+
+    def console_changed(self, identity: Identity) -> None:
+        self._live.changed(identity, "/")
 
     def admin_changed(self, *pages: str) -> None:
         self._live.admin_changed(*pages)
@@ -490,6 +495,7 @@ class WebServer(
                 web.post(LINKS_SAVE_PATH, self._save_link_submit),
                 web.get("/push.js", self._script),
                 web.get("/live-page.js", self._script),
+                web.get("/events.js", self._script),
                 web.get("/sw.js", self._script),
                 web.post("/api/push/subscribe", self._push_subscribe),
                 web.post("/api/push/unsubscribe", self._push_unsubscribe),
@@ -673,5 +679,5 @@ def _render_maintenance() -> str:
 
     return source.replace(
         "__PAGE_STYLES__",
-        (TEMPLATES_DIR / "_page_styles.html").read_text(encoding="utf-8"),
+        page_styles(),
     )

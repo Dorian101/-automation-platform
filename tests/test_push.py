@@ -206,6 +206,16 @@ class TestChannel:
         assert await channel.deliver(OWNER, "x") is False
         assert push.devices(owner_id) == []
 
+    async def test_the_console_hears_that_a_device_is_gone(self, push, owner_id):
+        push.add(owner_id, _subscription(), "x")
+        channel = WebPushChannel(push, "key", "mailto:a@example.com", send=Sender(410))
+        heard = []
+        channel.on_forgotten = heard.append
+
+        await channel.deliver(OWNER, "x")
+
+        assert heard == [OWNER]
+
     async def test_a_failed_send_keeps_the_device(self, push, owner_id):
         push.add(owner_id, _subscription(), "x")
         channel = WebPushChannel(push, "key", "mailto:a@example.com", send=Sender(500))

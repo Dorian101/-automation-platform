@@ -112,6 +112,7 @@ class WebPushChannel:
         self._key = private_key
         self._subject = subject
         self._send = send
+        self.on_forgotten = None
 
     def reaches(self, target: Identity) -> bool:
         return bool(self._key and self._subject and self._push.subscriptions(target))
@@ -127,6 +128,7 @@ class WebPushChannel:
             ensure_ascii=False,
         )
         delivered = False
+        forgot = False
 
         for subscription in self._push.subscriptions(target):
             session = _session()
@@ -145,6 +147,7 @@ class WebPushChannel:
                 status = getattr(error.response, "status_code", None)
                 if status in PUSH_GONE:
                     self._push.forget(subscription["endpoint"])
+                    forgot = True
                 else:
                     self.logger.warning("Push to %s failed with %s", target, status)
                 continue
@@ -155,6 +158,9 @@ class WebPushChannel:
                 session.close()
 
             delivered = True
+
+        if forgot and self.on_forgotten is not None:
+            self.on_forgotten(target)
 
         return delivered
 
@@ -284,6 +290,14 @@ class Notifier:
             # reason belongs in the log next to the message that failed.
             self.logger.exception("Could not resolve a destination for %s", target)
             return None
+
+
+async def tell_admins(notifier, users, text: str) -> None:
+    for user in users.active_admins():
+        try:
+            await notifier.deliver(users.identity_for(user), text)
+        except Exception:
+            logger.exception("Could not tell %s", user.username)
 
 
 class LinkedChatResolver:

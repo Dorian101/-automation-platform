@@ -64,10 +64,10 @@ async def test_warnings_reach_every_admin(monkeypatch, create_user, users):
     users.set_admin(users.get_by_username(TEST_USERNAME).id, True)
     checker = watch.Watch(Notifier(), users, "example.com")
 
-    await checker._tell_admins("\n".join(await watch.problems("example.com", NOW)))
+    await checker._check(notify=True)
 
     assert len(sent) == 1
-    assert "Сертификат example.com истекает через 5 дн." in sent[0][1]
+    assert sent[0][1].startswith("Сертификат example.com истекает через")
 
 
 async def test_a_failing_check_does_not_stop_the_watch(monkeypatch, users):

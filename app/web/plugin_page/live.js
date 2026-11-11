@@ -7,11 +7,7 @@ let liveBusy = false;
 let liveStopped = false;
 let stale = false;
 let lastFetch = Date.now();
-let source = null;
-let lastBeat = 0;
-const BEAT_MS = 60000;
-let retryMs = 2000;
-let retryTimer = null;
+let events = null;
 
 document.addEventListener('input', (ev) => {
   if (ev.target && ev.target.dataset) ev.target.dataset.typed = '1';
@@ -55,7 +51,7 @@ async function refreshLive(force) {
     });
     if (response.status === 401) {
       liveStopped = true;
-      disconnect();
+      if (events) events.stop();
       return false;
     }
     if (!response.ok) return false;
@@ -84,62 +80,12 @@ function tick() {
     refreshLive();
     return;
   }
-  const connected = source && Date.now() - lastBeat < BEAT_MS;
+  const connected = events && events.connected();
   if (view.live && !connected && Date.now() - lastFetch >= LIVE_EVERY_MS) refreshLive();
-}
-
-function connect() {
-  if (IS_DEMO || liveStopped || source || document.hidden || !window.EventSource) return;
-  clearTimeout(retryTimer);
-  source = new EventSource('/api/events');
-  source.addEventListener('open', () => {
-    retryMs = 2000;
-    refreshLive();
-  });
-  source.addEventListener('ping', () => {
-    lastBeat = Date.now();
-  });
-  source.addEventListener('change', (ev) => {
-    lastBeat = Date.now();
-    let change = null;
-    try {
-      change = JSON.parse(ev.data);
-    } catch (err) {
-      return;
-    }
-    if (change && change.page === PAGE_PATH && change.origin !== TAB) refreshLive();
-  });
-  source.addEventListener('error', () => {
-    lastBeat = 0;
-    if (source && source.readyState === EventSource.CLOSED) {
-      source = null;
-      retryTimer = setTimeout(async () => {
-        await refreshLive(true);
-        connect();
-      }, retryMs);
-      retryMs = Math.min(retryMs * 2, 60000);
-    }
-  });
-}
-
-function disconnect() {
-  clearTimeout(retryTimer);
-  if (source) source.close();
-  source = null;
-  lastBeat = 0;
 }
 
 document.addEventListener('focusout', () => {
   if (stale) setTimeout(tick, 0);
-});
-
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    disconnect();
-    return;
-  }
-  refreshLive();
-  connect();
 });
 
 setInterval(tick, TICK_MS);
@@ -151,4 +97,15 @@ if (linked) {
   const card = root.querySelector('.kbcard[data-id="' + linked + '"]');
   if (card) card.scrollIntoView({ block: 'center' });
 }
-connect();
+if (!IS_DEMO) {
+  events = liveEvents(
+    (change) => {
+      if (change.page === PAGE_PATH && change.origin !== TAB) refreshLive();
+    },
+    (force) => refreshLive(force),
+  );
+} else {
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshLive();
+  });
+}
