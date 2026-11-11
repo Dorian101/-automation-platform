@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.93.1
+v0.94.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -295,6 +295,13 @@ Implemented:
   console only, with a prompt to add a key
 * since v0.93.0 an address that runs into a rate limit three times within an
   hour is shut out of the whole site for a day
+* since v0.94.0 a click on Telegram, e-mail or GitHub on `/about` and
+  `/project` is recorded in the visitor's session, and `/admin/sessions`
+  shows it with the share of sessions that reached a contact; `/project`
+  states its test functions, version, releases and time since the last
+  deploy; every morning the app checks the certificate (<14 days), the domain
+  (<30 days, by RDAP) and the disk (≥80%) and tells the admins only when
+  something is wrong, with the dates on `/admin/status`
 
 ⸻
 

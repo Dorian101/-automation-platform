@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import secrets
+import time
 from urllib.parse import urlsplit
 
 from aiohttp import web
@@ -40,6 +41,7 @@ from .documents import (
     LOCALIZED_DOCUMENTS,
     RELEASED_DOCUMENTS,
     DocumentRoutes,
+    repository_facts,
     theme_head,
 )
 from .links import LINKS_API_PATH, LINKS_SAVE_PATH, LinkRoutes
@@ -108,6 +110,8 @@ PUBLIC_PATHS = {
     "/live-page.js",
     "/sw.js",
     "/feedback.js",
+    "/contact",
+    "/contact.js",
 }
 
 
@@ -185,6 +189,8 @@ class WebServer(
         self._links = TelegramLinksRepository(database)
         self._rate = RateLimiter()
         self._blocklist = Blocklist()
+        self._started = time.monotonic()
+        self._facts = repository_facts()
         self._csrf = CsrfSigner(Config.CSRF_SECRET)
         self._runner: web.AppRunner | None = None
         self._settings = SettingsRepository(database)
@@ -477,6 +483,8 @@ class WebServer(
                 web.get("/project/trace", self._trace),
                 web.get("/feedback.js", self._script),
                 web.post("/feedback", self._feedback),
+                web.post("/contact", self._contact),
+                web.get("/contact.js", self._script),
                 web.post(LINKS_API_PATH, self._api_links),
                 web.get(LINKS_SAVE_PATH, self._save_link_form),
                 web.post(LINKS_SAVE_PATH, self._save_link_submit),

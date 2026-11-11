@@ -27,6 +27,15 @@
         <div><dt>Последний визит</dt><dd data-stat="last_visit">&hellip;</dd></div>
       </dl>
     </article>
+
+    <article class="stat-card">
+      <h3>Сроки</h3>
+      <dl class="stat-list">
+        <div><dt>Сертификат</dt><dd data-stat="expiry.cert">&hellip;</dd></div>
+        <div><dt>Домен</dt><dd data-stat="expiry.domain">&hellip;</dd></div>
+        <div><dt>Проверено</dt><dd data-stat="expiry.checked">&hellip;</dd></div>
+      </dl>
+    </article>
   </div>
 
   <h2>База данных</h2>
@@ -88,6 +97,9 @@
     set('load', data.system.load == null ? '—' : data.system.load.toFixed(2));
     set('cores', data.system.cores == null ? '—' : data.system.cores);
     set('last_visit', data.last_visit || '—');
+    set('expiry.cert', data.expiry.cert);
+    set('expiry.domain', data.expiry.domain);
+    set('expiry.checked', data.expiry.checked);
 
     set('backups.count', data.backups.count);
     set('backups.newest', data.backups.newest || '—');

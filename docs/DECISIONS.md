@@ -2991,3 +2991,28 @@ owner can trigger, and a table would be a migration and a cleanup job for a
 list that holds a handful of addresses. The owner's own addresses and an
 admin session are never blocked, so a typo cannot lock the owner out for a
 day.
+
+
+## 2026-11-10
+
+### Decision
+Count contact clicks as conversions, state live numbers on /project, and
+check certificate, domain and disk from inside the app
+
+### Why
+
+A contact click is the only thing on the public pages that shows a reader
+wanted more; recording it as a visit kind keeps it in the same session
+grouping instead of a second log. There is no résumé download to count yet.
+
+The test count is labelled "test functions" because a static count of
+`def test_` is below what pytest collects with parametrization; a number
+called "tests" that understates was removed once before. The live numbers
+use no external request.
+
+The expiry watch runs in the app, not in a root timer, so it ships with a
+deploy and reaches admins the way every other notification does. It speaks
+only when something is wrong, once a day. RDAP failing is logged rather than
+sent, since a registry being slow is not the owner's problem to wake up to;
+the certificate failing to answer is sent, since that is the site being down
+for browsers.

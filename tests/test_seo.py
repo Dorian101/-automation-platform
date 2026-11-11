@@ -572,6 +572,15 @@ class TestTheProjectPage:
         come from the code, so they cannot drift."""
         assert "тестов</span>" not in page
 
+    async def test_its_live_numbers_come_from_the_repository(self, page):
+        from app.web.documents import repository_facts
+
+        facts = repository_facts()
+
+        assert f"<b>{facts['__TESTS__']}</b><span>тестовых функций</span>" in page
+        assert f"<b>{facts['__RELEASES__']}</b><span>релизов</span>" in page
+        assert "<span>с последнего деплоя</span>" in page
+
 
 PUBLIC_PAGES = ("/about", "/project")
 

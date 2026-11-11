@@ -32,8 +32,10 @@ from app.plugins.reminders import RemindersPlugin
 from app.plugins.snippets import SnippetsPlugin
 from app.plugins.system import SystemPlugin
 from app.plugins.todo import TodoPlugin
+from app.watch import Watch
 from app.web import WebServer
 from app.web.admin import ERRORS_PATH
+from app.web.passkeys import rp_id
 
 # sysexits EX_CONFIG: the process is misconfigured and retrying will not help.
 # Distinct from other failures so systemd can keep restarting those.
@@ -123,11 +125,13 @@ async def main() -> None:
 
     await web.start()
     releaser = asyncio.create_task(notifier.run())
+    watcher = asyncio.create_task(Watch(notifier, users, rp_id()).run())
 
     try:
         await dp.start_polling(bot)
     finally:
         releaser.cancel()
+        watcher.cancel()
         await web.stop()
         await manager.shutdown()
         database.close()

@@ -1231,7 +1231,9 @@ class TestTheStatusPage:
 
         payload = await response.json()
         # Every section the page draws from, present even when empty.
-        assert set(payload) == {"tables", "backups", "system", "last_visit"}
+        assert set(payload) == {
+            "tables", "backups", "system", "last_visit", "expiry"
+        }
         assert set(payload["system"]) == {"disk", "memory", "load", "cores"}
         assert set(payload["backups"]) == {
             "count", "newest", "newest_at", "total_bytes",

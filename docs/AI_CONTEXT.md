@@ -267,6 +267,18 @@ A `<input type="date">` opens the browser's calendar on any click — a plain
 click by itself only works on the field's icon in some Windows setups, so the
 renderer calls `showPicker()` to make the whole field behave the same.
 
+
+**Live numbers on `/project`.** Plugins, commands and migrations come from
+the code. Test functions (a `def test_` count, not pytest's parametrized
+cases), the latest `v*` tag and the number of tags are read once per process
+from the checkout; time since the last deploy is the process's age.
+
+**Expiry and disk watch** (`app/watch.py`). Started by `app.main`, it checks
+once at start (no message) and then daily at 09:00 in `DISPLAY_TIMEZONE`: the
+certificate of the `PUBLIC_BASE_URL` host (warn under 14 days), the domain by
+RDAP through rdap.org (under 30 days; a failed lookup is only logged) and the
+root disk (80% or more). Warnings go to the active admins through the
+notifier; the last dates are on `/admin/status`.
 ## Current plugins
 
 - Notes: /add, /notes, /del, /clear
@@ -816,7 +828,15 @@ where a reader will not mistake it for their own mistake.
 ### Visits
 
 `/admin/visits` is a log of what happened on the public side: a view of a
-public page, a sign-in, a sign-up. Newest first, filterable by page.
+public page, a sign-in, a sign-up, a click on a contact. Newest first,
+filterable by page.
+
+**Contacts.** `/contact.js` on `/about` and `/project` posts
+`{"target": "telegram"|"email"|"github"}` to `POST /contact` when such a link
+is clicked; it is recorded as kind `contact` with the target as its path and
+the same visitor hash, so it lands in the reader's session. `/admin/sessions`
+leaves contacts out of the route, shows them in their own column and counts
+the sessions that reached one.
 
 **No address, and nothing that follows a stranger across days.** A demo
 guest is recorded under a random token that resolves to no account. Since

@@ -33,6 +33,7 @@ from zoneinfo import ZoneInfo
 
 from aiohttp import web
 
+from app import watch
 from app.core.config import Config
 from app.core.identity import Identity
 from app.db.backup import BackupManager
@@ -55,7 +56,7 @@ from app.db.settings_repo import (
     SettingsRepository,
 )
 from app.db.users_repo import User, UsersRepository
-from app.db.visits_repo import DEFAULT_LIMIT, Visit, VisitsRepository
+from app.db.visits_repo import CONTACT, DEFAULT_LIMIT, Visit, VisitsRepository
 from app.plugins.tables import data_tables, demo_tables
 from app.web.auth import SESSION_COOKIE, resolve_user
 from app.web.csrf import CSRF_FIELD, CsrfSigner
@@ -314,6 +315,7 @@ class AdminArea:
             "__GAP__": str(SESSION_GAP_MINUTES),
             "__COUNT_LINE__": (
                 f"Сессий за {SESSION_DAYS} дней: <b>{len(found)}</b>"
+                f" &middot; с контактом: <b>{_converted(found)}</b>"
                 + (f" &middot; показано <b>{offset + 1}–{offset + len(shown)}</b>"
                    if shown else "")
             ),
@@ -639,6 +641,11 @@ def _status_snapshot(database: Database, visits: VisitsRepository) -> dict:
             "cores": cores(),
         },
         "last_visit": _last_visit(visits),
+        "expiry": {
+            "cert": watch.LAST.get("cert", "—"),
+            "domain": watch.LAST.get("domain", "—"),
+            "checked": watch.LAST.get("checked", "—"),
+        },
     }
 
 
@@ -890,7 +897,12 @@ def _visit_rows(found: list[Visit]) -> str:
     # as well is the cheap half of the fix: the other half is that a reader
     # cannot tell which clock a bare timestamp is on.
     zone = ZoneInfo(Config.DISPLAY_TIMEZONE)
-    labels = {"view": "просмотр", "signin": "вход", "signup": "регистрация"}
+    labels = {
+        "view": "просмотр",
+        "signin": "вход",
+        "signup": "регистрация",
+        CONTACT: "контакт",
+    }
     body = []
 
     for visit in found:
@@ -979,6 +991,10 @@ class Session:
     def identities(self) -> set[str]:
         return {visit.identity for visit in self.visits if visit.identity}
 
+    @property
+    def contacts(self) -> list[str]:
+        return sorted({visit.path for visit in self.visits if visit.kind == CONTACT})
+
 
 def _sessions(visits: list[Visit]) -> list[Session]:
     """Group visits, oldest first, into sessions, oldest first.
@@ -1015,15 +1031,31 @@ def _route(session: Session) -> str:
     paths: list[str] = []
 
     for visit in session.visits:
+        if visit.kind == CONTACT:
+            continue
         if not paths or paths[-1] != visit.path:
             paths.append(visit.path)
 
     return " &rarr; ".join(html.escape(path) for path in paths)
 
 
+def _contacts(session: Session) -> str:
+    found = session.contacts
+
+    if not found:
+        return "&mdash;"
+
+    return " ".join(
+        f'<span class="badge on">{html.escape(target)}</span>' for target in found
+    )
+
+
 def _source(session: Session) -> str:
     """Where the session came from: the link's tag, else the referring site."""
-    first = session.visits[0]
+    first = next(
+        (visit for visit in session.visits if visit.kind != CONTACT),
+        session.visits[0],
+    )
 
     if first.campaign:
         return f'<span class="badge on">{html.escape(first.campaign)}</span>'
@@ -1042,6 +1074,12 @@ def _who(session: Session) -> str:
     )
 
     return html.escape(", ".join(dict.fromkeys(names))) if names else "&mdash;"
+
+
+def _converted(found: list[Session]) -> str:
+    count = sum(1 for session in found if session.contacts)
+    share = round(100 * count / len(found)) if found else 0
+    return f"{count} ({share}%)"
 
 
 def _session_rows(found: list[Session]) -> str:
@@ -1064,6 +1102,7 @@ def _session_rows(found: list[Session]) -> str:
             f"<td>{agent}</td>"
             f"<td>{_source(session)}</td>"
             f'<td class="name">{_route(session)}</td>'
+            f"<td>{_contacts(session)}</td>"
             f"<td>{_who(session)}</td>"
             "</tr>"
         )
@@ -1072,7 +1111,7 @@ def _session_rows(found: list[Session]) -> str:
         "<table><thead><tr>"
         f"<th>Начало, {html.escape(datetime.now(zone).tzname() or '')}</th>"
         "<th>Длительность</th><th>Устройство</th><th>Откуда</th>"
-        "<th>Путь</th><th>Кто</th>"
+        "<th>Путь</th><th>Контакт</th><th>Кто</th>"
         "</tr></thead><tbody>" + "".join(body) + "</tbody></table>"
     )
 

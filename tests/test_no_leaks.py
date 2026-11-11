@@ -70,6 +70,7 @@ ALLOWED_HOSTS = {
     "public.example",
     "localhost",
     "telegram.org",
+    "rdap.org",
     "oauth.telegram.org",
     "api.telegram.org",
     "github.com",

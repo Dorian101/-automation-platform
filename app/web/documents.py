@@ -4,6 +4,8 @@ import json
 import logging
 import os
 import re
+import subprocess
+import time
 from collections.abc import Mapping
 from datetime import date
 from pathlib import Path
@@ -16,10 +18,11 @@ from app.core.identity import WEB, Identity, telegram
 from app.core.results import CommandError
 from app.db.migrations import MigrationRunner
 from app.db.settings_repo import DEFAULT_FEEDBACK_PER_HOUR
+from app.db.visits_repo import CONTACT
 
 from . import i18n
 from .admin import FEEDBACK_PATH
-from .common import TEMPLATES_DIR
+from .common import TEMPLATES_DIR, leaves_no_trace
 from .pages import (
     menu_styles,
     render_not_found,
@@ -88,6 +91,7 @@ SCRIPTS = {
     "/about-page.js": ABOUT_PAGE_JS,
     "/project-page.js": PROJECT_PAGE_JS,
     "/feedback.js": FEEDBACK_JS,
+    "/contact.js": Path(__file__).resolve().parent / "contact.js",
     "/push.js": Path(__file__).resolve().parent / "push.js",
     "/passkey.js": Path(__file__).resolve().parent / "passkey.js",
     "/live-page.js": Path(__file__).resolve().parent / "live_page.js",
@@ -121,6 +125,11 @@ FEEDBACK_ATTEMPTS = DEFAULT_FEEDBACK_PER_HOUR
 
 
 FEEDBACK_WINDOW_SECONDS = 3600
+
+
+CONTACT_TARGETS = ("telegram", "email", "github")
+CONTACT_ATTEMPTS = 30
+CONTACT_WINDOW_SECONDS = 3600
 
 
 FEEDBACK_MAX_LENGTH = 2000
@@ -164,6 +173,44 @@ def _experience(today: date, lang: str = i18n.DEFAULT) -> str:
         )
 
     return " ".join(parts)
+
+
+ROOT = Path(__file__).resolve().parents[2]
+TEST_FUNCTION = re.compile(r"^\s*(?:async\s+)?def test_", re.MULTILINE)
+
+
+def repository_facts() -> dict[str, str]:
+    try:
+        tags = subprocess.run(
+            ["git", "-C", str(ROOT), "tag", "-l", "v*", "--sort=-v:refname"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        ).stdout.split()
+    except (OSError, subprocess.SubprocessError) as error:
+        logger.warning("Release tags unavailable: %s", error)
+        tags = []
+
+    tests = sum(
+        len(TEST_FUNCTION.findall(path.read_text(encoding="utf-8")))
+        for path in (ROOT / "tests").glob("test_*.py")
+    )
+
+    return {
+        "__VERSION__": tags[0] if tags else "&mdash;",
+        "__RELEASES__": str(len(tags)),
+        "__TESTS__": str(tests),
+    }
+
+
+def _uptime(seconds: float, lang: str) -> str:
+    words = i18n.strings(lang)
+    hours = int(seconds // 3600)
+
+    if hours < 48:
+        return f"{hours} {words['project.unit_hours']}"
+
+    return f"{hours // 24} {words['project.unit_days']}"
 
 
 _PAGE_LANG = re.compile(r'<html lang="([a-z]+)"')
@@ -354,7 +401,7 @@ class DocumentRoutes:
         replacements = (
             {"__EXPERIENCE__": _experience(date.today(), lang)}
             if base == "/about"
-            else self._project_counts()
+            else self._project_counts(lang)
         )
         return _render_page(
             base.lstrip("/") + ".html",
@@ -364,14 +411,7 @@ class DocumentRoutes:
             lang=lang,
         )
 
-    def _project_counts(self) -> dict[str, str]:
-        """The three numbers the project page states about itself.
-
-        Read from the plugin manager rather than written into the template,
-        because a number typed into a page by hand is a number that starts
-        being wrong the moment anything is added. These three cannot drift:
-        the page and the tests are both looking at the same source.
-        """
+    def _project_counts(self, lang: str = i18n.DEFAULT) -> dict[str, str]:
         plugins = self._manager.get_plugins()
 
         return {
@@ -380,6 +420,8 @@ class DocumentRoutes:
             "__MIGRATIONS__": str(
                 len(MigrationRunner(self._database).discover_migrations())
             ),
+            "__UPTIME__": _uptime(time.monotonic() - self._started, lang),
+            **self._facts,
         }
 
     async def _robots(self, request: web.Request) -> web.Response:
@@ -603,6 +645,37 @@ class DocumentRoutes:
             },
             headers={"Cache-Control": "no-store"},
         )
+
+    async def _contact(self, request: web.Request) -> web.Response:
+        if request.content_type != "application/json":
+            return web.json_response({"error": "JSON expected"}, status=415)
+
+        if not self._rate.allow(
+            f"contact|{client_ip(request)}", CONTACT_ATTEMPTS, CONTACT_WINDOW_SECONDS
+        ):
+            return web.json_response({"error": "Too many requests"}, status=429)
+
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = None
+
+        target = payload.get("target") if isinstance(payload, dict) else None
+
+        if target not in CONTACT_TARGETS:
+            return web.json_response({"error": "Bad request"}, status=400)
+
+        if not leaves_no_trace(request):
+            identity = self._identity(request)
+            self._visits.record(
+                CONTACT,
+                path=target,
+                identity=str(identity) if identity else None,
+                **self._details(request),
+            )
+            self._visit_recorded()
+
+        return web.json_response({"ok": True})
 
     async def _feedback(self, request: web.Request) -> web.Response:
         """Keep a reader's note and pass it on to the administrators' chats.

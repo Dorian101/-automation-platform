@@ -20,6 +20,7 @@ from .database import Database
 VIEW = "view"
 SIGNIN = "signin"
 SIGNUP = "signup"
+CONTACT = "contact"
 
 #: How many rows one page shows. A screen of events, not a report: the
 #: question being answered is "was anybody here today", and the answer is in
@@ -209,7 +210,8 @@ class VisitsRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     "SELECT DISTINCT path FROM visits "
-                    "WHERE path <> '' ORDER BY path"
+                    "WHERE path <> '' AND kind <> %s ORDER BY path",
+                    (CONTACT,),
                 )
                 rows = cur.fetchall()
 

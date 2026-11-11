@@ -197,3 +197,63 @@ class TestTheSessionsPage:
         response = await client.get("/admin/sessions", allow_redirects=False)
 
         assert response.status == 303
+
+
+class TestContacts:
+    async def test_a_click_is_recorded_in_the_visitors_session(
+        self, client, database_with_schema
+    ):
+        await client.get("/about", headers={"User-Agent": IPHONE})
+        response = await client.post(
+            "/contact", json={"target": "telegram"}, headers={"User-Agent": IPHONE}
+        )
+
+        rows = _log(database_with_schema)
+
+        assert response.status == 200
+        assert rows[0].kind == "contact"
+        assert rows[0].path == "telegram"
+        assert rows[0].visitor == rows[1].visitor
+
+    async def test_an_unknown_target_is_refused(self, client, database_with_schema):
+        response = await client.post("/contact", json={"target": "<b>x</b>"})
+
+        assert response.status == 400
+        assert _log(database_with_schema) == []
+
+    def test_a_contact_is_not_a_step_of_the_route(self):
+        contact = Visit(
+            at=datetime(2026, 11, 3, 10, 1), kind="contact", path="email", visitor="a",
+            identity=None,
+        )
+        session = _sessions([_visit(0), contact, _visit(2, path="/project")])[0]
+
+        assert session.contacts == ["email"]
+        assert [v.path for v in session.visits if v.kind == "view"] == [
+            "/about", "/project"
+        ]
+
+
+class TestConversionsOnTheSessionsPage:
+    async def test_the_session_shows_its_contact(
+        self, client, login, create_user, users
+    ):
+        await client.get("/about", headers={"User-Agent": IPHONE})
+        await client.post(
+            "/contact", json={"target": "email"}, headers={"User-Agent": IPHONE}
+        )
+        users.set_admin(users.get_by_username(TEST_USERNAME).id, True)
+        await login(client)
+        with_passkey(client, users)
+
+        body = await (await client.get("/admin/sessions")).text()
+
+        assert '<span class="badge on">email</span>' in body
+        assert "с контактом: <b>1 (" in body
+
+
+async def test_contacts_are_not_offered_as_pages(client, database_with_schema):
+    await client.get("/about", headers={"User-Agent": IPHONE})
+    await client.post("/contact", json={"target": "github"})
+
+    assert VisitsRepository(database_with_schema).paths() == ["/about"]
