@@ -105,38 +105,40 @@ class TestSorting:
         ]
 
 
-class TestDueSoon:
-    def test_returns_tasks_inside_the_horizon(self, repo, web_identity):
-        now = datetime.now()
-        repo.add(web_identity, "Скоро", due_at=now + timedelta(hours=1))
+class TestDueOn:
+    def test_returns_tasks_due_that_day(self, repo, web_identity):
+        day = datetime(2026, 11, 12)
+        repo.add(web_identity, "Скоро", due_at=day)
+        repo.add(web_identity, "Вчера", due_at=day - timedelta(days=1))
+        repo.add(web_identity, "Завтра", due_at=day + timedelta(days=1))
 
-        due = repo.due_soon(now, now + timedelta(days=1))
+        due = repo.due_on(day)
 
         assert [t["text"] for t in due] == ["Скоро"]
 
     def test_skips_already_done_and_already_notified(self, repo, web_identity):
-        now = datetime.now()
-        repo.add(web_identity, "Сделанная", due_at=now + timedelta(hours=1))
+        day = datetime(2026, 11, 12)
+        repo.add(web_identity, "Сделанная", due_at=day)
         done = repo.entries(web_identity)[0]["id"]
         repo.set_status(web_identity, done, "done")
 
-        repo.add(web_identity, "Напомненная", due_at=now + timedelta(hours=1))
+        repo.add(web_identity, "Напомненная", due_at=day)
         reminded = [
             t for t in repo.entries(web_identity) if t["text"] == "Напомненная"
         ][0]["id"]
         repo.mark_notified(reminded)
 
-        repo.add(web_identity, "Ждёт напоминания", due_at=now + timedelta(hours=1))
+        repo.add(web_identity, "Ждёт напоминания", due_at=day)
 
-        due = repo.due_soon(now, now + timedelta(days=1))
+        due = repo.due_on(day)
 
         assert [t["text"] for t in due] == ["Ждёт напоминания"]
 
     def test_mark_notified_sets_the_flag(self, repo, web_identity):
-        now = datetime.now()
-        repo.add(web_identity, "Задача", due_at=now + timedelta(hours=1))
+        day = datetime(2026, 11, 12)
+        repo.add(web_identity, "Задача", due_at=day)
         task_id = repo.entries(web_identity)[0]["id"]
 
         repo.mark_notified(task_id)
 
-        assert repo.due_soon(now, now + timedelta(days=1)) == []
+        assert repo.due_on(day) == []

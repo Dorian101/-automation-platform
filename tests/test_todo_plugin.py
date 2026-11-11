@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from app.core.config import Config
 from app.core.identity import WEB, Identity, guest, telegram
 from app.core.results import CommandError
 from app.plugins.todo import STATUS_LABELS, TodoPlugin, _local_now, _midnight
@@ -143,8 +144,8 @@ class TestMove:
         assert plugin.repo.entries(web_identity) == []
 
 
-MORNING = datetime(2026, 11, 12, 9, 30)
 DUE_DAY = datetime(2026, 11, 12)
+MORNING = DUE_DAY.replace(hour=9, minute=30)
 
 
 @pytest.fixture
@@ -208,9 +209,6 @@ class TestWorker:
         assert sent.received == []
 
     async def test_the_day_follows_the_display_zone(self, monkeypatch):
-        from app.core.config import Config
-        from app.plugins.todo import _local_now
-
         monkeypatch.setattr(Config, "DISPLAY_TIMEZONE", "Europe/Moscow")
         moscow = _local_now()
         monkeypatch.setattr(Config, "DISPLAY_TIMEZONE", "UTC")

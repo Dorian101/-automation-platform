@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.94.1
+v0.95.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -462,6 +462,12 @@ Implemented:
   never in the past
 * since v0.77.1 a changed deadline is reminded again: moving `due_at` clears
   `notified_at`; saving the same date does not
+* since v0.95.0 a deadline is reminded on its own morning: the hourly pass
+  waits for 09:00 in `DISPLAY_TIMEZONE` and sends tasks due that day, once.
+  Before, anything due within 24 hours of UTC was sent, so a task due
+  tomorrow was pushed within the hour and one due today never. "Today" for
+  `due_days`, the next copy of a repeating task and the overdue mark is read
+  from the same clock
 
 ⸻
 
@@ -677,6 +683,8 @@ Implemented:
 * since v0.89.0 a push click opens the right place: a reminder opens
   /reminders, a task deadline opens /todo with that card expanded; an open
   window of the site is navigated rather than a new one opened
+* since v0.95.0 web push is sent with `Urgency: high`, so a locked iPhone
+  gets it at once rather than when power allows
 * since v0.89.0 quiet hours per account («Тихие часы» on the console, in
   `DISPLAY_TIMEZONE`): any notification to the account, push or Telegram,
   waits in `held_notifications` and goes out within a minute after the window

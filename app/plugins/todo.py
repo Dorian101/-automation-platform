@@ -154,9 +154,7 @@ class TodoPlugin(BasePlugin):
         if now.time() < REMIND_FROM:
             return
 
-        today = _midnight(now)
-
-        for task in self.repo.due_soon(today - timedelta(days=1), today):
+        for task in self.repo.due_on(_midnight(now)):
             try:
                 target = Identity.parse(task["user_id"])
             except ValueError:

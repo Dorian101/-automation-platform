@@ -7,7 +7,7 @@ already uses.
 """
 
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.core.identity import Identity, as_tuple, ids_of
 
@@ -246,13 +246,12 @@ class TasksRepository:
 
         return changed > 0
 
-    def due_soon(self, now: datetime, horizon: datetime) -> list[dict]:
-        """Tasks nearing their deadline that have not been reminded yet.
+    def due_on(self, day: datetime) -> list[dict]:
+        """Tasks whose deadline falls on ``day`` and have not been reminded yet.
 
-        Across every account, because the worker has no single person's view:
-        it wakes once an hour and asks what is due for anybody. A task is
-        returned when its deadline falls inside ``(now, horizon]`` and
-        ``notified_at`` is NULL.
+        Across every account, because the worker has no single person's view.
+        ``day`` is a midnight; a task is returned when its deadline is inside
+        that day, it is not done and ``notified_at`` is NULL.
         """
         with self.database.connect() as conn:
             with conn.cursor() as cur:
@@ -260,14 +259,13 @@ class TasksRepository:
                     """
                     SELECT id, user_id, text, due_at
                     FROM tasks
-                    WHERE due_at IS NOT NULL
-                      AND due_at > %s
-                      AND due_at <= %s
+                    WHERE due_at >= %s
+                      AND due_at < %s
                       AND notified_at IS NULL
                       AND status <> 'done'
                     ORDER BY due_at
                     """,
-                    (now, horizon),
+                    (day, day + timedelta(days=1)),
                 )
                 rows = cur.fetchall()
 

@@ -343,7 +343,9 @@ notifier; the last dates are on `/admin/status`.
 - Applications: page at /applications, web-only, statuses are a state machine
 - Tasks: page at /todo, web-only, a kanban board with deadline notifications,
   descriptions, repeats and an archive of tasks done over a week ago
-  (a changed deadline clears `notified_at`, so it is reminded again)
+  (a changed deadline clears `notified_at`, so it is reminded again). The
+  hourly worker reminds from 09:00 in `DISPLAY_TIMEZONE` about tasks due that
+  day (`TasksRepository.due_on`); the plugin's "today" is that zone's
 - Automation: page at /automation, web-only, rules between plugins
 - System: /plugins, /help, /status
 
@@ -374,7 +376,8 @@ what keeps a stored stage real on any path that writes one.
 - TelegramChannel sends through the bot
 - WebPushChannel (kind `web`) sends a web push to every device the account
   enabled (`push_subscriptions`, pywebpush, VAPID keys from `.env`); a 404/410
-  from the push service forgets the device. WebChannel, the old log-and-drop
+  from the push service forgets the device. Sent with `Urgency: high`;
+  without it an iPhone gets the push minutes late. WebChannel, the old log-and-drop
   placeholder, remains for tests only
 - `LinkedChatResolver(users, links, push)` sends to devices first: a web
   account, or a Telegram chat linked to one, with at least one device resolves
