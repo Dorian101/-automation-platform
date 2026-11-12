@@ -3,52 +3,39 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-default" content="light">
 <title>Демонстрация — Платформа автоматизации</title>
 __STYLES__
-<style>
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-    gap: 1rem;
-    margin: 0 0 2rem;
-  }
-  .card {
-    display: block;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1.1rem 1.25rem;
-    text-decoration: none;
-  }
-  .card:hover { border-color: var(--accent); text-decoration: none; }
-  .card b { display: block; color: var(--text); font-size: 1.05rem; margin-bottom: 0.35rem; }
-  .card span { color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
-</style>
 __MENU_STYLES__
 </head>
 <body>
 <main>
   __NAV__
 
-  <h1>Демонстрация платформы</h1>
-  <p class="lede">Одна и та же платформа, что и в личном кабинете: те же
-  плагины, тот же код, те же расчёты. Всё, что вы введёте, живёт в отдельной
-  временной области и удаляется ежедневно.</p>
-
-  <div class="note">
-    <p><strong>Все данные здесь вымышленные.</strong> Компании, вакансии,
-    суммы и расходы придуманы для примера — ничьи настоящие цифры не
-    показываются. Можно свободно добавлять свои записи и смотреть, как
-    меняются итоги: ничего не сломается, и ничего не останется.</p>
+  <div class="hero hero--single">
+    <div>
+      <h1>Демонстрация</h1>
+      <p class="lede">Та же платформа, что в личном кабинете: те же плагины и расчёты.
+      Компании, вакансии и суммы здесь вымышленные, а всё, что вы введёте, удаляется
+      раз в сутки.</p>
+    </div>
   </div>
 
-  <h2>Что можно посмотреть</h2>
-  <div class="cards">__CARDS__</div>
+  <section>
+    <h2>Что посмотреть</h2>
+    <table class="try">
+      <thead><tr><th scope="col">Раздел</th><th scope="col">Что внутри</th><th scope="col"><span class="sr-only">Ссылка</span></th></tr></thead>
+      <tbody>__CARDS__</tbody>
+    </table>
+  </section>
 
-  <footer>
-    Полное устройство проекта — на странице
-    <a href="/project">проект и метод</a>.
-    <button type="button" class="feedback-open" hidden>Книга отзывов и предложений</button>
+  <p class="plain">Как это устроено внутри, на странице <a href="/project">проекта</a>.</p>
+
+  <footer class="site-footer">
+    <div class="footer-line">
+      <a href="/about">Обо мне</a>
+      <button type="button" class="feedback-open" hidden>Книга отзывов и предложений</button>
+    </div>
   </footer>
 </main>
 <script src="/feedback.js" defer></script>

@@ -346,8 +346,8 @@ class TestTheResumePage:
         """They do nothing without it, so the markup starts them hidden."""
         page = await (await crawler.get("/about")).text()
 
-        assert 'id="print-resume" type="button" hidden' in page
-        assert 'id="share-page" type="button" class="page-action" hidden' in page
+        assert 'id="print-resume" class="button outline" type="button" hidden' in page
+        assert 'id="share-page" type="button" class="text-button" hidden' in page
         assert page.count('data-copy="') == 2
         assert 'src="/about-page.js"' in page
 
@@ -355,7 +355,9 @@ class TestTheResumePage:
         page = await (await crawler.get("/about")).text()
         print_styles = page[page.index("@media print"):]
 
-        for selector in (".menu", ".theme-toggle", ".viz", ".page-action"):
+        for selector in (
+            ".menu", ".theme-toggle", ".report", ".actions", ".small-button"
+        ):
             assert selector in print_styles
 
     async def test_the_printout_carries_the_contacts(self, crawler):
@@ -367,12 +369,13 @@ class TestTheResumePage:
         assert "@alexeyr6" in line
         assert "alexeyr101@gmail.com" in line
 
-    async def test_the_motion_stays_off_paper(self, crawler):
-        """A block hidden until it scrolls in would be missing from a printout."""
+    async def test_nothing_waits_for_a_scroll_to_appear(self, crawler):
+        """A block hidden until it scrolls in would be missing from a printout
+        and from a reader who jumps to an anchor, so no block starts hidden."""
         page = await (await crawler.get("/about")).text()
 
-        assert "@media screen and (prefers-reduced-motion: no-preference)" in page
-        assert page.index("rise-in") < page.index("@media print")
+        assert "animation-timeline" not in page
+        assert "rise-in" not in page
 
     async def test_the_person_matches_the_page(self, crawler):
         page, data = await self._structured(crawler, "/about")
@@ -432,8 +435,22 @@ class TestTheLightTheme:
         for name, colour in re.findall(r"--([a-z-]+): (#[0-9a-f]{6});", source):
             palette.setdefault(name, colour)
 
-        assert _contrast(palette["bg"], palette["accent"]) >= 4.5
-        assert _contrast(palette["muted"], palette["bg"]) >= 3
+        if stylesheet == "_styles.html":
+            assert _contrast(palette["bg"], palette["accent"]) >= 4.5
+            assert _contrast(palette["muted"], palette["bg"]) >= 3
+            return
+
+        dark = palette
+        light = dict(re.findall(
+            r"--([a-z-]+): (#[0-9a-f]{6});",
+            source[source.index('html:root[data-theme="light"]'):],
+        ))
+        for theme in (dark, light):
+            assert _contrast(theme["acc-ink"], theme["acc"]) >= 4.5
+            assert _contrast(theme["acc"], theme["paper"]) >= 4.5
+            assert _contrast(theme["mute"], theme["paper"]) >= 4.5
+            assert _contrast(theme["low"], theme["paper"]) >= 4.5
+            assert _contrast(theme["ink"], theme["paper"]) >= 7
 
 
 class TestTheProjectPage:
@@ -457,9 +474,8 @@ class TestTheProjectPage:
     async def test_the_counts_are_the_real_ones(self, page, pages_manager):
         plugins = pages_manager.get_plugins()
 
-        assert f"<b>{len(plugins)}</b><span>плагинов" in page
-        assert f"<b>{sum(len(p.commands) for p in plugins)}</b>" \
-            "<span>команд" in page
+        assert f'Плагины</th><td>{len(plugins)}</td>' in page
+        assert f'Команды</th><td>{sum(len(p.commands) for p in plugins)}</td>' in page
 
     async def test_each_reading_depth_hides_the_other(self, page):
         """Both depths are in the markup, so the styles are all that keeps a
@@ -468,7 +484,7 @@ class TestTheProjectPage:
         assert 'main:not([data-lens="brief"]) .lens-brief { display: none; }' \
             in page
 
-        cards = re.findall(r'<article class="project.*?</article>', page, re.S)
+        cards = re.findall(r'<div class="feature">.*?</div>', page, re.S)
 
         assert cards, "the page has no cards, so this proves nothing"
         for card in cards:
@@ -577,9 +593,9 @@ class TestTheProjectPage:
 
         facts = repository_facts()
 
-        assert f"<b>{facts['__TESTS__']}</b><span>тестовых функций</span>" in page
-        assert f"<b>{facts['__RELEASES__']}</b><span>релизов</span>" in page
-        assert "<span>с последнего деплоя</span>" in page
+        assert f"Тестовые функции</th><td>{facts['__TESTS__']}</td>" in page
+        assert f"Релизы</th><td>{facts['__RELEASES__']}</td>" in page
+        assert "С последнего деплоя</th>" in page
 
 
 PUBLIC_PAGES = ("/about", "/project")

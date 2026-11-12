@@ -342,11 +342,6 @@ class TestReachableFromTheResume:
 
         assert 'href="/demo"' in body
 
-    async def test_it_says_registering_is_not_needed(self, visitor):
-        body = await (await visitor.get("/about")).text()
-
-        assert "Регистрация не нужна" in body
-
     async def test_it_says_the_data_is_invented(self, visitor):
         body = await (await visitor.get("/about")).text()
 

@@ -286,13 +286,14 @@ class WebServer(
     def _login_required(request: web.Request) -> web.Response:
         """Answer an unauthenticated request without handing over the page.
 
-        Browsers are sent to the login form; API callers get a 401, because a
-        redirect to HTML would only confuse them.
+        Browsers are sent to the login form, except on the bare address, where
+        a guest is a reader and gets the résumé; API callers get a 401, because
+        a redirect to HTML would only confuse them.
         """
         if request.path.startswith("/api/"):
             return web.json_response({"error": "Unauthorized"}, status=401)
 
-        return _redirect("/login")
+        return _redirect("/about" if request.path == "/" else "/login")
 
     @web.middleware
     async def _block_abusers(self, request: web.Request, handler):

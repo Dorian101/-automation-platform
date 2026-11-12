@@ -193,14 +193,14 @@ class TestTheButton:
 
         assert_no_placeholders("index.html", body)
 
-    async def test_a_guest_is_sent_to_login_rather_than_offered_a_button(
+    async def test_a_guest_is_sent_away_rather_than_offered_a_button(
         self,
         guest,
     ):
         response = await guest.get("/", allow_redirects=False)
 
         assert response.status == 303
-        assert response.headers["Location"] == "/login"
+        assert response.headers["Location"] == "/about"
 
 
 class TestLinking:

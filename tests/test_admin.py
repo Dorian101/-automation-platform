@@ -381,7 +381,7 @@ class TestChangingAnAccount:
 
         response = await theirs.get("/", allow_redirects=False)
 
-        assert response.headers["Location"] == "/login"
+        assert response.headers["Location"] == "/about"
 
     async def test_the_request_needs_a_token(
         self, admin_client, users, create_user

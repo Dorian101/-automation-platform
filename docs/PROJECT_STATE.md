@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.95.0
+v0.96.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -305,6 +305,14 @@ Implemented:
 * since v0.94.1 nothing changes for a user: the live-update client is one
   shared script, a device dropped by push updates the console, and small
   duplicates are gone
+* since v0.96.0 the public pages are redesigned after three design reviews:
+  light ruled paper by default with a dark variant, Onest, Literata and IBM
+  Plex Mono, one petrol accent, no mono caps labels, numbered kickers, orbits,
+  hover fills or count-up figures. `/about` opens with name, role and stack,
+  its SLA summary is a table with a target slider, contacts sit in the
+  footer; `/project` groups the features and its "How it was built" section
+  describes the rules, skills, hooks, sessions and connectors; `/demo` lists
+  the sections as a table. A guest on `/` is sent to `/about`
 
 ⸻
 

@@ -28,8 +28,12 @@
       }
     }
   
+    const preferred = document.querySelector('meta[name="theme-default"]')?.content;
+
     function restore() {
-      root.dataset.theme = remembered() === "light" ? "light" : "dark";
+      const chosen = remembered();
+      root.dataset.theme =
+        chosen === "light" || chosen === "dark" ? chosen : preferred === "light" ? "light" : "dark";
     }
   
     restore();

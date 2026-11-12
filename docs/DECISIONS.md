@@ -3046,3 +3046,32 @@ urgency, which Apple delivers to an iPhone when power allows: on a locked
 phone that was minutes, while a Mac got the same message at once. Every
 notification here is something a person asked to be told about, so none is
 worth delaying.
+
+
+## 2026-11-12
+
+### Decision
+Redesign the public pages and send a guest on `/` to `/about`
+
+### Why
+
+Three independent design reviews (impeccable, web-review, hallmark) found the
+same generic look: mono caps labels, numbered kickers, one accented word in
+the headline, orbit rings, hover fills in four colours, count-up figures and a
+callout with a side stripe. Three directions were mocked up and reviewed
+again; all three reviews picked the "reference book" one: ruled paper,
+tables instead of cards, figures in mono only where they are figures. It is
+built on Onest, Literata and IBM Plex Mono, self-hosted under new names so the
+year-long font cache cannot serve the old faces.
+
+The public pages open light, because the direction is a light paper; a reader
+who picks dark keeps it. The console keeps its dark default.
+
+The domain root was a sign-in form for anyone without a session, so a person
+following the bare address met a password field before the résumé. A guest on
+`/` now gets `/about`; signing in is one link away in the menu.
+
+The "How it was built" section names CLAUDE.md and the release and unslop-ui
+skills in plain text and says they are local: the tests hold the page to
+naming only files and commands a reader can find in the repository.
+

@@ -183,6 +183,10 @@ def page_styles() -> str:
     return (TEMPLATES_DIR / "_page_styles.html").read_text(encoding="utf-8")
 
 
+def app_styles() -> str:
+    return (TEMPLATES_DIR / "_app_styles.html").read_text(encoding="utf-8")
+
+
 def render_plugin_page(
     page_path: str,
     view: dict,
@@ -214,7 +218,7 @@ def render_plugin_page(
     source = source.replace("__IS_DEMO__", "true" if demo else "false")
     source = source.replace(
         "__STYLES__",
-        page_styles(),
+        app_styles(),
     )
     source = source.replace(
         "__PAGE_SCRIPT__",
@@ -247,10 +251,9 @@ def render_demo_landing(links: list[dict], nav_html: str) -> str:
     cards = []
     for link in links:
         cards.append(
-            '<a class="card" href="{href}">'
-            "<b>{title}</b>"
-            '<span>{description}</span>'
-            "</a>".format(
+            '<tr><th scope="row">{title}</th>'
+            "<td>{description}</td>"
+            '<td class="go"><a class="open" href="{href}">Открыть</a></td></tr>'.format(
                 href=html.escape("/demo" + link["page"]),
                 title=html.escape(link.get("title") or link["page"]),
                 description=html.escape(link.get("description", "")),

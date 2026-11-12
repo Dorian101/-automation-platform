@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-default" content="light">
 <title>{{project.title}}</title>
 <meta name="description" content="{{project.description}}">
 __PAGE_STYLES__
@@ -12,139 +13,97 @@ __MENU_STYLES__
 <main>
   __NAV__
 
-  <section class="hero">
-    <p class="eyebrow">{{project.eyebrow}}</p>
-    <h1>{{project.headline}}</h1>
-    <div id="lens" class="lens" role="group" aria-label="{{project.lens_label}}" hidden>
-      <button type="button" data-lens="brief">{{project.lens_brief}}</button>
-      <button type="button" data-lens="deep">{{project.lens_deep}}</button>
+  <div class="hero">
+    <div>
+      <h1>{{project.headline}}</h1>
+      <p class="lede">{{project.lede}}</p>
+      <div class="actions">
+        <a class="button" href="/demo">{{project.next_demo}}</a>
+        <a class="button outline" href="https://github.com/Dorian101/-automation-platform">{{project.next_source}}</a>
+      </div>
+      <div id="lens" class="lens" role="group" aria-label="{{project.lens_label}}" hidden>
+        <button type="button" data-lens="brief">{{project.lens_brief}}</button>
+        <button type="button" data-lens="deep">{{project.lens_deep}}</button>
+      </div>
     </div>
-    <div class="viz viz--small" aria-hidden="true">
-      <svg viewBox="0 0 64 64" class="viz-svg">
-        <!-- container: grey -> dark blue -->
-        <rect width="64" height="64" rx="14" fill="#8b93a3">
-          <animate attributeName="fill" values="#8b93a3;#8b93a3;#222a38;#222a38" keyTimes="0;0.05;0.18;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
-        </rect>
+    <table class="counts num">
+      <caption>{{project.counts_title}}</caption>
+      <tbody>
+        <tr><th scope="row">{{project.fact_plugins}}</th><td>__PLUGINS__</td></tr>
+        <tr><th scope="row">{{project.fact_commands}}</th><td>__COMMANDS__</td></tr>
+        <tr><th scope="row">{{project.fact_migrations}}</th><td>__MIGRATIONS__</td></tr>
+        <tr><th scope="row">{{project.fact_tests}}</th><td>__TESTS__</td></tr>
+        <tr><th scope="row">{{project.fact_version}}</th><td>__VERSION__</td></tr>
+        <tr><th scope="row">{{project.fact_releases}}</th><td>__RELEASES__</td></tr>
+        <tr><th scope="row">{{project.fact_uptime}}</th><td>__UPTIME__</td></tr>
+      </tbody>
+    </table>
+  </div>
 
-        <!-- centre node -->
-        <rect x="26" y="26" width="12" height="12" rx="3.5" fill="#4a9eff">
-          <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.17;0.3;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
-        </rect>
-
-        <!-- rays + corner nodes -->
-        <!-- top-left -->
-        <line x1="32" y1="32" x2="15" y2="15" stroke="#4a9eff" stroke-width="2.5" opacity="0.6" stroke-dasharray="24" stroke-dashoffset="24">
-          <animate attributeName="stroke-dashoffset" values="24;24;0;0" keyTimes="0;0.38;0.52;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
-        </line>
-        <rect x="11" y="11" width="8" height="8" rx="2" fill="#4c5568" stroke="#5d6b85" stroke-width="1">
-          <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4;0.5;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
-        </rect>
-
-        <!-- top-right -->
-        <line x1="32" y1="32" x2="49" y2="15" stroke="#4a9eff" stroke-width="2.5" opacity="0.6" stroke-dasharray="24" stroke-dashoffset="24">
-          <animate attributeName="stroke-dashoffset" values="24;24;0;0" keyTimes="0;0.55;0.69;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
-        </line>
-        <rect x="45" y="11" width="8" height="8" rx="2" fill="#4c5568" stroke="#5d6b85" stroke-width="1">
-          <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.57;0.67;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
-        </rect>
-
-        <!-- bottom-right -->
-        <line x1="32" y1="32" x2="49" y2="49" stroke="#4a9eff" stroke-width="2.5" opacity="0.6" stroke-dasharray="24" stroke-dashoffset="24">
-          <animate attributeName="stroke-dashoffset" values="24;24;0;0" keyTimes="0;0.72;0.86;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
-        </line>
-        <rect x="45" y="45" width="8" height="8" rx="2" fill="#4c5568" stroke="#5d6b85" stroke-width="1">
-          <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.74;0.84;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
-        </rect>
-
-        <!-- bottom-left -->
-        <line x1="32" y1="32" x2="15" y2="49" stroke="#4a9eff" stroke-width="2.5" opacity="0.6" stroke-dasharray="24" stroke-dashoffset="24">
-          <animate attributeName="stroke-dashoffset" values="24;24;0;0" keyTimes="0;0.89;1;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
-        </line>
-        <rect x="11" y="45" width="8" height="8" rx="2" fill="#4c5568" stroke="#5d6b85" stroke-width="1">
-          <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.91;0.99;1" dur="2.9s" fill="freeze" calcMode="spline" keySplines="0 0 1 1;0.25 0.1 0.25 1;0 0 1 1"/>
-        </rect>
-      </svg>
+  <section>
+    <h2>{{project.what_title}}</h2>
+    <div class="readable">
+      <p class="lens-brief">{{project.what_brief_1}}</p>
+      <p class="lens-brief">{{project.what_brief_2}}</p>
+      <p class="lens-deep">{{project.what_deep_1}}</p>
+      <p class="lens-deep">{{project.what_deep_2}}</p>
+      <p class="lens-deep">{{project.what_deep_3}}</p>
     </div>
   </section>
 
-  <section class="about">
-    <p class="section-tag" role="heading" aria-level="2">{{project.tag_what}}</p>
-    <p class="location">{{project.what_subtitle}}</p>
-    <p class="lens-brief">{{project.what_brief_1}}</p>
-    <p class="lens-brief">{{project.what_brief_2}}</p>
-    <p class="lens-deep">{{project.what_deep_1}}</p>
-    <p class="lens-deep">{{project.what_deep_2}}</p>
-    <p class="lens-deep">{{project.what_deep_3}}</p>
-    <div class="facts lens-deep">
-      <div class="fact"><b>__PLUGINS__</b><span>{{project.fact_plugins}}</span></div>
-      <div class="fact"><b>__COMMANDS__</b><span>{{project.fact_commands}}</span></div>
-      <div class="fact"><b>__MIGRATIONS__</b><span>{{project.fact_migrations}}</span></div>
-      <div class="fact"><b>__TESTS__</b><span>{{project.fact_tests}}</span></div>
-      <div class="fact"><b>__VERSION__</b><span>{{project.fact_version}}</span></div>
-      <div class="fact"><b>__RELEASES__</b><span>{{project.fact_releases}}</span></div>
-      <div class="fact"><b>__UPTIME__</b><span>{{project.fact_uptime}}</span></div>
-    </div>
-  </section>
-
-  <section class="work">
-    <div class="work-heading">
-      <p class="section-tag">{{project.tag_features}}</p>
-      <h2>{{project.features_title}}</h2>
-    </div>
-
-    <div class="project-list">
-      <article class="project blue">
-        <div class="project-meta"><span>01</span><span>{{project.notes_meta}}</span></div>
-        <h3>{{project.notes_title}}</h3>
+  <section>
+    <h2>{{project.features_title}}</h2>
+    <div class="groups">
+    <div>
+      <h3>{{project.group_tasks}}</h3>
+      <div class="feature">
+        <h4>{{project.notes_title}}</h4>
         <p class="lens-brief">{{project.notes_brief}}</p>
         <p class="lens-deep">{{project.notes_deep}}</p>
-      </article>
-      <article class="project lime">
-        <div class="project-meta"><span>02</span><span>{{project.expenses_meta}}</span></div>
-        <h3>{{project.expenses_title}}</h3>
-        <p class="lens-brief">{{project.expenses_brief}}</p>
-        <p class="lens-deep">{{project.expenses_deep}}</p>
-      </article>
-      <article class="project coral">
-        <div class="project-meta"><span>03</span><span>{{project.applications_meta}}</span></div>
-        <h3>{{project.applications_title}}</h3>
-        <p class="lens-brief">{{project.applications_brief}}</p>
-        <p class="lens-deep">{{project.applications_deep}}</p>
-      </article>
-      <article class="project blue">
-        <div class="project-meta"><span>04</span><span>{{project.tasks_meta}}</span></div>
-        <h3>{{project.tasks_title}}</h3>
+      </div>
+      <div class="feature">
+        <h4>{{project.tasks_title}}</h4>
         <p class="lens-brief">{{project.tasks_brief}}</p>
         <p class="lens-deep">{{project.tasks_deep}}</p>
-      </article>
-      <article class="project lime">
-        <div class="project-meta"><span>05</span><span>{{project.automation_meta}}</span></div>
-        <h3>{{project.automation_title}}</h3>
-        <p class="lens-brief">{{project.automation_brief}}</p>
-        <p class="lens-deep">{{project.automation_deep}}</p>
-      </article>
-      <article class="project coral">
-        <div class="project-meta"><span>06</span><span>{{project.snippets_meta}}</span></div>
-        <h3>{{project.snippets_title}}</h3>
+      </div>
+      <div class="feature">
+        <h4>{{project.snippets_title}}</h4>
         <p class="lens-brief">{{project.snippets_brief}}</p>
         <p class="lens-deep">{{project.snippets_deep}}</p>
-      </article>
-      <article class="project blue">
-        <div class="project-meta"><span>07</span><span>{{project.bookmarks_meta}}</span></div>
-        <h3>{{project.bookmarks_title}}</h3>
+      </div>
+      <div class="feature">
+        <h4>{{project.bookmarks_title}}</h4>
         <p class="lens-brief">{{project.bookmarks_brief}}</p>
         <p class="lens-deep">{{project.bookmarks_deep}}</p>
-      </article>
+      </div>
+    </div>
+    <div>
+      <h3>{{project.group_money}}</h3>
+      <div class="feature">
+        <h4>{{project.expenses_title}}</h4>
+        <p class="lens-brief">{{project.expenses_brief}}</p>
+        <p class="lens-deep">{{project.expenses_deep}}</p>
+      </div>
+      <div class="feature">
+        <h4>{{project.automation_title}}</h4>
+        <p class="lens-brief">{{project.automation_brief}}</p>
+        <p class="lens-deep">{{project.automation_deep}}</p>
+      </div>
+    </div>
+    <div>
+      <h3>{{project.group_work}}</h3>
+      <div class="feature">
+        <h4>{{project.applications_title}}</h4>
+        <p class="lens-brief">{{project.applications_brief}}</p>
+        <p class="lens-deep">{{project.applications_deep}}</p>
+      </div>
+    </div>
     </div>
   </section>
 
-  <section class="work">
-    <div class="work-heading">
-      <p class="section-tag">{{project.tag_how}}</p>
-      <h2>{{project.how_title}}</h2>
-    </div>
-
-    <p class="lens-brief">{{project.how_brief}}</p>
+  <section>
+    <h2>{{project.how_title}}</h2>
+    <p class="lens-brief readable">{{project.how_brief}}</p>
 
     <figure class="diagram">
     <svg viewBox="0 0 760 600" role="img" aria-labelledby="diagram-title">
@@ -274,52 +233,57 @@ __MENU_STYLES__
     </div>
     <p id="trace-result" class="trace-result" aria-live="polite"></p>
 
-    <p class="lens-deep" style="margin-top: 2rem;">{{project.how_deep_1}}</p>
-    <p class="lens-deep">{{project.how_deep_2}}</p>
-    <p class="lens-deep">{{project.how_deep_3}}</p>
-    <p class="lens-deep">{{project.how_deep_4}}</p>
+    <div class="readable lens-deep">
+      <p>{{project.how_deep_1}}</p>
+      <p>{{project.how_deep_2}}</p>
+      <p>{{project.how_deep_3}}</p>
+      <p>{{project.how_deep_4}}</p>
+    </div>
   </section>
 
-  <section class="about lens-deep">
-    <p class="section-tag" role="heading" aria-level="2">{{project.tag_process}}</p>
-    <p>{{project.process_1}}</p>
-    <p>{{project.process_2}}</p>
-    <p>{{project.process_3}}</p>
+  <section class="lens-deep">
+    <h2>{{project.process_title}}</h2>
+    <p class="readable">{{project.process_intro}}</p>
+    <table class="process">
+      <tbody>
+        <tr><th scope="row">{{project.process_rules_title}}</th><td>{{project.process_rules_text}}</td></tr>
+        <tr><th scope="row">{{project.process_skills_title}}</th><td>{{project.process_skills_text}}</td></tr>
+        <tr><th scope="row">{{project.process_hooks_title}}</th><td>{{project.process_hooks_text}}</td></tr>
+        <tr><th scope="row">{{project.process_sessions_title}}</th><td>{{project.process_sessions_text}}</td></tr>
+        <tr><th scope="row">{{project.process_connectors_title}}</th><td>{{project.process_connectors_text}}</td></tr>
+        <tr><th scope="row">{{project.process_checks_title}}</th><td>{{project.process_checks_text}}</td></tr>
+      </tbody>
+    </table>
+    <p class="readable">{{project.process_credit}}</p>
   </section>
 
-  <section class="experience lens-deep">
-    <p class="section-tag" role="heading" aria-level="2">{{project.tag_hard}}</p>
+  <section class="lens-deep hard">
+    <h2>{{project.hard_title}}</h2>
     <h3>{{project.hard_1_title}}</h3>
     <p>{{project.hard_1_text}}</p>
-
     <h3>{{project.hard_2_title}}</h3>
     <p>{{project.hard_2_text}}</p>
-
     <h3>{{project.hard_3_title}}</h3>
     <p>{{project.hard_3_text}}</p>
-
     <h3>{{project.hard_4_title}}</h3>
     <p>{{project.hard_4_text}}</p>
-
     <h3>{{project.hard_5_title}}</h3>
     <p>{{project.hard_5_text}}</p>
-
     <h3>{{project.hard_6_title}}</h3>
     <p>{{project.hard_6_text}}</p>
   </section>
 
-  <section class="contact">
-    <p class="section-tag">{{project.tag_next}}</p>
-    <h2>{{project.next_title}}</h2>
-    <p>{{project.next_text}}</p>
-    <div class="links">
-      <a href="https://github.com/Dorian101/-automation-platform">{{project.next_source}}</a>
-      <a href="/demo">{{project.next_demo}}</a>
-      <a href="__PREFIX__/about">{{project.next_about}}</a>
+  <footer class="site-footer">
+    <div class="actions">
+      <a class="button" href="/demo">{{project.next_demo}}</a>
+      <a class="button outline" href="https://github.com/Dorian101/-automation-platform">{{project.next_source}}</a>
+      <a class="button outline" href="__PREFIX__/about">{{project.next_about}}</a>
     </div>
-  </section>
-
-  <footer><button type="button" class="feedback-open" hidden>{{common.feedback}}</button></footer>
+    <div class="footer-line">
+      <span>{{project.next_text}}</span>
+      <button type="button" class="feedback-open" hidden>{{common.feedback}}</button>
+    </div>
+  </footer>
 </main>
 <script src="/project-page.js" defer></script>
 <script src="/feedback.js" defer></script>

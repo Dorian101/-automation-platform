@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-default" content="light">
 <title>{{about.title}}</title>
 <meta name="description" content="{{about.description}}">
 __PAGE_STYLES__
@@ -12,47 +13,60 @@ __MENU_STYLES__
 <main>
   __NAV__
 
-  <section class="hero hero--report">
-    <p class="eyebrow">{{about.eyebrow}}</p>
-    <h1>{{about.headline}}</h1>
-    <p class="print-only">Telegram: @alexeyr6 · alexeyr101@gmail.com ·
-    github.com/Dorian101/-automation-platform<span id="site-address"></span></p>
-    <div class="links">
-      <a href="#cases">{{about.link_cases}}</a>
-      <a href="#contact">{{about.link_contact}}</a>
-      <button id="print-resume" type="button" hidden>{{about.print}}</button>
-    </div>
-    <div class="viz">
-      <canvas id="hero-report" role="img" aria-label="{{about.hero_label}}"></canvas>
-      <button id="hero-replay" type="button" class="viz-replay" hidden>{{about.replay}}</button>
-    </div>
-  </section>
-
-  <section class="about">
-    <p class="section-tag" role="heading" aria-level="2">{{about.tag_short}}</p>
-    <p class="location">{{about.location}}</p>
-    <p>{{about.summary}}</p>
-    <div class="services">
-      <span>{{about.service_1}}</span><span>{{about.service_2}}</span>
-      <span>{{about.service_3}}</span><span>{{about.service_4}}</span>
-    </div>
-    <div class="note">
-      <p>{{about.demo_note}}</p>
-      <p><a href="__PREFIX__/project">{{about.project_link}}</a></p>
-    </div>
-  </section>
-
-  <section class="work" id="cases">
-    <div class="work-heading">
-      <p class="section-tag">{{about.tag_work}}</p>
-      <h2>{{about.work_title}}</h2>
+  <div class="hero">
+    <div>
+      <h1>{{person.name}}</h1>
+      <p class="role">{{about.role}}</p>
+      <p class="stack">{{about.stack}}</p>
+      <p class="print-only">Telegram: @alexeyr6, alexeyr101@gmail.com,
+      github.com/Dorian101/-automation-platform<span id="site-address"></span></p>
+      <div class="actions">
+        <a class="button" href="#cases">{{about.see_cases}}</a>
+        <button id="print-resume" class="button outline" type="button" hidden>{{about.print}}</button>
+      </div>
     </div>
 
-    <article class="case lime">
+    <figure class="report" id="report">
+      <figcaption class="report-head">
+        <b>{{about.report_title}}</b>
+        <span class="num">{{about.report_sub}}</span>
+      </figcaption>
+      <table class="num">
+        <colgroup><col class="name"><col class="total"><col class="bar"><col class="share"></colgroup>
+        <thead>
+          <tr>
+            <th scope="col">{{about.report_service}}</th>
+            <th scope="col" class="n">{{about.report_count}}</th>
+            <th scope="col" class="bar"><span class="axis"><span>80 %</span><span>100 %</span></span></th>
+            <th scope="col" class="p">{{about.report_share}}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr data-total="412" data-late="14"><th scope="row">{{about.svc_1}}</th><td class="n">412</td><td class="bar"><span class="track"><i style="width: 83%"></i><b></b></span></td><td class="p">96,6 %</td></tr>
+          <tr data-total="286" data-late="15"><th scope="row">{{about.svc_2}}</th><td class="n">286</td><td class="bar"><span class="track"><i style="width: 74%"></i><b></b></span></td><td class="p">94,8 %</td></tr>
+          <tr data-total="198" data-late="13"><th scope="row">{{about.svc_3}}</th><td class="n">198</td><td class="bar"><span class="track"><i style="width: 67%"></i><b></b></span></td><td class="p">93,4 %</td></tr>
+          <tr data-total="214" data-late="17"><th scope="row">{{about.svc_4}}</th><td class="n">214</td><td class="bar"><span class="track"><i style="width: 60%"></i><b></b></span></td><td class="p">92,1 %</td></tr>
+          <tr data-total="130" data-late="19" class="low"><th scope="row">{{about.svc_5}}</th><td class="n">130</td><td class="bar"><span class="track"><i style="width: 27%"></i><b></b></span></td><td class="p">85,4 %</td></tr>
+        </tbody>
+        <tfoot>
+          <tr><th scope="row">{{about.report_total}}</th><td class="n">1 240</td><td class="bar"></td><td class="p">93,7 %</td></tr>
+        </tfoot>
+      </table>
+      <div class="goal" hidden>
+        <label for="goal">{{about.goal}}</label>
+        <input id="goal" type="range" min="85" max="99" step="1" value="90">
+        <output id="goal-value" for="goal">90 %</output>
+      </div>
+      <p class="verdict" id="verdict" aria-live="polite">{{about.report_verdict}}</p>
+    </figure>
+  </div>
+
+  <section id="cases">
+    <h2>{{about.cases_title}}</h2>
+    <article class="case">
       <div>
-        <p class="project-meta"><span>{{about.case1_meta}}</span></p>
         <h3>{{about.case1_title}}</h3>
-        <div class="facts">
+        <div class="facts num">
           <div class="fact"><b>40+</b><span>{{about.case1_fact1}}</span></div>
           <div class="fact"><b>20+</b><span>{{about.case1_fact2}}</span></div>
           <div class="fact"><b>100+</b><span>{{about.case1_fact3}}</span></div>
@@ -68,11 +82,10 @@ __MENU_STYLES__
       </dl>
     </article>
 
-    <article class="case coral">
+    <article class="case">
       <div>
-        <p class="project-meta"><span>{{about.case2_meta}}</span></p>
         <h3>{{about.case2_title}}</h3>
-        <div class="facts">
+        <div class="facts num">
           <div class="fact"><b>6</b><span>{{about.case2_fact1}}</span></div>
         </div>
       </div>
@@ -86,11 +99,10 @@ __MENU_STYLES__
       </dl>
     </article>
 
-    <article class="case blue">
+    <article class="case">
       <div>
-        <p class="project-meta"><span>{{about.case3_meta}}</span></p>
         <h3>{{about.case3_title}}</h3>
-        <div class="facts">
+        <div class="facts num">
           <div class="fact"><b>1</b><span>{{about.case3_fact1}}</span></div>
           <div class="fact"><b>3</b><span>{{about.case3_fact2}}</span></div>
         </div>
@@ -105,51 +117,76 @@ __MENU_STYLES__
       </dl>
     </article>
 
-    <div class="project-list project-list--brief">
-      <article class="project amber">
-        <div class="project-meta"><span>{{about.budget_meta}}</span></div>
+    <article class="case">
+      <div>
         <h3>{{about.budget_title}}</h3>
-        <p>{{about.budget_text}}</p>
-      </article>
+        <p class="wip">{{about.wip}}</p>
+      </div>
+      <dl>
+        <dt>{{about.task}}</dt>
+        <dd>{{about.budget_text}}</dd>
+      </dl>
+    </article>
+  </section>
+
+  <section id="experience">
+    <h2>{{about.experience_title}}</h2>
+    <div class="split">
+      <div>
+        <h3>{{about.company}}</h3>
+        <p class="when">{{about.role_dates}}</p>
+      </div>
+      <div>
+        <p><strong>{{about.duties_title}}</strong></p>
+        <ul>
+          <li>{{about.duty_1}}</li>
+          <li>{{about.duty_2}}</li>
+          <li>{{about.duty_3}}</li>
+          <li>{{about.duty_4}}</li>
+          <li>{{about.duty_5}}</li>
+          <li>{{about.duty_6}}</li>
+          <li>{{about.duty_7}}</li>
+          <li>{{about.duty_8}}</li>
+        </ul>
+        <p class="when">{{about.internship}}</p>
+      </div>
     </div>
   </section>
 
-  <section class="experience">
-    <p class="section-tag" role="heading" aria-level="2">{{about.tag_experience}} · __EXPERIENCE__</p>
-    <h3>{{about.company}}</h3>
-    <p class="location">{{about.role}}</p>
-    <p><strong>{{about.duties_title}}</strong></p>
-    <ul>
-      <li>{{about.duty_1}}</li>
-      <li>{{about.duty_2}}</li>
-      <li>{{about.duty_3}}</li>
-      <li>{{about.duty_4}}</li>
-      <li>{{about.duty_5}}</li>
-      <li>{{about.duty_6}}</li>
-      <li>{{about.duty_7}}</li>
-      <li>{{about.duty_8}}</li>
-    </ul>
-    <p class="location">{{about.internship}}</p>
-  </section>
+  <p class="plain">{{about.platform_note}}</p>
 
-  <section class="contact" id="contact">
-    <p class="section-tag">{{about.tag_contact}}</p>
-    <h2>{{about.contact_title}}</h2>
-    <ul>
-      <li>Telegram: <a href="https://t.me/alexeyr6">@alexeyr6</a>
-        <button type="button" class="page-action" data-copy="@alexeyr6" hidden>{{about.copy}}</button></li>
-      <li>{{about.mail}}: <a href="mailto:alexeyr101@gmail.com">alexeyr101@gmail.com</a>
-        <button type="button" class="page-action" data-copy="alexeyr101@gmail.com" hidden>{{about.copy}}</button></li>
-      <li>GitHub: <a href="https://github.com/Dorian101/-automation-platform">{{about.source_code}}</a></li>
-    </ul>
-    <button id="share-page" type="button" class="page-action" hidden>{{about.share}}</button>
-    <div class="orbit orbit-one">ANALYTICS</div>
-    <div class="orbit orbit-two">DATA</div>
-  </section>
-
-  <footer>{{about.place}} ·
-    <a href="https://github.com/Dorian101/-automation-platform">{{common.source_on_github}}</a>
-    <button type="button" class="feedback-open" hidden>{{common.feedback}}</button>
+  <footer class="site-footer" id="contact">
+    <div class="split">
+      <div>
+        <h2>{{about.contacts}}</h2>
+        <p class="place">{{about.place}}</p>
+      </div>
+      <div>
+        <div class="contact-row">
+          <div><span class="label">Telegram</span><a class="value" href="https://t.me/alexeyr6">@alexeyr6</a></div>
+          <div class="do">
+            <a class="small-button" href="https://t.me/alexeyr6">{{about.write}}</a>
+            <button type="button" class="small-button" data-copy="@alexeyr6" hidden>{{about.copy}}</button>
+          </div>
+        </div>
+        <div class="contact-row">
+          <div><span class="label">{{about.mail}}</span><a class="value" href="mailto:alexeyr101@gmail.com">alexeyr101@gmail.com</a></div>
+          <div class="do">
+            <button type="button" class="small-button" data-copy="alexeyr101@gmail.com" hidden>{{about.copy}}</button>
+          </div>
+        </div>
+        <div class="contact-row">
+          <div><span class="label">GitHub</span><a class="value" href="https://github.com/Dorian101/-automation-platform">{{about.source_code}}</a></div>
+        </div>
+        <div class="footer-actions">
+          <button id="share-page" type="button" class="text-button" hidden>{{about.share}}</button>
+        </div>
+      </div>
+    </div>
+    <div class="footer-line">
+      <a href="https://github.com/Dorian101/-automation-platform">{{common.source_on_github}}</a>
+      <button type="button" class="feedback-open" hidden>{{common.feedback}}</button>
+    </div>
   </footer>
 </main>
 <script src="/about-hero.js" defer></script>

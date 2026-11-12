@@ -163,7 +163,7 @@ class TestTransportLayer:
         )
 
         assert response.status == 303
-        assert response.headers["Location"] == "/login"
+        assert response.headers["Location"] == "/about"
 
     async def test_login_page_requires_the_secret(self, bare_client):
         response = await bare_client.get("/login")
@@ -191,11 +191,13 @@ class TestTransportLayer:
 
 
 class TestSessionLayer:
-    async def test_index_redirects_to_login_without_session(self, anonymous_client):
+    async def test_index_sends_a_guest_to_the_resume(self, anonymous_client):
+        """The address people type is the résumé for a guest; the console is
+        one link away, behind the sign-in form."""
         response = await anonymous_client.get("/", allow_redirects=False)
 
         assert response.status == 303
-        assert response.headers["Location"] == "/login"
+        assert response.headers["Location"] == "/about"
 
     async def test_api_returns_401_without_session(self, anonymous_client):
         response = await anonymous_client.post(
@@ -341,7 +343,7 @@ class TestLogout:
         after = await client.get("/", allow_redirects=False)
 
         assert after.status == 303
-        assert after.headers["Location"] == "/login"
+        assert after.headers["Location"] == "/about"
 
     async def test_survives_a_repeated_logout(self, client):
         await client.post(
@@ -437,7 +439,7 @@ class TestCsrf:
         after = await anonymous_client.get("/", allow_redirects=False)
 
         assert after.status == 303
-        assert after.headers["Location"] == "/login"
+        assert after.headers["Location"] == "/about"
 
     async def test_a_logout_without_a_token_is_refused(self, client):
         """A captured session cookie alone must not end the session.

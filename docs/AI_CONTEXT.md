@@ -455,12 +455,25 @@ script. The `_nonce` middleware adds it to every HTML page with a head. A new
 colour goes in as a variable with a light value, and a colour used as text must
 pass the contrast test in `tests/test_seo.py`.
 
+A page with `<meta name="theme-default" content="light">` opens light unless
+the reader chose a theme; the public pages carry it, the console does not.
+The public pages' own tokens are in `_page_styles.html`: `--paper`, `--ink`,
+`--mute`, `--rule`, `--acc`, `--low` and the rest, dark on `:root` and light
+under `html:root[data-theme="light"]`, which outranks `_theme.html`. The older
+names (`--bg`, `--text`, `--accent`…) are mapped onto them for the menu and the
+dialogs.
+
+The plugin pages (`_plugin_page.html`, both the console and `/demo/<page>`)
+take `app_styles()` from `_app_styles.html`, the stylesheet the public pages
+used before the redesign. Restyling `_page_styles.html` does not reach them.
+
 The résumé is `/about` under `@media print` in `_page_styles.html`. Its contacts
 replace the contact section through `.print-only`, and `_person` in `app/web/documents.py`
 holds them for JSON-LD, so a changed contact changes in all three.
 
-Decorative motion stays out of print and honours `prefers-reduced-motion`. The
-one exception is the `/about` hero report, which plays once either way.
+The public pages have no decorative motion: no scroll reveals, count-ups or
+looping shapes. What moves is the target mark of the `/about` summary and the
+trace on `/project`, both in answer to the reader.
 
 Kanban cards carry `view-transition-name: task-<id>`, so ids on a page must stay
 unique. `redraw` animates moves, deletes and sorting only, never card edits.
@@ -553,10 +566,10 @@ from `PUBLIC_BASE_URL`, never from the `Host` header: the app sits behind the
 reverse proxy, and that header is not the public name of anything.
 
 The sign-in and registration pages carry `noindex`. The rest of the site needs
-a session and gets nothing. `/` redirects to `/login`, which is why that form
-carries the only links out to the public pages — **remove them and the whole
-site becomes unfindable again**, silently. `tests/test_seo.py` covers the
-crawl path end to end for exactly that reason.
+a session and gets nothing. A guest on `/` is redirected to `/about`; a
+signed-in account gets the console there. The sign-in form still carries links
+out to the public pages, and `tests/test_seo.py` covers the crawl path end to
+end.
 
 The domain itself still has to be registered with Google Search Console and the
 sitemap submitted there; nothing in the code can do that part.
@@ -569,15 +582,18 @@ render SVG. Change the look in the SVG and re-render the PNG — never edit the
 PNG by hand. Both the favicon and this image share one mark: a hub with modules
 radiating off it, the platform's shape, not a chat bubble.
 
-The `/about` hero is a canvas drawn by `app/web/about_hero.js`, served at
-`/about-hero.js` as a file because the CSP allows scripts from this origin only.
-Each point is one ticket of an invented SLA report; the counts are in the script
-and the page labels them as an example. It runs once on load, whatever
-`prefers-reduced-motion` says, and a replay button stays under it.
+The `/about` hero is an SLA summary table in the markup: five invented
+services with their totals and late counts in `data-total` and `data-late`,
+bars drawn on an 80–100 % scale. `app/web/about_hero.js`, served at
+`/about-hero.js`, adds the target slider: it recolours the rows below the
+target, moves the target mark and rewrites the line under the table. Without
+the script the table reads complete at the 90 % target.
 
 Page scripts are served `no-cache`, so a page and its script always match.
 `/fonts/*` is cached for a year as `immutable`: never edit a font or
-`fonts.css` in place, publish it under a new name. Compression is Caddy's
+a stylesheet there in place, publish it under a new name. The public pages load
+`almanac.css` (Onest, Literata, IBM Plex Mono); `fonts.css` with Manrope and
+JetBrains Mono stays for anything that still links it. Compression is Caddy's
 `encode`, not the app's.
 
 ## Navigation
