@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.96.0
+v0.96.1
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -313,6 +313,8 @@ Implemented:
   footer; `/project` groups the features and its "How it was built" section
   describes the rules, skills, hooks, sessions and connectors; `/demo` lists
   the sections as a table. A guest on `/` is sent to `/about`
+* since v0.96.1 nothing new for a user: the public pages run up to 1600px
+  wide and the headline is smaller, so the `/project` title fits in three lines
 
 ⸻
 
