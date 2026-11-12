@@ -3,6 +3,8 @@ from types import SimpleNamespace
 from aiogram import Dispatcher
 
 from app.bot.error_handler import FAILURE_REPLY, register_error_handler
+from app.core.results import CommandError
+from app.plugins.manager import MAINTENANCE
 
 
 class FakeMessage:
@@ -22,9 +24,9 @@ def _handler():
     return dp.errors.handlers[0].callback
 
 
-def _event(message):
+def _event(message, exception=None):
     return SimpleNamespace(
-        exception=RuntimeError("pool timeout"),
+        exception=exception or RuntimeError("pool timeout"),
         update=SimpleNamespace(message=message),
     )
 
@@ -44,3 +46,11 @@ async def test_an_update_without_a_message_is_only_logged(caplog):
 
 async def test_a_failed_reply_does_not_escape(caplog):
     assert await _handler()(_event(FakeMessage(fails=True))) is True
+
+
+async def test_a_refusal_is_answered_with_its_own_text(caplog):
+    message = FakeMessage()
+
+    assert await _handler()(_event(message, CommandError(MAINTENANCE))) is True
+    assert message.answers == [MAINTENANCE]
+    assert "Unhandled exception" not in caplog.text

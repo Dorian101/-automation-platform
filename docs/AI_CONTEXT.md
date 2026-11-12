@@ -1003,7 +1003,9 @@ of `/about`, `/project` and `/demo` (`app/web/feedback.js`).
   failure once per distinct error and a warning on recovery.
 - The bot's `dp.error()` handler (`app/bot/error_handler.py`) logs the
   exception and answers the message with a fixed `FAILURE_REPLY`; handlers
-  catch only `CommandError`, whose text is meant for the user.
+  catch only `CommandError`, whose text is meant for the user. A
+  `CommandError` that reaches the handler uncaught (the menu's read buttons
+  during maintenance) is answered with its own text and not logged.
 - `/admin/broadcast` sends through the `Notifier` to every active account it
   can reach (`Notifier.reachable`), one message per account: push when the
   account has devices, else its linked chat. Quiet hours hold it like any

@@ -3075,3 +3075,20 @@ The "How it was built" section names CLAUDE.md and the release and unslop-ui
 skills in plain text and says they are local: the tests hold the page to
 naming only files and commands a reader can find in the repository.
 
+
+## 2026-11-13
+
+### Decision
+Answer a refused command with its own text in the bot's error handler
+
+### Why
+
+The menu's read buttons called `execute` without catching `CommandError`, so
+maintenance reached the global handler: the person saw "something went wrong"
+and the journal got a traceback for what was a deliberate refusal. The fix is
+in the handler rather than in each button, so a button added later cannot
+bring the gap back. A `CommandError` carries text written for the user, which
+is why showing it is safe and logging it is noise.
+
+The maintenance page no longer promises "a few minutes": a deploy alone takes
+that long, and planned work takes longer.
