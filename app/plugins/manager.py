@@ -24,6 +24,7 @@ class PluginManager:
         # An object with `disabled_plugins()` and `maintenance()`, handed in by
         # whoever owns the settings; None means nothing is ever switched.
         self.switches = None
+        self.publish_menu = None
         self.events = EventBus()
 
     def register(self, plugin: BasePlugin) -> None:
@@ -117,7 +118,7 @@ class PluginManager:
         """Every command, in plugin order, as (plugin, command, description)."""
         rows = []
 
-        for plugin in self._plugins:
+        for plugin in self._enabled():
             for command, description in plugin.commands.items():
                 rows.append((plugin, command, description))
 
@@ -143,6 +144,16 @@ class PluginManager:
             )
 
         return commands
+
+    async def menu_changed(self) -> None:
+        if self.publish_menu is None:
+            return
+        try:
+            await self.publish_menu(self.bot_commands())
+        except Exception:
+            self.logger.warning(
+                "Could not update the Telegram command menu", exc_info=True
+            )
 
     async def execute(
         self,

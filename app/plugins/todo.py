@@ -594,6 +594,7 @@ class TodoPlugin(BasePlugin):
                         "name": "priority",
                         "label": "Приоритет",
                         "type": "select",
+                        "value": "2",
                         "options": [
                             {"value": "1", "label": "Высокий"},
                             {"value": "2", "label": "Средний"},

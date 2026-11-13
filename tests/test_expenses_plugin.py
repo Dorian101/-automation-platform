@@ -157,7 +157,7 @@ class TestView:
         view = await plugin.page_action(web_identity, "month", {"month": "2026-05"})
 
         assert _total(view, 1) == "100"
-        assert "50.0%" in view["totals"]["delta"]["text"]
+        assert "50,0%" in view["totals"]["delta"]["text"]
         assert view["totals"]["delta"]["direction"] == "up"
 
     async def test_a_direction_is_sent_rather_than_a_signed_string(

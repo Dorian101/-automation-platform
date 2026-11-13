@@ -67,6 +67,7 @@ class RemindersPlugin(BasePlugin):
         self._persons = persons
         self._worker_task: asyncio.Task | None = None
         self._dropped_attempts: dict[int, int] = {}
+        self._failing: dict[int, str] = {}
 
     async def on_startup(self) -> None:
         self._worker_task = asyncio.create_task(self._worker())
@@ -187,7 +188,13 @@ class RemindersPlugin(BasePlugin):
         Separate from the loop so the decision this makes — deliver, retry, or
         give up — can be exercised without a task that never returns.
         """
-        for reminder_id, user_id, text, remind_at, repeat in self.repo.get_due():
+        due = self.repo.get_due()
+        self._failing = {
+            key: value
+            for key, value in self._failing.items()
+            if key in {row[0] for row in due}
+        }
+        for reminder_id, user_id, text, remind_at, repeat in due:
             try:
                 target = Identity.parse(user_id)
             except ValueError:
@@ -208,16 +215,18 @@ class RemindersPlugin(BasePlugin):
                         for key, label in SNOOZES.items()
                     ],
                 )
-            except Exception:
-                # The message was never delivered, so the reminder stays due
-                # and is tried again on the next pass. A Telegram outage is
-                # exactly the case this is for.
-                logger.exception(
-                    "Failed to deliver reminder %s to %s",
-                    reminder_id,
-                    target,
-                )
+            except Exception as error:
+                failure = repr(error)
+                if self._failing.get(reminder_id) != failure:
+                    logger.exception(
+                        "Failed to deliver reminder %s to %s",
+                        reminder_id,
+                        target,
+                    )
+                self._failing[reminder_id] = failure
                 continue
+
+            self._failing.pop(reminder_id, None)
 
             if not delivered and not self._give_up_on(reminder_id, target):
                 continue

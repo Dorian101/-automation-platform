@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 
@@ -70,7 +70,7 @@ class TestSpendingSeed:
         view = await expenses.page_action(visitor, "month", {"screen": "analytics"})
 
         for row in view["list"][0]["rows"]:
-            assert date.fromisoformat(row["spent_at"]) <= date.today()
+            assert datetime.strptime(row["spent_at"], "%d.%m.%Y").date() <= date.today()
 
     async def test_the_amounts_are_not_all_round(self, expenses, visitor):
         """A demo made of round numbers gives away that nobody used it."""
@@ -131,7 +131,8 @@ class TestApplicationsSeed:
         await applications.seed_demo(visitor)
 
         for row in (await applications.page_view(visitor))["table"]["rows"]:
-            assert date.fromisoformat(row["applied_at"]) <= date.today()
+            applied = datetime.strptime(row["applied_at"], "%d.%m.%Y").date()
+            assert applied <= date.today()
 
     async def test_some_rows_are_silent(self, applications, visitor):
         """The silence column exists to be demonstrated; a seed that answered

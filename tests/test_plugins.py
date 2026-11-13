@@ -388,6 +388,22 @@ class TestReminderDelivery:
 
         assert len(plugin.repo.get_due()) == 1
 
+    async def test_a_lasting_outage_is_logged_once(
+        self,
+        database_with_schema,
+        web_identity,
+        caplog,
+    ):
+        notifier = RecordingNotifier(raises=RuntimeError("telegram is down"))
+        plugin = RemindersPlugin(notifier, database_with_schema)
+        plugin.repo.add(web_identity, "call mum", _one_minute_ago())
+
+        for _ in range(3):
+            await plugin.process_due()
+
+        failures = [r for r in caplog.records if "Failed to deliver" in r.message]
+        assert len(failures) == 1
+
     async def test_nothing_to_deliver_is_given_up_on_eventually(
         self,
         database_with_schema,

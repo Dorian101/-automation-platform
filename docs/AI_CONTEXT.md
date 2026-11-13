@@ -115,6 +115,11 @@ exist at all.
 4. The plugin returns a `CommandResult` carrying transport-agnostic text
 5. The transport renders the result
 
+The Telegram "/" menu lists the enabled plugins' chat commands.
+`PluginManager.menu_changed()` publishes it through `publish_menu` (set to
+`bot.set_my_commands` in `app/main.py`) at startup and whenever
+/admin/settings changes the disabled set; a failed publish is only logged.
+
 Plugins declare their commands in `commands`. The platform routes them
 automatically, so plugins contain no adapter code. A plugin overrides
 `router()` only when it needs transport-specific handlers, such as inline

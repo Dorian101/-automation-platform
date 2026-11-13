@@ -197,6 +197,20 @@ def _money(value: Decimal) -> str:
     return f"{value.quantize(Decimal('1')):,.0f}".replace(",", " ").replace("-", "−")
 
 
+def _spend_note(value: str = "") -> dict:
+    return {
+        "name": "note",
+        "label": "Заметка",
+        "type": "text",
+        "placeholder": "Где или на что",
+        "value": value,
+    }
+
+
+def _percent(value) -> str:
+    return f"{value:.1f}".replace(".", ",") + "%"
+
+
 #: How a month's total splits into separate purchases in the demonstration, in
 #: percent. One line a category reads as a summary rather than as a month lived.
 DEMO_PURCHASES = {
@@ -481,7 +495,7 @@ class ExpensesPlugin(BasePlugin):
         sign = "+" if delta >= 0 else "−"
 
         return {
-            "text": f"{sign}{abs(delta):.1f}% к прошлому месяцу",
+            "text": f"{sign}{_percent(abs(delta))} к прошлому месяцу",
             "direction": "up" if delta >= 0 else "down",
         }
 
@@ -534,7 +548,7 @@ class ExpensesPlugin(BasePlugin):
                     "category": row["category"],
                     "count": row["count"],
                     "total": _money(row["total"]),
-                    "share": f"{row['total'] / total * 100:.1f}%" if total > 0 else "—",
+                    "share": _percent(row["total"] / total * 100) if total > 0 else "—",
                     "actions": [
                         {
                             "action": "filter",
@@ -606,7 +620,7 @@ class ExpensesPlugin(BasePlugin):
                         # undid that would discard the decision.
                         "sticky": True,
                     },
-                    {"name": "note", "label": "Заметка", "type": "text"},
+                    _spend_note(),
                 ],
             },
             {
@@ -747,7 +761,7 @@ class ExpensesPlugin(BasePlugin):
             {
                 "date": entry["spent_at"],
                 "id": entry["id"],
-                "spent_at": entry["spent_at"].isoformat(),
+                "spent_at": entry["spent_at"].strftime("%d.%m.%Y"),
                 "category": entry["category"],
                 "note": entry["note"] or "",
                 "amount": _money(entry["amount"]),
@@ -763,7 +777,7 @@ class ExpensesPlugin(BasePlugin):
                 {
                     "date": income["received_at"],
                     "id": income["id"],
-                    "spent_at": income["received_at"].isoformat(),
+                    "spent_at": income["received_at"].strftime("%d.%m.%Y"),
                     "category": INCOME_KINDS[income["kind"]],
                     "note": income["note"] or "",
                     "amount": "+" + _money(income["amount"]),
@@ -926,12 +940,7 @@ class ExpensesPlugin(BasePlugin):
                     "type": "date",
                     "value": expense["spent_at"].isoformat(),
                 },
-                {
-                    "name": "note",
-                    "label": "Заметка",
-                    "type": "text",
-                    "value": expense["note"] or "",
-                },
+                _spend_note(expense["note"] or ""),
             ],
             {"expense_id": str(expense["id"])},
             payload.get("month", ""),

@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.97.0
+v0.97.1
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -73,8 +73,8 @@ The platform is operational.
 - open registration behind a single `SIGNUP_OPEN` flag: an invite code is no
   longer required, and whether the page exists is one boolean read once
 - the Telegram bot offers its command set two ways: a permanent button row for
-  the argument-less commands, and a native "/" menu (set at startup) that names
-  every chat command with the form of its arguments
+  the argument-less commands, and a native "/" menu (set at startup and again whenever
+  /admin/settings changes which plugins are on) that names every enabled chat command with the form of its arguments
 - the bot groups its buttons into three — commands with arguments, output, and
   help — and drives the argument-bearing commands through a short step-by-step
   flow: tap the command, then type each argument, with the running hint shown
@@ -878,6 +878,15 @@ deployment that never sets it records everything as before.
 
 ## Current limitations
 
+* Since v0.97.1 after a UI audit: a long word with no spaces wraps instead of
+  widening the /todo board or pushing table buttons off screen, row buttons
+  wrap at tablet width, the card's save button is styled, the header buttons
+  share one height, tool buttons have a gap, a collection screen's heading
+  names the collection, operation and application dates read DD.MM.YYYY, shares
+  use a decimal comma, the spend edit form is set apart from the chart, a new
+  task defaults to medium priority, and the /about report's count column fits
+  its heading.
+
 * Since v0.84.0 /about and /project are translatable: their texts live in
   `app/web/locales/{ru,en}.json`, the templates hold `{{key}}` markers, and
   `/en/about` and `/en/project` serve the English version. Page scripts read
@@ -918,9 +927,9 @@ deployment that never sets it records everything as before.
 * Since v0.80.4 the reminder and deadline workers keep polling after a failed
   pass instead of stopping until a restart. The reminders worker stores a
   failure once per distinct error and logs a warning when it recovers. Left
-  for later: a reminder whose delivery raises is still logged on every
-  30-second pass, so a long Telegram outage with several due reminders can
-  fill `/admin/errors`.
+  for later: a reminder whose delivery raises was logged on every
+  30-second pass; since v0.97.1 it is logged once per reminder and distinct
+  error.
 * Since v0.80.4 the bot answers "Что-то пошло не так" when a handler fails
   with anything but a `CommandError`, instead of showing the exception text
   in the button flow or staying silent elsewhere.
@@ -950,8 +959,8 @@ deployment that never sets it records everything as before.
   records), `/admin/broadcast` (a message to every reachable active account, push first),
   task buttons and a demo block on `/admin/status`, and the sign-ins used in
   the last 30 minutes with an end button on `/admin/users` (v0.75.1: only
-  those in use, not every unexpired cookie). Switching a plugin off does not refresh the
-  Telegram "/" command menu until the next restart.
+  those in use, not every unexpired cookie). Since v0.97.1 switching a plugin off also
+  refreshes the Telegram "/" command menu.
 * Guests' rows in `tasks` were never cleaned up: the table was missing from the
   demo cleanup list. Fixed in v0.75.0.
 * Since v0.74.0 a visit carries a daily visitor hash, a device label, a bot

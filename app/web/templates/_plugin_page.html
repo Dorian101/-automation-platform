@@ -51,6 +51,7 @@ __STYLES__
   .totals .delta.up { color: var(--error); }
   .totals .delta.down { color: var(--ok); }
   .bars { margin: 0 0 1.5rem; }
+  .formrow + .bars { margin-top: 2.75rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
   .barrow { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.45rem; }
   .barlabel {
     width: 9rem;
@@ -119,7 +120,7 @@ __STYLES__
     cursor: pointer;
   }
   .btn:disabled { opacity: 0.5; cursor: default; }
-  .tools { margin: 0 0 1.5rem; }
+  .tools { margin: 0 0 1.5rem; display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .tablewrap { overflow-x: auto; }
   .field.wide { flex: 1 1 100%; }
   textarea.mono {
@@ -185,6 +186,7 @@ __STYLES__
     padding: 0.45rem 0.5rem 0.45rem 0;
     border-bottom: 1px solid var(--border);
   }
+  table.data td.longword { overflow-wrap: anywhere; }
   table.data tbody tr:last-child td { border-bottom: none; }
   table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
   .recent td:last-child, .recent th:last-child { text-align: right; width: 1%; }
@@ -212,11 +214,12 @@ __STYLES__
   }
   .fnshare { color: var(--muted); font-size: 0.82rem; margin-left: 0.4rem; }
   table.data tr.flagged { background: rgba(255, 107, 107, 0.07); }
-  table.data td.acts { text-align: right; white-space: nowrap; }
+  table.data td.acts { text-align: right; }
   table.data td.acts .btn {
     padding: 0.25rem 0.6rem;
     font-size: 0.78rem;
-    margin-left: 0.3rem;
+    margin: 0.15rem 0 0.15rem 0.3rem;
+    white-space: nowrap;
   }
   table.data a { color: var(--accent); font-size: 0.82rem; }
   table.data a:hover { text-decoration: underline; }
@@ -281,7 +284,7 @@ __STYLES__
   .board-moving::view-transition-group(*) { animation-duration: 0.35s; }
   .kbcard.overdue { border-color: var(--error); }
   .kbcard .toprow { display: flex; align-items: flex-start; gap: 0.4rem; margin-bottom: 0.25rem; }
-  .kbcard .text { font-size: 0.9rem; line-height: 1.35; flex: 1; }
+  .kbcard .text { font-size: 0.9rem; line-height: 1.35; flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .kbcard .dots { display: flex; gap: 0.18rem; flex: none; padding-top: 0.15rem; }
   .kbcard .dot {
     width: 0.55rem; height: 0.55rem; border-radius: 50%;

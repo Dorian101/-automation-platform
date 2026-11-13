@@ -386,7 +386,10 @@ class AdminArea:
                 for plugin in self._manager.get_plugins()
                 if plugin.name not in kept and plugin.name not in ALWAYS_ON
             )
+            was_off = self._settings.disabled_plugins()
             self._settings.put(DISABLED_PLUGINS, ",".join(off) or None)
+            if self._settings.disabled_plugins() != was_off:
+                await self._manager.menu_changed()
 
         for key, field_name, low, high in (
             (FEEDBACK_PER_HOUR, "feedback_per_hour", 1, 100),

@@ -241,3 +241,27 @@ class TestBotCommands:
         commands = expenses_manager.bot_commands()
 
         assert all(c.command != "/spend" for c in commands)
+
+    async def test_a_switched_off_plugin_leaves_the_menu_at_once(self, manager):
+        class Switches:
+            def disabled_plugins(self):
+                return {"snippets"}
+
+        published = []
+
+        async def publish(commands):
+            published.append([c.command for c in commands])
+
+        manager.switches = Switches()
+        manager.publish_menu = publish
+        await manager.menu_changed()
+
+        assert published == [["/add", "/notes", "/del", "/clear"]]
+
+    async def test_a_failed_menu_update_is_not_raised(self, manager):
+        async def publish(commands):
+            raise RuntimeError("telegram is down")
+
+        manager.publish_menu = publish
+
+        await manager.menu_changed()

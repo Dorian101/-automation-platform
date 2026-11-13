@@ -99,10 +99,7 @@ async def main() -> None:
 
     dp.include_router(manager.build_router())
 
-    # The native command menu Telegram shows at "/" is set once, ahead of
-    # polling, so it does not need a handler of its own. It is the same command
-    # list the menu buttons draw from — one source, two Telegram surfaces.
-    await bot.set_my_commands(manager.bot_commands())
+    manager.publish_menu = bot.set_my_commands
 
     web = WebServer(
         manager=manager,
@@ -121,6 +118,7 @@ async def main() -> None:
     web_push.on_forgotten = web.console_changed
 
     await manager.startup()
+    await manager.menu_changed()
 
     logger.info("Starting %s", Config.APP_NAME)
 

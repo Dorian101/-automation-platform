@@ -31,6 +31,7 @@ function draw() {
   message.hidden = true;
 
   document.getElementById('demobar').hidden = !IS_DEMO;
+  if (view.title) document.querySelector('h1').textContent = view.title;
 
   const hasMonth = view.month != null;
   monthpick.hidden = !hasMonth;
@@ -237,7 +238,9 @@ function cellFor(col, row) {
     return td;
   }
 
-  return el('td', col.num ? 'num' : '', value);
+  const td = el('td', col.num ? 'num' : '', value);
+  if (/\S{25}/.test(value || '')) td.classList.add('longword');
+  return td;
 }
 
 function drawPanel(panel) {
@@ -480,7 +483,7 @@ function cardNode(card) {
   const due = document.createElement('input');
   due.type = 'date';
   due.value = card.due_iso || '';
-  const save = el('button', '', 'Сохранить');
+  const save = el('button', 'btn', 'Сохранить');
   save.addEventListener('click', (ev) => {
     ev.stopPropagation();
     openCards.delete(card.id);

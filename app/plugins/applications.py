@@ -255,7 +255,7 @@ class ApplicationsPlugin(BasePlugin):
                     "company": entry["company"],
                     "role": entry["role"],
                     "url": entry["url"] or "",
-                    "applied_at": entry["applied_at"].isoformat(),
+                    "applied_at": entry["applied_at"].strftime("%d.%m.%Y"),
                     "status": entry["status"],
                     "status_label": _label(entry["status"]),
                     "note": entry["note"] or "",
