@@ -48,6 +48,7 @@ from app.db.sessions_repo import (
 )
 from app.db.settings_repo import (
     ALWAYS_ON,
+    COLLECTIONS_PER_USER,
     DEMO_PER_HOUR,
     DISABLED_PLUGINS,
     FEEDBACK_PER_HOUR,
@@ -363,6 +364,7 @@ class AdminArea:
             "__PLUGINS__": boxes or '<p class="none">Плагинов нет.</p>',
             "__FEEDBACK__": str(self._settings.feedback_per_hour()),
             "__DEMO__": str(self._settings.demo_per_hour()),
+            "__COLLECTIONS__": str(self._settings.collections_per_user()),
         })
 
         return self._page("settings", body, request)
@@ -389,6 +391,7 @@ class AdminArea:
         for key, field_name, low, high in (
             (FEEDBACK_PER_HOUR, "feedback_per_hour", 1, 100),
             (DEMO_PER_HOUR, "demo_per_hour", 10, 10000),
+            (COLLECTIONS_PER_USER, "collections_per_user", 1, 10),
         ):
             raw = form_value(form, field_name).strip()
             if raw.isdigit() and low <= int(raw) <= high:

@@ -3092,3 +3092,28 @@ is why showing it is safe and logging it is noise.
 
 The maintenance page no longer promises "a few minutes": a deploy alone takes
 that long, and planned work takes longer.
+
+## 2026-11-13
+
+### Decision
+User collections as data in two shared tables, not tables per user
+
+### Why
+
+A collection is a description (title and fields as JSON) and its records
+(values as JSONB). Creating one is an insert, never `CREATE TABLE`: a schema
+changed from the browser would put DDL behind a web form, outside review and
+outside the pre-migration backup, and thousands of small tables would cost
+the catalog, the planner and every backup. Every record query is cut by an
+indexed `collection_id`, so the size of the shared table does not reach a
+reader: a collection holds at most 2,000 rows.
+
+The same description is the planned format for templates (JSON in the
+repository) and for sharing a collection with another account later:
+deploying it is creating a collection from the description and, if asked,
+copying the records into it.
+
+Nobody writes code into a collection. The only text processing planned is
+substituting `$Field$` into a message template, sent to the collection's
+owner only. Existing features (notifications, automation, the bot) are to be
+offered as options of a collection rather than reinvented.

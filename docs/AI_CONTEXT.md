@@ -237,8 +237,8 @@ Root-run host scripts (`scripts/ssh-digest.sh`, `scripts/update-check.sh`)
 are copied to `/usr/local/sbin` by hand, never run from the checkout, and send
 through `app.manage notify-admins` as `automation`.
 
-The /project diagram draws one box per shipped plugin, 82 wide on an 88 step
-from x=32; `project_page.js` keeps the same step for the moving dot, and
+The /project diagram draws one box per shipped plugin, 68 wide on a 72 step
+from x=24; `project_page.js` keeps the same step for the moving dot, and
 `tests/test_seo.py` fails when a plugin is missing from the drawing.
 
 Optional parts of a description: `layout` (the order of sections), `tools`
@@ -282,6 +282,22 @@ notifier; the last dates are on `/admin/status`.
 ## Current plugins
 
 - Notes: /add, /notes, /del, /clear
+- Collections (`app/plugins/collections.py`, page `/collections`, no
+  commands): `collections` holds a title and the field list as JSONB
+  (`[{key, label, type, required, options, dropped}]`, keys `f1`, `f2`…; a
+  dropped field stays in the list marked `dropped`, so its key is never
+  handed out again and its old values never meet a new type),
+  `collection_records` the values as JSONB keyed by field key. Records are
+  reached only through a collection the reader owns (`user_id` in
+  `_readable_as`), so every record query carries `collection_id`. Values are
+  checked by `value_of` against the field type on every write; nothing a user
+  types becomes SQL, markup or code. One page, three screens chosen by
+  `keep` (`collection`, `screen`): the list, the records and the fields.
+  Limits: collections per person from the `collections.per_user` setting
+  (counted under an advisory lock on the person's smallest identity), 20
+  fields (100 with dropped ones), 2,000 records, field text 500 and long text
+  5,000 characters. The record list trims every string to 81 characters in
+  SQL, so a page of long texts is not read whole on each refresh.
 - Live updates (`app/web/live.py`): `GET /api/events` is a Server-Sent Events
   stream per signed-in tab. `LiveHub` keeps one queue per tab, keyed by
   identity, and `changed(identity, page, origin)` fans out to every identity of

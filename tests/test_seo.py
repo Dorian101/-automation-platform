@@ -504,6 +504,7 @@ class TestTheProjectPage:
         from app.plugins.applications import ApplicationsPlugin
         from app.plugins.automation import AutomationPlugin
         from app.plugins.bookmarks import BookmarksPlugin
+        from app.plugins.collections import CollectionsPlugin
         from app.plugins.expenses import ExpensesPlugin
         from app.plugins.notes import NotesPlugin
         from app.plugins.reminders import RemindersPlugin
@@ -521,6 +522,7 @@ class TestTheProjectPage:
             AutomationPlugin.name,
             SystemPlugin.name,
             TodoPlugin.name,
+            CollectionsPlugin.name,
         }
         listed = set(re.findall(r'class="cell"[^>]*>(\w+)</text>', page))
 

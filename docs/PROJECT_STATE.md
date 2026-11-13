@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.96.2
+v0.97.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -319,6 +319,28 @@ Implemented:
   the sections as a table. A guest on `/` is sent to `/about`
 * since v0.96.1 nothing new for a user: the public pages run up to 1600px
   wide and the headline is smaller, so the `/project` title fits in three lines
+
+⸻
+
+Collections (since v0.97.0, first sprint)
+
+Purpose:
+
+* a user builds their own small plugin from fields, without code: books to
+  read, subscriptions, warranties, a health log
+
+Implemented:
+
+* a page at /collections listing the account's collections; up to 3 per
+  person by default, 1–10 on /admin/settings
+* a collection has a title and up to 20 fields of nine types: text, long
+  text, number, money, date, yes/no, choice (up to 20 options), link, rating
+  1–5; a field can be required; a dropped field hides its values and keeps
+  them
+* records: a form built from the fields, a table of the first six, edit and
+  delete; up to 2,000 per collection
+* not yet: board, chart, Telegram quick add, automation events and templated
+  messages, templates, sharing
 
 ⸻
 

@@ -24,10 +24,12 @@ DISABLED_PLUGINS = "plugins.disabled"
 SIGNUP_OPEN = "signup.open"
 FEEDBACK_PER_HOUR = "feedback.per_hour"
 DEMO_PER_HOUR = "demo.per_hour"
+COLLECTIONS_PER_USER = "collections.per_user"
 
 #: Defaults for the limits, kept beside their keys so the settings page and
 #: the readers agree on what "unset" means.
 DEFAULT_FEEDBACK_PER_HOUR = 3
+DEFAULT_COLLECTIONS_PER_USER = 3
 
 #: Plugins that cannot be switched off: `system` answers /help and /start,
 #: and without it a chat has no way to see what else is there.
@@ -97,6 +99,9 @@ class SettingsRepository:
 
     def feedback_per_hour(self) -> int:
         return self._number(FEEDBACK_PER_HOUR, DEFAULT_FEEDBACK_PER_HOUR)
+
+    def collections_per_user(self) -> int:
+        return self._number(COLLECTIONS_PER_USER, DEFAULT_COLLECTIONS_PER_USER)
 
     def demo_per_hour(self) -> int:
         return self._number(DEMO_PER_HOUR, Config.DEMO_ATTEMPTS_PER_WINDOW)
