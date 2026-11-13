@@ -3117,3 +3117,20 @@ Nobody writes code into a collection. The only text processing planned is
 substituting `$Field$` into a message template, sent to the collection's
 owner only. Existing features (notifications, automation, the bot) are to be
 offered as options of a collection rather than reinvented.
+
+## 2026-11-13
+
+### Decision
+A new plugin with a page is also opened in the demo, when the demo can work
+
+### Why
+
+The demo menu showed five of the eight plugins only because `demo = True`
+was never set on the rest, not because they could not work there: a visitor
+saw less than the platform has. A new plugin with a page therefore ships with
+`demo = True`, as long as its page does its job for a guest: no Telegram link,
+no push subscription, nothing set up outside the page. Reminders fail that
+test (a guest has nowhere to receive one), so they stay out. A plugin opened
+in the demo declares its tables in `tables` with a `user_id` column, so the
+daily cleanup removes guest rows, and gets sample data when an empty page
+would show nothing.
