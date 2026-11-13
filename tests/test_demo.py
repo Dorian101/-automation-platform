@@ -104,6 +104,10 @@ class TestLanding:
 
         assert "/demo/expenses" in body
         assert "/demo/applications" in body
+        assert "/demo/snippets" in body
+
+    async def test_snippets_open_for_a_guest(self, visitor):
+        assert (await visitor.get("/demo/snippets")).status == 200
 
     async def test_no_placeholder_survives(self, visitor):
         """The same check as the console, and the same reason for its shape."""
@@ -176,7 +180,7 @@ class TestGuestActions:
     async def test_a_page_kept_off_the_demo_refuses_actions(self, visitor):
         response = await visitor.post(
             "/demo/api/action",
-            json={"page": "/snippets", "action": "save", "payload": {"body": "x"}},
+            json={"page": "/reminders", "action": "view", "payload": {}},
         )
 
         assert response.status == 404

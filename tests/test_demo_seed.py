@@ -228,3 +228,69 @@ class TestTasksSeedFeatures:
         assert any(card["description"] for card in cards)
         assert any(card["repeat"] for card in cards)
         assert archive["list"]["rows"]
+
+
+class TestSnippetsDemo:
+    @pytest.fixture
+    def snippets(self, database_with_schema):
+        from app.plugins.snippets import SnippetsPlugin
+
+        return SnippetsPlugin(database_with_schema)
+
+    async def test_fills_an_empty_namespace(self, snippets, visitor):
+        await snippets.seed_demo(visitor)
+
+        view = await snippets.page_view(visitor)
+
+        assert len(view["list"]["rows"]) == 3
+        assert view["live"] is False
+
+    async def test_a_guest_is_capped(self, snippets, visitor, monkeypatch):
+        from app.core.results import CommandError
+        from app.plugins import snippets as module
+
+        monkeypatch.setattr(module, "GUEST_SNIPPET_LIMIT", 1)
+        await snippets.page_action(visitor, "save", {"body": "a"})
+
+        with pytest.raises(CommandError, match="Демо"):
+            await snippets.page_action(visitor, "save", {"body": "b"})
+        with pytest.raises(CommandError, match="КБ"):
+            module._guest_fits("x" * (module.GUEST_MAX_BYTES + 1))
+
+
+class TestCollectionsDemo:
+    @pytest.fixture
+    def collections(self, database_with_schema):
+        from app.plugins.collections import CollectionsPlugin
+
+        return CollectionsPlugin(database_with_schema)
+
+    async def test_fills_an_empty_namespace(self, collections, visitor):
+        await collections.seed_demo(visitor)
+
+        home = await collections.page_view(visitor)
+        collection = home["list"]["rows"][0]["actions"][0]["params"]["collection"]
+        view = await collections.page_action(
+            visitor, "open", {"collection": collection}
+        )
+
+        assert home["live"] is False
+        assert view["title"] == "Книги"
+        assert len(view["list"]["rows"]) == 5
+        assert view["list"]["rows"][0]["f4"] == "★★★★★"
+
+    async def test_a_guest_has_fewer_records(
+        self, collections, visitor, monkeypatch
+    ):
+        from app.core.results import CommandError
+        from app.plugins import collections as module
+
+        monkeypatch.setattr(module, "GUEST_RECORD_LIMIT", 5)
+        await collections.seed_demo(visitor)
+        home = await collections.page_view(visitor)
+        collection = home["list"]["rows"][0]["actions"][0]["params"]["collection"]
+
+        with pytest.raises(CommandError, match="5 записей"):
+            await collections.page_action(
+                visitor, "add", {"collection": collection, "f1": "Ещё одна"}
+            )

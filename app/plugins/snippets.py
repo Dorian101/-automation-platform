@@ -5,7 +5,7 @@ from datetime import UTC
 from zoneinfo import ZoneInfo
 
 from app.core.config import Config
-from app.core.identity import WEB, Identity
+from app.core.identity import WEB, Identity, is_guest
 from app.core.results import CommandError, CommandResult, reply
 from app.db.database import Database
 from app.db.snippets_repo import KEEP, SnippetsRepository
@@ -15,6 +15,35 @@ from .base import BasePlugin
 MAX_BYTES = 200_000
 MAX_TITLE = 80
 INLINE_LIMIT = 3500
+GUEST_SNIPPET_LIMIT = 20
+GUEST_MAX_BYTES = 20_000
+
+DEMO_SNIPPETS = (
+    (
+        "Выручка по месяцам",
+        "SELECT date_trunc('month', paid_at) AS month,\n"
+        "       sum(amount) AS revenue,\n"
+        "       count(DISTINCT client_id) AS clients\n"
+        "FROM payments\n"
+        "WHERE paid_at >= now() - interval '1 year'\n"
+        "GROUP BY 1\n"
+        "ORDER BY 1;",
+    ),
+    (
+        "Дубли в выгрузке",
+        "import pandas as pd\n\n"
+        "df = pd.read_csv('export.csv')\n"
+        "dupes = df[df.duplicated(subset=['order_id'], keep=False)]\n"
+        "print(len(dupes), 'строк с повторами')",
+    ),
+    (
+        "Шаблон ответа заказчику",
+        "Добрый день!\n\n"
+        "Отчёт за прошлую неделю обновлён, ссылка та же.\n"
+        "Расхождение в выручке — из-за возвратов, они теперь вычитаются.\n\n"
+        "Если нужны детали по филиалам — напишите, добавлю срез.",
+    ),
+)
 LIST_SIZE = 10
 TEXT_EXTENSIONS = {
     ".sql",
@@ -107,6 +136,7 @@ class SnippetsPlugin(BasePlugin):
     description = "Код и большие тексты между устройствами"
     page = "/snippets"
     page_title = "Сниппеты"
+    demo = True
 
     commands = {
         "/snippets": "Последние сниппеты",
@@ -191,6 +221,13 @@ class SnippetsPlugin(BasePlugin):
 
         if action == "save":
             body = _body(payload.get("body"))
+            if is_guest(identity):
+                if len(self.repo.entries(readable)) >= GUEST_SNIPPET_LIMIT:
+                    raise CommandError(
+                        f"Демо ограничено {GUEST_SNIPPET_LIMIT} сниппетами. "
+                        "Удалите лишние, чтобы добавить новые."
+                    )
+                _guest_fits(body)
             self.repo.add(
                 identity, _title(payload.get("title"), body), body, _source(identity)
             )
@@ -205,6 +242,8 @@ class SnippetsPlugin(BasePlugin):
         elif action == "update":
             snippet_id = _id(payload)
             body = _body(payload.get("body"))
+            if is_guest(identity):
+                _guest_fits(body)
             title = _title(payload.get("title"), body)
             if not self.repo.update(readable, snippet_id, title, body):
                 raise CommandError("Сниппет не найден.")
@@ -226,10 +265,14 @@ class SnippetsPlugin(BasePlugin):
 
         return view
 
+    async def seed_demo(self, identity: Identity) -> None:
+        for title, body in reversed(DEMO_SNIPPETS):
+            self.repo.add(identity, title, body, "web")
+
     def _view(self, identity: Identity, panel: dict | None) -> dict:
         view = {
             "title": "Сниппеты",
-            "live": True,
+            "live": not is_guest(identity),
             "layout": ["panel", "forms", "list"],
             "forms": [
                 {
@@ -326,6 +369,11 @@ def _id(payload: dict) -> int:
         raise CommandError("Сниппет не найден.")
 
     return int(value)
+
+
+def _guest_fits(body: str) -> None:
+    if len(body.encode()) > GUEST_MAX_BYTES:
+        raise CommandError(f"В демо текст до {GUEST_MAX_BYTES // 1000} КБ.")
 
 
 def _source(identity: Identity) -> str:

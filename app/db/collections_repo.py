@@ -32,6 +32,9 @@ class CollectionsRepository:
                     for row in cur.fetchall()
                 ]
 
+    def entries(self, identity: Identity | Iterable[Identity]) -> list[dict]:
+        return self.owned(identity)
+
     def get(self, identity: Identity | Iterable[Identity], collection_id: int):
         with self.database.connect() as conn:
             with conn.cursor() as cur:

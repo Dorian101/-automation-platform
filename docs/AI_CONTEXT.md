@@ -667,6 +667,8 @@ honour it — `/demo` drops the page from its cards, a guest's menu omits it,
 and `/demo/<page>` answers `404` — and the last is the one that matters,
 because a link being absent does not make a page unreachable. The owner's own
 menu and address are unaffected: private to the public, not gone.
+Every plugin with a page whose job works for a guest sets it (see DECISIONS,
+2026-11-13); today all but reminders, which a guest has nowhere to receive.
 
 Namespaces are seeded on arrival, so `prune-guests` can run at any time. The
 seed is the plugin's own `seed_demo`.

@@ -2,7 +2,7 @@ import unicodedata
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
-from app.core.identity import Identity
+from app.core.identity import Identity, is_guest
 from app.core.results import CommandError, CommandResult
 from app.db.collections_repo import CollectionsRepository
 from app.db.database import Database
@@ -13,6 +13,33 @@ from .base import BasePlugin
 MAX_FIELDS = 20
 MAX_KEPT_FIELDS = 100
 MAX_RECORDS = 2000
+GUEST_RECORD_LIMIT = 50
+
+DEMO_FIELDS = [
+    {"key": "f1", "label": "Название", "type": "text", "required": True},
+    {"key": "f2", "label": "Автор", "type": "text", "required": False},
+    {
+        "key": "f3",
+        "label": "Статус",
+        "type": "select",
+        "required": False,
+        "options": ["хочу", "читаю", "прочитал"],
+    },
+    {"key": "f4", "label": "Оценка", "type": "rating", "required": False},
+    {"key": "f5", "label": "Прочитана", "type": "date", "required": False},
+]
+DEMO_BOOKS = (
+    {"f1": "Мастер и Маргарита", "f2": "Михаил Булгаков", "f3": "прочитал",
+     "f4": 5, "f5": "2026-09-14"},
+    {"f1": "Дюна", "f2": "Фрэнк Герберт", "f3": "прочитал", "f4": 4,
+     "f5": "2026-10-02"},
+    {"f1": "Думай медленно… решай быстро", "f2": "Даниэль Канеман",
+     "f3": "читаю"},
+    {"f1": "Storytelling with Data", "f2": "Cole Nussbaumer Knaflic",
+     "f3": "читаю"},
+    {"f1": "Пикник на обочине", "f2": "Аркадий и Борис Стругацкие",
+     "f3": "хочу"},
+)
 MAX_TITLE = 60
 MAX_LABEL = 40
 MAX_TEXT = 500
@@ -211,6 +238,7 @@ class CollectionsPlugin(BasePlugin):
     description = "Свои коллекции: задайте поля, и платформа сделает страницу"
     page = "/collections"
     page_title = "Коллекции"
+    demo = True
     commands = {}
 
     def __init__(self, database: Database | None = None, persons=None, settings=None):
@@ -224,9 +252,20 @@ class CollectionsPlugin(BasePlugin):
         raise CommandError(f"Unknown command: {command}")
 
     async def page_view(self, identity: Identity) -> dict:
-        return self._home(identity)
+        return _for(identity, self._home(identity))
 
     async def page_action(self, identity: Identity, action: str, payload: dict) -> dict:
+        return _for(identity, await self._act(identity, action, payload))
+
+    async def seed_demo(self, identity: Identity) -> None:
+        collection_id = self.repo.create(identity, [identity], "Книги", 1)
+        if collection_id is None:
+            return
+        self.repo.update([identity], collection_id, "Книги", DEMO_FIELDS)
+        for book in reversed(DEMO_BOOKS):
+            self.repo.add_record(identity, collection_id, book, GUEST_RECORD_LIMIT)
+
+    async def _act(self, identity: Identity, action: str, payload: dict) -> dict:
         readable = self._readable_as(identity)
 
         if action == "create":
@@ -292,10 +331,11 @@ class CollectionsPlugin(BasePlugin):
         if action == "add":
             if not _active(collection):
                 raise CommandError("Сначала добавьте поля.")
+            limit = GUEST_RECORD_LIMIT if is_guest(identity) else MAX_RECORDS
             if not self.repo.add_record(
-                identity, collection["id"], _record(collection, payload), MAX_RECORDS
+                identity, collection["id"], _record(collection, payload), limit
             ):
-                raise CommandError(f"В коллекции уже {MAX_RECORDS} записей.")
+                raise CommandError(f"В коллекции уже {limit} записей.")
             return self._collection_screen(collection)
 
         if action == "edit":
@@ -602,6 +642,12 @@ class CollectionsPlugin(BasePlugin):
 
 def _active(collection: dict) -> list[dict]:
     return [field for field in collection["fields"] if not field.get("dropped")]
+
+
+def _for(identity: Identity, view: dict) -> dict:
+    if is_guest(identity):
+        view["live"] = False
+    return view
 
 
 def _new_field(every: list[dict], payload: dict) -> dict:

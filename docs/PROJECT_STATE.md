@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.97.1
+v0.98.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -583,8 +583,8 @@ Implemented:
 
 Demonstration:
 
-* /demo, /demo/expenses, /demo/applications, /demo/todo and
-  POST /demo/api/action are public; the rest still needs a session
+* /demo and the pages of every plugin with `demo = True` (all but reminders
+  since v0.98.0), and POST /demo/api/action are public; the rest still needs a session
 * a visitor is `web:guest:<token>` from a cookie — never a row in `users`,
   never a password, never a session
 * the landing issues that cookie too, so one reader is one token from `/demo`
@@ -877,6 +877,11 @@ count that answers one question, and an empty value trusts nothing, so a
 deployment that never sets it records everything as before.
 
 ## Current limitations
+
+* Since v0.98.0 snippets and collections are in the demo. A guest gets three
+  sample snippets and a «Книги» collection with five records; a guest may keep
+  20 snippets of at most 20 KB and 50 records per collection. Reminders stay
+  out: a guest has nowhere to receive one.
 
 * Since v0.97.1 after a UI audit: a long word with no spaces wraps instead of
   widening the /todo board or pushing table buttons off screen, row buttons
