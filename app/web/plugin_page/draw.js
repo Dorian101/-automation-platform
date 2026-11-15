@@ -247,6 +247,7 @@ function drawPanel(panel) {
   root.appendChild(el('h2', null, 'Сниппет'));
   const title = document.createElement('input');
   title.type = 'text';
+  title.autocomplete = 'off';
   title.className = 'viewer-title';
   title.value = panel.title;
   const area = document.createElement('textarea');
@@ -475,6 +476,7 @@ function cardNode(card) {
   const detail = el('div', 'detail');
   const text = document.createElement('input');
   text.type = 'text';
+  text.autocomplete = 'off';
   text.value = card.text;
   const description = document.createElement('textarea');
   description.rows = 3;
@@ -639,7 +641,10 @@ function buildFormRow(form, container) {
     const label = el('label', null, field.label);
     const tag = field.type === 'select' || field.type === 'textarea' ? field.type : 'input';
     const input = document.createElement(tag);
-    if (tag === 'input') input.type = field.type || 'text';
+    if (tag === 'input') {
+      input.type = field.type || 'text';
+      input.autocomplete = 'off';
+    }
     if (tag === 'textarea') {
       input.rows = 12;
       input.className = 'mono';

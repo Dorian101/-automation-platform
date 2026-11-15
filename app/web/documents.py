@@ -17,7 +17,7 @@ from app.core.commands import parse_command
 from app.core.identity import WEB, Identity, telegram
 from app.core.results import CommandError
 from app.db.migrations import MigrationRunner
-from app.db.visits_repo import CONTACT
+from app.db.visits_repo import ACTION, CONTACT
 from app.notifications import tell_admins
 
 from . import i18n
@@ -124,7 +124,23 @@ FEEDBACK_WINDOW_SECONDS = 3600
 
 
 CONTACT_TARGETS = ("telegram", "email", "github")
-CONTACT_ATTEMPTS = 30
+ACTION_TARGETS = (
+    "pdf",
+    "share",
+    "copy-text",
+    "read-end",
+    "demo",
+    "feedback",
+    "lens-brief",
+    "lens-deep",
+    "trace-notes",
+    "trace-telegram",
+    "trace-expenses",
+    "trace-reminder",
+    "trace-help",
+    "trace-unknown",
+)
+CONTACT_ATTEMPTS = 120
 CONTACT_WINDOW_SECONDS = 3600
 
 
@@ -656,16 +672,23 @@ class DocumentRoutes:
         except Exception:
             payload = None
 
-        target = payload.get("target") if isinstance(payload, dict) else None
+        if not isinstance(payload, dict):
+            payload = {}
+        target = payload.get("target")
+        page = payload.get("page")
 
-        if target not in CONTACT_TARGETS:
+        if target in CONTACT_TARGETS:
+            kind, path = CONTACT, target
+        elif target in ACTION_TARGETS and page in LOCALIZED_DOCUMENTS:
+            kind, path = ACTION, f"{page}#{target}"
+        else:
             return web.json_response({"error": "Bad request"}, status=400)
 
         if not leaves_no_trace(request):
             identity = self._identity(request)
             self._visits.record(
-                CONTACT,
-                path=target,
+                kind,
+                path=path,
                 identity=str(identity) if identity else None,
                 **self._details(request),
             )

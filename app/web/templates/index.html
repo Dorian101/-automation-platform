@@ -343,6 +343,7 @@ function makeArgsForm(command, fields) {
 
     const control = document.createElement('input');
     control.type = field.type === 'number' ? 'number' : 'text';
+    control.autocomplete = 'off';
     control.placeholder = field.label;
 
     label.appendChild(control);

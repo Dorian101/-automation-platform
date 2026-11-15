@@ -392,11 +392,17 @@ class TestGuestMenu:
     async def test_it_links_the_platform_so_a_guest_can_sign_in(self, visitor):
         body = await (await visitor.get("/demo")).text()
 
-        # The console link is present for a guest now: it leads to the sign-in
-        # form rather than hiding the front door. It is the one non-demo page
-        # offered, and it is labelled, not a bare address.
-        assert 'href="/"' in body
-        assert "Платформа" in body
+        assert 'href="/login">Платформа</a>' in body
+
+    async def test_the_platform_link_does_not_loop_back_to_the_resume(
+        self, visitor
+    ):
+        body = await (await visitor.get("/about")).text()
+        response = await visitor.get("/login", allow_redirects=False)
+
+        assert 'href="/login">Платформа</a>' in body
+        assert 'href="/">' not in body
+        assert response.status == 200
 
     async def test_it_still_offers_the_pages_that_need_no_account(
         self, visitor

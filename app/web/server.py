@@ -310,7 +310,7 @@ class WebServer(
 
         if (
             response.status == 429
-            and request.path != "/api/events"
+            and request.path not in ("/api/events", "/contact")
             and not leaves_no_trace(request)
             and self._blocklist.strike(address)
         ):

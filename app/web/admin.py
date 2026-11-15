@@ -57,7 +57,14 @@ from app.db.settings_repo import (
     SettingsRepository,
 )
 from app.db.users_repo import User, UsersRepository
-from app.db.visits_repo import CONTACT, DEFAULT_LIMIT, Visit, VisitsRepository
+from app.db.visits_repo import (
+    ACTION,
+    CONTACT,
+    DEFAULT_LIMIT,
+    NOT_PAGES,
+    Visit,
+    VisitsRepository,
+)
 from app.plugins.tables import data_tables, demo_tables
 from app.web.auth import SESSION_COOKIE, resolve_user
 from app.web.common import form_value
@@ -903,6 +910,7 @@ def _visit_rows(found: list[Visit]) -> str:
         "signin": "вход",
         "signup": "регистрация",
         CONTACT: "контакт",
+        ACTION: "действие",
     }
     body = []
 
@@ -996,6 +1004,16 @@ class Session:
     def contacts(self) -> list[str]:
         return sorted({visit.path for visit in self.visits if visit.kind == CONTACT})
 
+    @property
+    def actions(self) -> list[str]:
+        return list(
+            dict.fromkeys(
+                visit.path.split("#", 1)[-1]
+                for visit in self.visits
+                if visit.kind == ACTION
+            )
+        )
+
 
 def _sessions(visits: list[Visit]) -> list[Session]:
     """Group visits, oldest first, into sessions, oldest first.
@@ -1032,7 +1050,7 @@ def _route(session: Session) -> str:
     paths: list[str] = []
 
     for visit in session.visits:
-        if visit.kind == CONTACT:
+        if visit.kind in NOT_PAGES:
             continue
         if not paths or paths[-1] != visit.path:
             paths.append(visit.path)
@@ -1040,21 +1058,17 @@ def _route(session: Session) -> str:
     return " &rarr; ".join(html.escape(path) for path in paths)
 
 
-def _contacts(session: Session) -> str:
-    found = session.contacts
-
-    if not found:
+def _badges(names: list[str], css: str = "badge") -> str:
+    if not names:
         return "&mdash;"
 
-    return " ".join(
-        f'<span class="badge on">{html.escape(target)}</span>' for target in found
-    )
+    return " ".join(f'<span class="{css}">{html.escape(name)}</span>' for name in names)
 
 
 def _source(session: Session) -> str:
     """Where the session came from: the link's tag, else the referring site."""
     first = next(
-        (visit for visit in session.visits if visit.kind != CONTACT),
+        (visit for visit in session.visits if visit.kind not in NOT_PAGES),
         session.visits[0],
     )
 
@@ -1103,7 +1117,8 @@ def _session_rows(found: list[Session]) -> str:
             f"<td>{agent}</td>"
             f"<td>{_source(session)}</td>"
             f'<td class="name">{_route(session)}</td>'
-            f"<td>{_contacts(session)}</td>"
+            f"<td>{_badges(session.actions)}</td>"
+            f"<td>{_badges(session.contacts, 'badge on')}</td>"
             f"<td>{_who(session)}</td>"
             "</tr>"
         )
@@ -1112,7 +1127,7 @@ def _session_rows(found: list[Session]) -> str:
         "<table><thead><tr>"
         f"<th>Начало, {html.escape(datetime.now(zone).tzname() or '')}</th>"
         "<th>Длительность</th><th>Устройство</th><th>Откуда</th>"
-        "<th>Путь</th><th>Контакт</th><th>Кто</th>"
+        "<th>Путь</th><th>Действия</th><th>Контакт</th><th>Кто</th>"
         "</tr></thead><tbody>" + "".join(body) + "</tbody></table>"
     )
 

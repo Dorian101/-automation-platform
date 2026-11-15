@@ -82,7 +82,10 @@ def nav(
         mark = ' aria-current="page"' if href == current else ""
         return f'<a href="{html.escape(href)}"{mark}>{html.escape(title)}</a>'
 
-    links = [link("/", words["nav.platform"]), link(DEMO_PREFIX, words["nav.demo"])]
+    links = [
+        link("/login" if guest else "/", words["nav.platform"]),
+        link(DEMO_PREFIX, words["nav.demo"]),
+    ]
 
     plugins = [
         (

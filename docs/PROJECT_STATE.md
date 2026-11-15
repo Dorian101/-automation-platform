@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.98.0
+v0.99.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -877,6 +877,15 @@ count that answers one question, and an empty value trusts nothing, so a
 deployment that never sets it records everything as before.
 
 ## Current limitations
+
+* Since v0.99.0 `/admin/sessions` shows what a reader did on `/about` and
+  `/project`: saved the PDF, shared, opened the demo or the feedback form,
+  switched the reading depth, ran a trace scenario, copied text, reached the
+  footer. Copy buttons for Telegram and e-mail count as a contact. Each action
+  is sent once per page view; the copied text itself is not kept. Plugin
+  input fields no longer offer earlier entries from the browser.
+  The menu's «Платформа» leads a guest to `/login`, not to `/`, which since
+  the root went to `/about` had sent the guest straight back to the résumé.
 
 * Since v0.98.0 snippets and collections are in the demo. A guest gets three
   sample snippets and a «Книги» collection with five records; a guest may keep

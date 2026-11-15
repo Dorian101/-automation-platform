@@ -101,3 +101,21 @@ class TestTheSite:
             clock[0] += 61
 
         assert (await client.get("/about", headers=HEADERS)).status == 200
+
+    async def test_a_busy_reader_of_the_resume_is_not_abuse(
+        self, client, clock, monkeypatch
+    ):
+        monkeypatch.setattr("app.web.documents.CONTACT_ATTEMPTS", 1)
+
+        statuses = []
+        for _ in range(4):
+            response = await client.post(
+                "/contact", json={"target": "pdf", "page": "/about"}, headers=HEADERS
+            )
+            statuses.append(response.status)
+            clock[0] += 61
+
+        assert statuses == [200, 429, 429, 429]
+
+        assert (await client.get("/about", headers=HEADERS)).status == 200
+

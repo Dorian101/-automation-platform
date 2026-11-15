@@ -887,6 +887,18 @@ the same visitor hash, so it lands in the reader's session. `/admin/sessions`
 leaves contacts out of the route, shows them in their own column and counts
 the sessions that reached one.
 
+**Actions.** Since v0.99.0 the same script and endpoint record what a reader
+does on those pages. A control with `data-track="<name>"` posts
+`{"target": name, "page": location.pathname}`; Telegram and e-mail names are
+contacts, the rest must be in `ACTION_TARGETS` (`app/web/documents.py`) with a
+page from `LOCALIZED_DOCUMENTS`, and are stored as kind `action` with path
+`<page>#<name>`. `copy-text` comes from the page's copy event and `read-end`
+from the footer coming into view. A name is sent once per page view. Both
+kinds are in `NOT_PAGES` (`visits_repo.py`), kept out of the page filter and
+the route; `/admin/sessions` lists actions in their own column. A new tracked
+control needs its name added to `ACTION_TARGETS`, or the server answers 400. `/contact` allows 120 posts an
+hour per address, and its 429 is not a strike towards the day-long block.
+
 **No address, and nothing that follows a stranger across days.** A demo
 guest is recorded under a random token that resolves to no account. Since
 v0.74.0 each row also carries what tells one visitor from another

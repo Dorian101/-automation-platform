@@ -257,3 +257,71 @@ async def test_contacts_are_not_offered_as_pages(client, database_with_schema):
     await client.post("/contact", json={"target": "github"})
 
     assert VisitsRepository(database_with_schema).paths() == ["/about"]
+
+
+class TestActions:
+    async def test_an_action_is_recorded_with_its_page(
+        self, client, database_with_schema
+    ):
+        await client.get("/about", headers={"User-Agent": IPHONE})
+        response = await client.post(
+            "/contact",
+            json={"target": "pdf", "page": "/about"},
+            headers={"User-Agent": IPHONE},
+        )
+
+        rows = _log(database_with_schema)
+
+        assert response.status == 200
+        assert rows[0].kind == "action"
+        assert rows[0].path == "/about#pdf"
+        assert rows[0].visitor == rows[1].visitor
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"target": "pdf"},
+            {"target": "pdf", "page": "/admin"},
+            {"target": "rm -rf", "page": "/about"},
+        ],
+    )
+    async def test_an_unknown_action_or_page_is_refused(
+        self, client, database_with_schema, payload
+    ):
+        response = await client.post("/contact", json=payload)
+
+        assert response.status == 400
+        assert _log(database_with_schema) == []
+
+    async def test_actions_are_not_offered_as_pages(self, client, database_with_schema):
+        await client.get("/about", headers={"User-Agent": IPHONE})
+        await client.post("/contact", json={"target": "share", "page": "/about"})
+
+        assert VisitsRepository(database_with_schema).paths() == ["/about"]
+
+    def test_an_action_is_not_a_step_of_the_route(self):
+        action = Visit(
+            at=datetime(2026, 11, 3, 10, 1), kind="action", path="/about#pdf",
+            visitor="a", identity=None,
+        )
+        session = _sessions([_visit(0), action, _visit(2, path="/project")])[0]
+
+        assert session.actions == ["pdf"]
+        assert session.contacts == []
+
+    async def test_the_session_shows_its_actions(
+        self, client, login, create_user, users
+    ):
+        await client.get("/project", headers={"User-Agent": IPHONE})
+        await client.post(
+            "/contact",
+            json={"target": "trace-notes", "page": "/project"},
+            headers={"User-Agent": IPHONE},
+        )
+        users.set_admin(users.get_by_username(TEST_USERNAME).id, True)
+        await login(client)
+        with_passkey(client, users)
+
+        body = await (await client.get("/admin/sessions")).text()
+
+        assert '<span class="badge">trace-notes</span>' in body

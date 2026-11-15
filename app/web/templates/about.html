@@ -22,7 +22,7 @@ __MENU_STYLES__
       github.com/Dorian101/-automation-platform<span id="site-address"></span></p>
       <div class="actions">
         <a class="button" href="#cases">{{about.see_cases}}</a>
-        <button id="print-resume" class="button outline" type="button" hidden>{{about.print}}</button>
+        <button id="print-resume" class="button outline" type="button" hidden data-track="pdf">{{about.print}}</button>
       </div>
     </div>
 
@@ -166,26 +166,26 @@ __MENU_STYLES__
           <div><span class="label">Telegram</span><a class="value" href="https://t.me/alexeyr6">@alexeyr6</a></div>
           <div class="do">
             <a class="small-button" href="https://t.me/alexeyr6">{{about.write}}</a>
-            <button type="button" class="small-button" data-copy="@alexeyr6" hidden>{{about.copy}}</button>
+            <button type="button" class="small-button" data-copy="@alexeyr6" data-track="telegram" hidden>{{about.copy}}</button>
           </div>
         </div>
         <div class="contact-row">
           <div><span class="label">{{about.mail}}</span><a class="value" href="mailto:alexeyr101@gmail.com">alexeyr101@gmail.com</a></div>
           <div class="do">
-            <button type="button" class="small-button" data-copy="alexeyr101@gmail.com" hidden>{{about.copy}}</button>
+            <button type="button" class="small-button" data-copy="alexeyr101@gmail.com" data-track="email" hidden>{{about.copy}}</button>
           </div>
         </div>
         <div class="contact-row">
           <div><span class="label">GitHub</span><a class="value" href="https://github.com/Dorian101/-automation-platform">{{about.source_code}}</a></div>
         </div>
         <div class="footer-actions">
-          <button id="share-page" type="button" class="text-button" hidden>{{about.share}}</button>
+          <button id="share-page" type="button" class="text-button" hidden data-track="share">{{about.share}}</button>
         </div>
       </div>
     </div>
     <div class="footer-line">
       <a href="https://github.com/Dorian101/-automation-platform">{{common.source_on_github}}</a>
-      <button type="button" class="feedback-open" hidden>{{common.feedback}}</button>
+      <button type="button" class="feedback-open" data-track="feedback" hidden>{{common.feedback}}</button>
     </div>
   </footer>
 </main>

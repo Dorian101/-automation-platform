@@ -21,6 +21,8 @@ VIEW = "view"
 SIGNIN = "signin"
 SIGNUP = "signup"
 CONTACT = "contact"
+ACTION = "action"
+NOT_PAGES = (CONTACT, ACTION)
 
 #: How many rows one page shows. A screen of events, not a report: the
 #: question being answered is "was anybody here today", and the answer is in
@@ -210,8 +212,8 @@ class VisitsRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     "SELECT DISTINCT path FROM visits "
-                    "WHERE path <> '' AND kind <> %s ORDER BY path",
-                    (CONTACT,),
+                    "WHERE path <> '' AND kind <> ALL(%s) ORDER BY path",
+                    (list(NOT_PAGES),),
                 )
                 rows = cur.fetchall()
 

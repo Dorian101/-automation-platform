@@ -18,12 +18,12 @@ __MENU_STYLES__
       <h1>{{project.headline}}</h1>
       <p class="lede">{{project.lede}}</p>
       <div class="actions">
-        <a class="button" href="/demo">{{project.next_demo}}</a>
+        <a class="button" href="/demo" data-track="demo">{{project.next_demo}}</a>
         <a class="button outline" href="https://github.com/Dorian101/-automation-platform">{{project.next_source}}</a>
       </div>
       <div id="lens" class="lens" role="group" aria-label="{{project.lens_label}}" hidden>
-        <button type="button" data-lens="brief">{{project.lens_brief}}</button>
-        <button type="button" data-lens="deep">{{project.lens_deep}}</button>
+        <button type="button" data-lens="brief" data-track="lens-brief">{{project.lens_brief}}</button>
+        <button type="button" data-lens="deep" data-track="lens-deep">{{project.lens_deep}}</button>
       </div>
     </div>
     <table class="counts num">
@@ -226,12 +226,12 @@ __MENU_STYLES__
     </figure>
     <div id="trace-actions" class="trace-actions" hidden>
       <p class="trace-title">{{project.trace_title}}</p>
-      <button type="button" data-scenario="notes">{{project.trace_notes}}</button>
-      <button type="button" data-scenario="telegram">{{project.trace_telegram}}</button>
-      <button type="button" data-scenario="expenses">{{project.trace_expenses}}</button>
-      <button type="button" data-scenario="reminder">{{project.trace_reminder}}</button>
-      <button type="button" data-scenario="help">{{project.trace_help}}</button>
-      <button type="button" data-scenario="unknown">{{project.trace_unknown}}</button>
+      <button type="button" data-scenario="notes" data-track="trace-notes">{{project.trace_notes}}</button>
+      <button type="button" data-scenario="telegram" data-track="trace-telegram">{{project.trace_telegram}}</button>
+      <button type="button" data-scenario="expenses" data-track="trace-expenses">{{project.trace_expenses}}</button>
+      <button type="button" data-scenario="reminder" data-track="trace-reminder">{{project.trace_reminder}}</button>
+      <button type="button" data-scenario="help" data-track="trace-help">{{project.trace_help}}</button>
+      <button type="button" data-scenario="unknown" data-track="trace-unknown">{{project.trace_unknown}}</button>
     </div>
     <p id="trace-result" class="trace-result" aria-live="polite"></p>
 
@@ -277,13 +277,13 @@ __MENU_STYLES__
 
   <footer class="site-footer">
     <div class="actions">
-      <a class="button" href="/demo">{{project.next_demo}}</a>
+      <a class="button" href="/demo" data-track="demo">{{project.next_demo}}</a>
       <a class="button outline" href="https://github.com/Dorian101/-automation-platform">{{project.next_source}}</a>
       <a class="button outline" href="__PREFIX__/about">{{project.next_about}}</a>
     </div>
     <div class="footer-line">
       <span>{{project.next_text}}</span>
-      <button type="button" class="feedback-open" hidden>{{common.feedback}}</button>
+      <button type="button" class="feedback-open" data-track="feedback" hidden>{{common.feedback}}</button>
     </div>
   </footer>
 </main>

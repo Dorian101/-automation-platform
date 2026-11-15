@@ -3070,6 +3070,9 @@ who picks dark keeps it. The console keeps its dark default.
 The domain root was a sign-in form for anyone without a session, so a person
 following the bare address met a password field before the résumé. A guest on
 `/` now gets `/about`; signing in is one link away in the menu.
+That link pointed at `/`, so it looped back to `/about` until v0.99.0: for a
+guest the menu's «Платформа» now goes to `/login`, which sends a signed-in
+reader on to `/`.
 
 The "How it was built" section names CLAUDE.md and the release and unslop-ui
 skills in plain text and says they are local: the tests hold the page to
@@ -3134,3 +3137,31 @@ test (a guest has nowhere to receive one), so they stay out. A plugin opened
 in the demo declares its tables in `tables` with a `user_id` column, so the
 daily cleanup removes guest rows, and gets sample data when an empty page
 would show nothing.
+
+## 2026-11-14
+
+### Decision
+Record what a reader does on `/about` and `/project` in the visit log, not in
+a new table or a third-party recorder
+
+### Why
+The owner wants to know what a recruiter did after reading, not only which
+pages were opened. Yandex Metrica's Webvisor or Microsoft Clarity would replay
+every movement, but they need cookies, a consent banner, a foreign script in
+the CSP and hand the data to a third party, which undoes the cookieless log of
+v0.74.0. The contact clicks of v0.94.0 already went into `visits` with the
+visitor hash, so actions follow the same path: a new kind, the name in the
+path, no migration, and they land in the reader's session for free.
+
+### How it is done
+- Names are a fixed list on the server, so a script cannot fill the log with
+  arbitrary text. The per-address limit of `/contact` went from 30 to 120 an
+  hour, and a refusal there no longer counts towards the day-long block of
+  v0.93.0, like `/api/events`: a reader who reloads `/project` and runs every
+  scenario a few times would otherwise have been shut out of the whole site
+  for a day by a beacon they never see.
+- Each name is sent once per page view: whether a reader did it is what
+  matters, and repeated clicks would bury the route.
+- Copying is recorded as a fact, not as the copied text, and every selection
+  is not recorded at all: selecting while reading is a habit and says nothing.
+
