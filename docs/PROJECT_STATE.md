@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.100.0
+v0.101.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -879,6 +879,12 @@ count that answers one question, and an empty value trusts nothing, so a
 deployment that never sets it records everything as before.
 
 ## Current limitations
+
+* Since v0.101.0 `/admin/visits` filters by source: `?from=hh` shows every
+  row of each browser that arrived with that tag on the same day, the pages
+  it went on to as well, since they no longer carry the tag. The hash changes
+  at midnight UTC, so a reader who comes back the next day without the tag is
+  not included.
 
 * Since v0.100.0 a page table may set `compact`, and a column `nowrap` and
   `copy`: from 900px the row's buttons, the date and the link with its copy

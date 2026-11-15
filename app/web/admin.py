@@ -262,6 +262,9 @@ class AdminArea:
         """
         query = request.query.get("q", "").strip()
         hiding = request.query.get("hide") == "1"
+        campaigns = self._visits.campaigns()
+        source = request.query.get("from", "")
+        source = source if source in campaigns else ""
 
         # Who the owner is does not change from one row to the next, and
         # finding out is two queries. Asking per row cost the page four
@@ -269,13 +272,17 @@ class AdminArea:
         mine = _mine(request) if hiding else None
         exclude = mine if hiding else None
 
-        total = self._visits.count(path=query, exclude=exclude)
-        whole = total if not query else self._visits.count(exclude=exclude)
+        total = self._visits.count(path=query, exclude=exclude, campaign=source)
+        whole = (
+            total if not (query or source) else self._visits.count(exclude=exclude)
+        )
         pages = max(1, -(-total // DEFAULT_LIMIT))
         page = min(_page_number(request.query.get("page", "")), pages)
         offset = (page - 1) * DEFAULT_LIMIT
 
-        found = self._visits.recent(path=query, offset=offset, exclude=exclude)
+        found = self._visits.recent(
+            path=query, offset=offset, exclude=exclude, campaign=source
+        )
 
         body = _fragment("admin_visits.html", {
             "__QUERY__": html.escape(query, quote=True),
@@ -284,8 +291,13 @@ class AdminArea:
                 for path in self._visits.paths()
             ),
             "__CHECKED__": " checked" if hiding else "",
+            "__SOURCE_OPTIONS__": "".join(
+                f'<option value="{html.escape(tag, quote=True)}"'
+                f'{" selected" if tag == source else ""}>{html.escape(tag)}</option>'
+                for tag in campaigns
+            ),
             "__COUNT_LINE__": _count_line(total, whole, len(found), offset),
-            "__PAGER__": _pager(page, pages, query, hiding),
+            "__PAGER__": _pager(page, pages, query, hiding, source),
             "__ROWS__": _visit_rows(found),
         })
 
@@ -838,7 +850,7 @@ def _page_number(raw: str) -> int:
     return number if number >= 1 else 1
 
 
-def _visit_url(page: int, query: str, hiding: bool) -> str:
+def _visit_url(page: int, query: str, hiding: bool, source: str = "") -> str:
     """The address of one page of the log, with the filters still on.
 
     The page number is left out of the first page's address, because a link
@@ -852,6 +864,9 @@ def _visit_url(page: int, query: str, hiding: bool) -> str:
     if hiding:
         arguments["hide"] = "1"
 
+    if source:
+        arguments["from"] = source
+
     if page > 1:
         arguments["page"] = str(page)
 
@@ -860,7 +875,7 @@ def _visit_url(page: int, query: str, hiding: bool) -> str:
     return f"/admin/visits?{encoded}" if encoded else "/admin/visits"
 
 
-def _pager(page: int, pages: int, query: str, hiding: bool) -> str:
+def _pager(page: int, pages: int, query: str, hiding: bool, source: str = "") -> str:
     """The way to the other pages, and the way back.
 
     The filters travel with it: a reader who narrowed the log and then turned
@@ -871,14 +886,16 @@ def _pager(page: int, pages: int, query: str, hiding: bool) -> str:
 
     if page > 1:
         earlier = html.escape(
-            _visit_url(page - 1, query, hiding), quote=True
+            _visit_url(page - 1, query, hiding, source), quote=True
         )
         parts.append(f'<a class="pagerlink" href="{earlier}">&larr; раньше</a>')
 
     parts.append(f"<span>страница {page} из {pages}</span>")
 
     if page < pages:
-        later = html.escape(_visit_url(page + 1, query, hiding), quote=True)
+        later = html.escape(
+            _visit_url(page + 1, query, hiding, source), quote=True
+        )
         parts.append(f'<a class="pagerlink" href="{later}">позже &rarr;</a>')
 
     return '<nav class="pager">' + " ".join(parts) + "</nav>"

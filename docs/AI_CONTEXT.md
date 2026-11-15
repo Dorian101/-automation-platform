@@ -883,7 +883,10 @@ where a reader will not mistake it for their own mistake.
 
 `/admin/visits` is a log of what happened on the public side: a view of a
 public page, a sign-in, a sign-up, a click on a contact. Newest first,
-filterable by page.
+filterable by page and, since v0.101.0, by source: `from=<tag>` keeps the rows
+whose `visitor` hash has a row with that `campaign`, so a tagged arrival
+brings its untagged later pages along. Only tags present in the log are
+accepted; anything else shows the whole log.
 
 **Contacts.** `/contact.js` on `/about` and `/project` posts
 `{"target": "telegram"|"email"|"github"}` to `POST /contact` when such a link

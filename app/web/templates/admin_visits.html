@@ -8,6 +8,12 @@
     <input type="checkbox" id="hide-admin" name="hide" value="1"__CHECKED__>
     Скрывать визиты с моей учётной записью
   </label>
+  <label class="hideadmin">
+    Источник
+    <select id="source" name="from">
+      <option value="">все</option>__SOURCE_OPTIONS__
+    </select>
+  </label>
   <button type="submit">Найти</button>
 </form>
 
@@ -20,6 +26,10 @@ __PAGER__
 адрес не сохраняется. Визиты с ваших адресов сюда не попадают совсем — они
 отсекаются на входе настройкой <code>VISIT_IGNORE_IPS</code>.</p>
 
+<p class="legend">«Источник» — метка <code>?from=</code> из ссылки, по которой
+пришли. Показываются все записи этого браузера за тот же день, включая
+переходы по сайту после первой страницы: у них самих метки уже нет.</p>
+
 <p class="legend">Столбец «Откуда» — домен страницы, с которой пришёл посетитель,
 если браузер его передал (переход по ссылке с другого сайта или из поиска).
 Прямой заход, закладка и скрывающий заголовок браузер оставляют его пустым.
@@ -31,7 +41,9 @@ __ROWS__
   /* The box is a filter, so it filters the moment it moves. The form is a
      GET and the button stays: with script off, pressing it does the same
      thing. */
-  document.getElementById("hide-admin").addEventListener("change", function () {
-    this.form.submit();
+  ["hide-admin", "source"].forEach(function (id) {
+    document.getElementById(id).addEventListener("change", function () {
+      this.form.submit();
+    });
   });
 </script>

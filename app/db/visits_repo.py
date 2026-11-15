@@ -56,7 +56,9 @@ def _visit(row) -> Visit:
     return Visit(*row)
 
 
-def _where(path: str, exclude: str | None) -> tuple[str, list]:
+def _where(
+    path: str, exclude: str | None, campaign: str = ""
+) -> tuple[str, list]:
     """The conditions a query of the log is cut by, and what to fill them with.
 
     One place, so that counting and reading cut the same rows. The exclusion
@@ -75,6 +77,12 @@ def _where(path: str, exclude: str | None) -> tuple[str, list]:
     if exclude is not None:
         conditions.append("identity IS DISTINCT FROM %s")
         arguments.append(exclude)
+
+    if campaign:
+        conditions.append(
+            "visitor IN (SELECT visitor FROM visits WHERE campaign = %s)"
+        )
+        arguments.append(campaign)
 
     if not conditions:
         return "", arguments
@@ -129,6 +137,7 @@ class VisitsRepository:
         limit: int = DEFAULT_LIMIT,
         offset: int = 0,
         exclude: str | None = None,
+        campaign: str = "",
     ) -> list[Visit]:
         """The newest events, optionally only those of one page.
 
@@ -139,7 +148,7 @@ class VisitsRepository:
         page was cut from. `count` takes the same exclusion for the same
         reason.
         """
-        where, arguments = _where(path, exclude)
+        where, arguments = _where(path, exclude, campaign)
         arguments = arguments + [limit, offset]
 
         with self.database.connect() as conn:
@@ -219,14 +228,27 @@ class VisitsRepository:
 
         return [row[0] for row in rows]
 
-    def count(self, path: str = "", exclude: str | None = None) -> int:
+    def campaigns(self) -> list[str]:
+        with self.database.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT DISTINCT campaign FROM visits "
+                    "WHERE campaign IS NOT NULL ORDER BY campaign"
+                )
+                rows = cur.fetchall()
+
+        return [row[0] for row in rows]
+
+    def count(
+        self, path: str = "", exclude: str | None = None, campaign: str = ""
+    ) -> int:
         """How many events the log holds, on the same terms as `recent`.
 
         The exclusion is the same one, so the number and the rows it counts
         are the same rows. A total that included what the table hides is a
         number nobody can match against the table under it.
         """
-        where, arguments = _where(path, exclude)
+        where, arguments = _where(path, exclude, campaign)
 
         with self.database.connect() as conn:
             with conn.cursor() as cur:

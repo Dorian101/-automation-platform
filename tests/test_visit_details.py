@@ -325,3 +325,47 @@ class TestActions:
         body = await (await client.get("/admin/sessions")).text()
 
         assert '<span class="badge">trace-notes</span>' in body
+
+
+class TestSourceFilter:
+    async def test_the_tag_keeps_the_rest_of_that_visitors_route(
+        self, client, database_with_schema
+    ):
+        await client.get("/about?from=hh", headers={"User-Agent": IPHONE})
+        await client.get("/project", headers={"User-Agent": IPHONE})
+        await client.get("/about", headers={"User-Agent": WINDOWS_CHROME})
+        repo = VisitsRepository(database_with_schema)
+
+        found = repo.recent(campaign="hh")
+
+        assert [v.path for v in found] == ["/project", "/about"]
+        assert repo.count(campaign="hh") == 2
+        assert repo.campaigns() == ["hh"]
+
+    async def test_the_log_page_filters_by_source(
+        self, client, login, create_user, users
+    ):
+        await client.get("/about?from=hh", headers={"User-Agent": IPHONE})
+        await client.get("/project", headers={"User-Agent": IPHONE})
+        await client.get("/demo", headers={"User-Agent": WINDOWS_CHROME})
+        users.set_admin(users.get_by_username(TEST_USERNAME).id, True)
+        await login(client)
+        with_passkey(client, users)
+
+        body = await (await client.get("/admin/visits?from=hh")).text()
+
+        assert '<option value="hh" selected>hh</option>' in body
+        assert '<td class="name">/project</td>' in body
+        assert '<td class="name">/demo</td>' not in body
+
+    async def test_an_unknown_source_shows_everything(
+        self, client, login, create_user, users
+    ):
+        await client.get("/demo", headers={"User-Agent": WINDOWS_CHROME})
+        users.set_admin(users.get_by_username(TEST_USERNAME).id, True)
+        await login(client)
+        with_passkey(client, users)
+
+        body = await (await client.get("/admin/visits?from=nope")).text()
+
+        assert '<td class="name">/demo</td>' in body
