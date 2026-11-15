@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.99.0
+v0.100.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -387,10 +387,12 @@ Implemented:
 * one link, one row: the address is normalized (scheme and host lower case,
   default port and trailing `/` dropped; `utm_*`, `fbclid`, `gclid`, `yclid`,
   `ysclid` and similar removed from the query, which is otherwise kept as
-  written, fragment included); a repeat rises to the top, becomes unread and
+  written, fragment included); a repeat rises to the top and
   takes the new description if one was given; a linked pair shares the list
-* a page at /bookmarks: add a link, mark read or unread, edit title and
-  description, delete; /links in the bot lists the last ten
+* a page at /bookmarks: add a link, copy it with the clipboard icon next to
+  «Открыть», edit title and description, delete; /links in the bot lists the
+  last ten. Since v0.100.0 there is no read mark: the owner opens a link many
+  times, so the `is_read` column stays in the table unused
 * the plugin is `bookmarks` in code because `links` already names the
   Telegram pairing
 * saving without Telegram: an iPhone Shortcut posts to `POST /api/links`
@@ -877,6 +879,10 @@ count that answers one question, and an empty value trusts nothing, so a
 deployment that never sets it records everything as before.
 
 ## Current limitations
+
+* Since v0.100.0 a page table may set `compact`, and a column `nowrap` and
+  `copy`: from 900px the row's buttons, the date and the link with its copy
+  icon stay on one line; /bookmarks uses it, rows went from 86 to 50–63 px.
 
 * Since v0.99.0 `/admin/sessions` shows what a reader did on `/about` and
   `/project`: saved the PDF, shared, opened the demo or the feedback form,

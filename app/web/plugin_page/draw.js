@@ -167,7 +167,7 @@ function drawTable(table, title) {
     root.appendChild(button);
   }
 
-  const t = el('table', 'data');
+  const t = el('table', table.compact ? 'data compact' : 'data');
   const thead = el('thead');
   const hrow = el('tr');
 
@@ -191,6 +191,7 @@ function drawTable(table, title) {
     for (const col of table.columns) {
       const cell = cellFor(col, row);
       cell.dataset.label = col.label;
+      if (col.nowrap) cell.classList.add('nowrap');
       tr.appendChild(cell);
     }
 
@@ -235,6 +236,7 @@ function cellFor(col, row) {
     anchor.target = '_blank';
     anchor.rel = 'noopener noreferrer';
     td.appendChild(anchor);
+    if (col.copy) td.appendChild(copyIcon(value));
     return td;
   }
 
@@ -280,14 +282,18 @@ const CHECK =
   '<svg class="check" viewBox="0 0 16 16" aria-hidden="true">' +
   '<path d="M3 8.5 6.5 12 13 4.5"/></svg>';
 
-function confirmCopy(button, succeeded) {
-  const label = button.textContent;
-  button.innerHTML = succeeded ? CHECK : '';
+function announceCopy(succeeded) {
   const text = succeeded ? 'Скопировано' : 'Не удалось';
-  button.append(text);
   const announce = document.getElementById('announce');
   announce.textContent = '';
   requestAnimationFrame(() => { announce.textContent = text; });
+  return text;
+}
+
+function confirmCopy(button, succeeded) {
+  const label = button.textContent;
+  button.innerHTML = succeeded ? CHECK : '';
+  button.append(announceCopy(succeeded));
   button.disabled = true;
   setTimeout(() => {
     button.textContent = label;
@@ -307,6 +313,32 @@ function copyBySelection(text) {
   try { done = document.execCommand('copy'); } catch (e) { done = false; }
   area.remove();
   return done;
+}
+
+const CLIP =
+  '<svg viewBox="0 0 16 16" aria-hidden="true">' +
+  '<rect x="5.5" y="1.5" width="5" height="3" rx="1"/>' +
+  '<path d="M5.5 3H4a1 1 0 0 0-1 1v9.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1h-1.5"/></svg>';
+
+function copyIcon(text) {
+  const button = el('button', 'iconbtn');
+  button.type = 'button';
+  button.title = 'Копировать ссылку';
+  button.setAttribute('aria-label', 'Копировать ссылку');
+  button.innerHTML = CLIP;
+  button.addEventListener('click', async () => {
+    let done;
+    try {
+      await navigator.clipboard.writeText(text);
+      done = true;
+    } catch (e) {
+      done = copyBySelection(text);
+    }
+    button.innerHTML = done ? CHECK : CLIP;
+    announceCopy(done);
+    setTimeout(() => { button.innerHTML = CLIP; }, 1500);
+  });
+  return button;
 }
 
 function copyNow(text, button) {

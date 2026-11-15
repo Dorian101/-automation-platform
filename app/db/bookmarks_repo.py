@@ -110,11 +110,6 @@ class BookmarksRepository:
             "title = %s, description = %s", (title, description), identity, bookmark_id
         )
 
-    def mark(
-        self, identity: Identity | Iterable[Identity], bookmark_id: int, is_read: bool
-    ) -> bool:
-        return self._change("is_read = %s", (is_read,), identity, bookmark_id)
-
     def delete(self, identity: Identity | Iterable[Identity], bookmark_id: int) -> bool:
         return self._one("DELETE FROM bookmarks", (), identity, bookmark_id)
 

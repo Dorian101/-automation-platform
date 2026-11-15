@@ -173,8 +173,6 @@ class TestSaving:
     async def test_a_repeat_rises_instead_of_doubling(self, plugin, web_identity):
         await _save(plugin, web_identity, "https://example.com/a")
         await _save(plugin, web_identity, "https://example.com/b")
-        first = plugin.repo.entries(web_identity)[1]
-        plugin.repo.mark(web_identity, first["id"], True)
 
         view = await _save(
             plugin, web_identity, "HTTPS://EXAMPLE.com/a/?utm_medium=tg", "again"
@@ -184,7 +182,6 @@ class TestSaving:
         assert len(rows) == 2
         assert rows[0]["url"] == "https://example.com/a"
         assert rows[0]["description"] == "again"
-        assert rows[0]["state"] == ""
         assert "уже была" in view["notice"]
 
     async def test_a_repeat_without_text_keeps_the_description(
@@ -215,7 +212,7 @@ class TestSaving:
 
     async def test_people_do_not_see_each_others_links(self, plugin, web_identity):
         view = await _save(plugin, web_identity, "https://example.com")
-        params = view["list"][0]["rows"][0]["actions"][2]["params"]
+        params = view["list"][0]["rows"][0]["actions"][1]["params"]
 
         assert (await plugin.page_view(OTHER))["list"][0]["rows"] == []
         with pytest.raises(CommandError, match="не найдена"):
@@ -223,13 +220,22 @@ class TestSaving:
 
 
 class TestPage:
-    async def test_read_edit_delete(self, plugin, web_identity):
+    async def test_a_row_offers_edit_delete_and_a_copyable_link(
+        self, plugin, web_identity
+    ):
+        view = await _save(plugin, web_identity, "https://example.com")
+        table = view["list"][0]
+
+        assert [a["action"] for a in table["rows"][0]["actions"]] == [
+            "edit",
+            "delete",
+        ]
+        assert [c["key"] for c in table["columns"] if c.get("copy")] == ["url"]
+        assert "state" not in table["rows"][0]
+
+    async def test_edit_delete(self, plugin, web_identity):
         view = await _save(plugin, web_identity, "https://example.com")
         params = view["list"][0]["rows"][0]["actions"][0]["params"]
-
-        view = await plugin.page_action(web_identity, "read", params)
-        assert view["list"][0]["rows"][0]["state"] == "прочитано"
-        assert view["list"][0]["rows"][0]["actions"][0]["action"] == "unread"
 
         view = await plugin.page_action(web_identity, "edit", params)
         assert view["forms"][0]["id"] == "update"

@@ -183,6 +183,11 @@ A plugin may also declare:
 - Phone layout: the plugin page template has one `@media (max-width: 40rem)`
   block. Tables there become stacked cards whose labels come from each cell's
   `data-label`, set from the column label in `drawTable`.
+- Table flags: a column may set `link` (an «Открыть» anchor), `copy` (a
+  clipboard icon beside that link, copied in the browser with no request) and
+  `nowrap`; a table may set `compact`. `nowrap` cells and a compact table's
+  buttons stay on one line only from 900px, because at tablet width they
+  pushed the table wider than the page.
 - `check` — for a plugin without a page, the read-only command with no
   arguments that `manage.py verify` runs after a deploy. A plugin with a page
   is checked through `page_view`.

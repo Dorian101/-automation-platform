@@ -187,6 +187,9 @@ __STYLES__
     border-bottom: 1px solid var(--border);
   }
   table.data td.longword { overflow-wrap: anywhere; }
+  @media (min-width: 900px) {
+    table.data td.nowrap, table.data.compact td.acts { white-space: nowrap; }
+  }
   table.data tbody tr:last-child td { border-bottom: none; }
   table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
   .recent td:last-child, .recent th:last-child { text-align: right; width: 1%; }
@@ -223,6 +226,16 @@ __STYLES__
   }
   table.data a { color: var(--accent); font-size: 0.82rem; }
   table.data a:hover { text-decoration: underline; }
+  .iconbtn {
+    background: none; border: 0; padding: 0.15rem; margin-left: 0.35rem;
+    color: var(--muted); cursor: pointer; line-height: 0; vertical-align: middle;
+  }
+  .iconbtn:hover { color: var(--accent); }
+  .iconbtn svg {
+    width: 0.95rem; height: 0.95rem; fill: none; stroke: currentColor;
+    stroke-width: 1.4; stroke-linejoin: round;
+  }
+  .iconbtn .check { stroke: var(--ok); stroke-width: 2.5; stroke-linecap: round; }
   .hint { color: var(--muted); font-size: 0.85rem; margin: 0.5rem 0 1.5rem; }
   .demobar {
     background: var(--panel);
@@ -431,6 +444,7 @@ __STYLES__
     table.data td.acts { flex-basis: 100%; gap: 0.5rem; padding-top: 0.3rem; }
     table.data td.acts .btn { margin: 0; }
     .kbcard .acts button, .addbtn { min-width: 2.5rem; min-height: 2.5rem; }
+    .iconbtn { min-width: 2.5rem; min-height: 2.5rem; margin: -0.6rem 0; }
   }
 </style>
 __MENU_STYLES__

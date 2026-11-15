@@ -35,31 +35,26 @@ DEMO_BOOKMARKS = [
         "https://developer.mozilla.org/ru/docs/Web/HTTP/CSP",
         "Content Security Policy (CSP) - HTTP | MDN",
         "nonce вместо unsafe-inline",
-        False,
     ),
     (
         "https://docs.python.org/3/library/ipaddress.html",
         "ipaddress — IPv4/IPv6 manipulation library",
         "is_global и IPv4-mapped адреса",
-        False,
     ),
     (
         "https://www.postgresql.org/docs/current/sql-insert.html",
         "PostgreSQL: Documentation: INSERT",
         "ON CONFLICT DO UPDATE",
-        True,
     ),
     (
         "https://core.telegram.org/bots/api",
         "Telegram Bot API",
         "MessageEntity: url и text_link",
-        False,
     ),
     (
         "https://github.com/astral-sh/uv",
         "GitHub - astral-sh/uv: An extremely fast Python package and project manager",
         "",
-        True,
     ),
 ]
 FETCH_PARALLEL = 3
@@ -338,11 +333,9 @@ class BookmarksPlugin(BasePlugin):
         return reply("\n".join(lines))
 
     async def seed_demo(self, identity: Identity) -> None:
-        for url, title, description, read in DEMO_BOOKMARKS:
+        for url, title, description in DEMO_BOOKMARKS:
             entry, _ = self.repo.save(identity, identity, url, description, "web")
             self.repo.fill_title(entry["id"], title)
-            if read:
-                self.repo.mark(identity, entry["id"], True)
 
     async def on_shutdown(self) -> None:
         for task in self._pending:
@@ -389,8 +382,7 @@ class BookmarksPlugin(BasePlugin):
             return "Ссылок нет. Пришлите боту любую ссылку, и она сохранится."
 
         return "\n\n".join(
-            f"{number}. {'✓ ' if entry['is_read'] else ''}"
-            f"{entry['title'] or domain(entry['url'])}\n{entry['url']}"
+            f"{number}. {entry['title'] or domain(entry['url'])}\n{entry['url']}"
             for number, entry in enumerate(entries, start=1)
         )
 
@@ -411,9 +403,6 @@ class BookmarksPlugin(BasePlugin):
             )
             if existed:
                 notice = "Эта ссылка уже была, поднял её наверх."
-        elif action in ("read", "unread"):
-            if not self.repo.mark(readable, _id(payload), action == "read"):
-                raise CommandError("Ссылка не найдена.")
         elif action == "edit":
             editing = self.repo.get(readable, _id(payload))
             if editing is None:
@@ -559,18 +548,12 @@ class BookmarksPlugin(BasePlugin):
         for entry in self.repo.entries(readable):
             params = {"id": str(entry["id"])}
             site = domain(entry["url"])
-            toggle = (
-                ("unread", "Не прочитано")
-                if entry["is_read"]
-                else ("read", "Прочитано")
-            )
             rows.append(
                 {
                     "title": entry["title"] or site,
                     "site": site,
                     "description": entry["description"],
                     "url": entry["url"],
-                    "state": "прочитано" if entry["is_read"] else "",
                     "when": _local(entry["saved_at"]),
                     "actions": [
                         {
@@ -580,7 +563,6 @@ class BookmarksPlugin(BasePlugin):
                             "params": params,
                         }
                         for action, label in (
-                            toggle,
                             ("edit", "Изменить"),
                             ("delete", "Удалить"),
                         )
@@ -595,12 +577,18 @@ class BookmarksPlugin(BasePlugin):
                 {"key": "title", "label": "Заголовок"},
                 {"key": "site", "label": "Сайт"},
                 {"key": "description", "label": "Описание"},
-                {"key": "url", "label": "Ссылка", "link": True},
-                {"key": "state", "label": "Статус"},
-                {"key": "when", "label": "Когда"},
+                {
+                    "key": "url",
+                    "label": "Ссылка",
+                    "link": True,
+                    "copy": True,
+                    "nowrap": True,
+                },
+                {"key": "when", "label": "Когда", "nowrap": True},
             ],
             "rows": rows,
             "actions": "actions",
+            "compact": True,
         }
 
 
