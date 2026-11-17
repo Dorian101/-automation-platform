@@ -208,6 +208,11 @@ class WebServer(
         self._pending_logins = {}
         self._enrolments = {}
         self._live = LiveHub(PersonResolver(self._users, self._links))
+        self._public_prefixes = tuple(
+            plugin.public_prefix
+            for plugin in manager.get_plugins()
+            if plugin.public_prefix
+        )
         notify_all(self._live, manager.get_plugins())
 
     def _current_user(self, request: web.Request):
@@ -431,7 +436,7 @@ class WebServer(
 
         if (
             request.path in PUBLIC_PATHS
-            or request.path.startswith("/fonts/")
+            or request.path.startswith(("/fonts/", *self._public_prefixes))
             or is_public_demo_path(request.path)
         ):
             return await handler(request)
@@ -519,6 +524,11 @@ class WebServer(
             if plugin.page:
                 app.router.add_get(plugin.page, self._plugin_page)
 
+            for route in plugin.web_routes(self._identity):
+                app.router.add_route(
+                    route.method, route.path, self._while_enabled(plugin, route.handler)
+                )
+
         # The demonstration is the only part of this application reachable
         # without a session, and it installs itself so that all of it is
         # readable in one place rather than spread through the route table.
@@ -537,6 +547,16 @@ class WebServer(
         ).install(app)
 
         return app
+
+    def _while_enabled(self, plugin, handler):
+        async def guarded(request: web.Request) -> web.StreamResponse:
+            if self._manager.find_by_page(plugin.page) is not plugin:
+                return web.Response(
+                    text=render_not_found(), content_type="text/html", status=404
+                )
+            return await handler(request)
+
+        return guarded
 
     async def start(self) -> None:
         app = self.build_app()

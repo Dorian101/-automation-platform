@@ -12,7 +12,9 @@ from .responses import redirect as _redirect
 logger = logging.getLogger(__name__)
 
 
-def _render_plugin_page(page_path: str, view: dict, nav_html: str) -> web.Response:
+def _render_plugin_page(
+    page_path: str, view: dict, nav_html: str, script: str = ""
+) -> web.Response:
     """Build a plugin's page.
 
     The painting lives in :mod:`app.web.pages`, which the demonstration uses
@@ -20,7 +22,7 @@ def _render_plugin_page(page_path: str, view: dict, nav_html: str) -> web.Respon
     front of them.
     """
     return web.Response(
-        text=render_plugin_page(page_path, view, nav_html),
+        text=render_plugin_page(page_path, view, nav_html, script=script),
         content_type="text/html",
     )
 
@@ -56,7 +58,9 @@ class ConsoleRoutes:
                 status=500,
             )
 
-        return _render_plugin_page(plugin.page, view, self._nav(request))
+        return _render_plugin_page(
+            plugin.page, view, self._nav(request), plugin.page_script
+        )
 
     async def _plugin_page_action(self, request: web.Request) -> web.Response:
         """Something was done on a plugin page; answer with it redrawn.

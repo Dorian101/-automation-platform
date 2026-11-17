@@ -188,6 +188,20 @@ A plugin may also declare:
   `nowrap`; a table may set `compact`. `nowrap` cells and a compact table's
   buttons stay on one line only from 900px, because at tablet width they
   pushed the table wider than the page.
+- `page_script` — a path to a script appended to the plugin page's own script,
+  inside the same closure, so it can use `root`, `send`, `refreshLive` and
+  `showMessage`. Files uses it for the upload area.
+- `web_routes(identify)` — aiohttp routes the plugin serves itself, for what a
+  page description cannot carry: a binary body in or out. `identify(request)`
+  is the session's identity or None. The server mounts them behind a check
+  that the plugin is enabled (404 when it is switched off). Routes stay behind
+  the session unless they start with the plugin's `public_prefix`, which the
+  server adds to the public paths.
+- Table extras: a column with `pick` draws a checkbox per row holding the
+  cell's value; a table tool with `picked: "<param>"` sends the checked values
+  joined by commas under that name. A ticked box holds the live refresh, as
+  typing does. A `link` column also accepts a site path (`/…`, opened in the
+  same tab) and takes its anchor text from `text`.
 - `check` — for a plugin without a page, the read-only command with no
   arguments that `manage.py verify` runs after a deploy. A plugin with a page
   is checked through `page_view`.
@@ -372,6 +386,22 @@ notifier; the last dates are on `/admin/status`.
   (a changed deadline clears `notified_at`, so it is reminded again). The
   hourly worker reminds from 09:00 in `DISPLAY_TIMEZONE` about tasks due that
   day (`TasksRepository.due_on`); the plugin's "today" is that zone's
+- Files (`app/plugins/files/`, not on the demo): page at /files, web-only,
+  for every account. Upload by button, drag and drop or paste
+  (`POST /files/upload`, raw body, name in `X-File-Name`, streamed to
+  `FILES_DIR` or `<repo>/data/files` under a random name), download at
+  `/files/get/<id>`. 50 MB a file, 500 MB for the whole server (an in-memory
+  reservation covers uploads in flight). Every file is deleted 24 h after
+  upload by a sweep every 10 min; files on disk with no row are removed at
+  start. Public links (`/s/<token>`, admin with a passkey only) cover the
+  ticked files, live until the last of them expires, store only the token's
+  SHA-256 and are shown once. The link page has no script and a CSP of its
+  own; a file is always `attachment` + `octet-stream`, except
+  `?view=1` for PNG, JPEG, GIF, WebP, MP4, WebM and MOV, recognised by their
+  first bytes, which come inline with a `sandbox` CSP. 20 unknown links an
+  hour from one address answer 429, which counts towards the day-long block.
+  The link page has no `</head>` on purpose, so the theme script is not
+  injected into a page whose CSP allows no script.
 - Automation: page at /automation, web-only, rules between plugins
 - System: /plugins, /help, /status
 

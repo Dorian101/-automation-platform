@@ -22,7 +22,9 @@ function readerIsBusy() {
     return true;
   }
   for (const field of root.querySelectorAll('input, textarea, select')) {
-    if (field.dataset.typed && field.value !== '') return true;
+    if (field.type === 'checkbox' ? field.checked : field.dataset.typed && field.value !== '') {
+      return true;
+    }
   }
   return false;
 }

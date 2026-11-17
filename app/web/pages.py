@@ -195,6 +195,7 @@ def render_plugin_page(
     view: dict,
     nav_html: str,
     demo: bool = False,
+    script: str = "",
 ) -> str:
     """Build the whole page for one plugin description.
 
@@ -225,7 +226,10 @@ def render_plugin_page(
     )
     source = source.replace(
         "__PAGE_SCRIPT__",
-        "\n".join(path.read_text(encoding="utf-8") for path in PAGE_SCRIPTS),
+        "\n".join(
+            Path(path).read_text(encoding="utf-8")
+            for path in (*PAGE_SCRIPTS, *([script] if script else []))
+        ),
     )
     source = source.replace(
         "__INITIAL_VIEW__",

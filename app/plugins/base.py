@@ -40,6 +40,13 @@ class BasePlugin(ABC):
     # private page was published is not one line to undo.
     demo: bool = False
 
+    page_script: str = ""
+
+    public_prefix: str = ""
+
+    def web_routes(self, identify) -> list:
+        return []
+
     tables: dict[str, str] = {}
 
     check: str = ""

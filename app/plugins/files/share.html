@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Файлы</title>
+__PAGE_STYLES__
+<style>
+  main { max-width: 960px; }
+  h1 { font-size: clamp(2rem, 4vw, 3rem); margin-bottom: 0.5rem; }
+  ul.files { list-style: none; margin: 1.5rem 0 0; padding: 0; display: grid; gap: 1.5rem; }
+  ul.files li { border-top: 1px solid var(--rule); padding-top: 1rem; }
+  ul.files img, ul.files video { display: block; max-width: 100%; max-height: 70vh; margin-bottom: 0.75rem; border-radius: 6px; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
+  .name { font-family: var(--display); overflow-wrap: anywhere; flex: 1 1 14rem; }
+  .size { color: var(--mute); font-family: var(--figures); font-size: 0.9rem; }
+</style>
+<body>
+<main>
+  <h1>Файлы</h1>
+  <p class="lede">Ссылка временная: файлы удалятся автоматически.</p>
+  <ul class="files">
+__ITEMS__
+  </ul>
+</main>
+</body>
+</html>

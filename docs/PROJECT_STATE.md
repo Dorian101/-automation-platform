@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.101.0
+v0.102.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -534,6 +534,29 @@ Implemented (v0.78.0):
 
 ⸻
 
+Files
+
+Purpose:
+
+* move a few photos or a short video between one's own devices through the
+  site, or hand them over by a temporary public link
+
+Implemented (v0.102.0):
+
+* a page at /files for every account: pick, drag or paste (a pasted
+  screenshot is named by the time); download and delete by hand
+* every file is deleted 24 h after upload; 50 MB a file, 500 MB for the whole
+  server; files live on disk in `FILES_DIR` (default `data/files`), not in
+  the backups
+* an admin with a passkey ticks files and makes a link `/s/<token>`: shown
+  once, only its hash is stored, it lives as long as its files and can be
+  switched off; the page has no script, previews images and video by their
+  first bytes and offers everything else for download only
+* 20 unknown links an hour per address, then 429
+* not in the demonstration yet
+
+⸻
+
 ## Web interface
 
 Purpose:
@@ -879,6 +902,9 @@ count that answers one question, and an empty value trusts nothing, so a
 deployment that never sets it records everything as before.
 
 ## Current limitations
+
+* Since v0.102.0 the Files plugin brings its own web routes and a public
+  prefix (`/s/`); the /project diagram still shows ten plugins without it.
 
 * Since v0.101.0 `/admin/visits` filters by source: `?from=hh` shows every
   row of each browser that arrived with that tag on the same day, the pages

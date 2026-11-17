@@ -3165,3 +3165,40 @@ path, no migration, and they land in the reader's session for free.
 - Copying is recorded as a fact, not as the copied text, and every selection
   is not recorded at all: selecting while reading is a habit and says nothing.
 
+## 2026-11-17
+
+### Decision
+A Files plugin for passing files between one's own devices and by a public
+link, with its own web routes instead of a page-description element
+
+### Why
+The owner needed to move a screenshot from a fresh mini PC with nothing but
+the site. Telegram was left out on purpose: whoever has Telegram sends the
+file there. A page description is JSON of forms and tables and cannot carry a
+binary body, so the plugin brings its own routes the way it already may bring
+Telegram handlers through `router()`. A generic upload element, download route
+and link mechanism in the platform would be twice the code for one user; the
+owner chose the routes.
+
+### How it is done
+- 24 h for every file, no pinning, delete by hand any time. 50 MB a file and
+  500 MB for the whole server: the disk is small and the job is "a few photos
+  or a short video to another computer". Files are not in the backups.
+- Every account can upload; only an admin with a passkey creates public links.
+  With open sign-up anybody could otherwise host malware or phishing on the
+  domain for a day, and a blocklisted domain would take `/about` with it.
+- No one-time links: messengers and mail scanners open a link to preview it
+  and would burn it before the person does. The link lives as long as its
+  files and can be switched off.
+- Not on the demo for now: the owner wants to try it first, and anonymous
+  uploads to the domain are the same risk as above.
+- The token is in the URL, so it reaches the `aiohttp.access` lines of the
+  journal. Accepted: the journal is readable only on the server, and a link
+  lives a day at most.
+- "Admin with a passkey" means the account has one registered, not that this
+  session signed in with it. A password-only admin session can still make a
+  link, but it can already download the same files, so it gains nothing; the
+  plugin sees an identity, not the session, and threading the session flag
+  through the page contract is not worth it for this.
+- Startup removes only orphan names the plugin itself mints (32 hex, maybe
+  `.part`), so a `FILES_DIR` pointed at a shared folder cannot wipe it.

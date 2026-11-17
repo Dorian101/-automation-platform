@@ -27,6 +27,7 @@ from app.plugins.automation import AutomationPlugin
 from app.plugins.bookmarks import BookmarksPlugin
 from app.plugins.collections import CollectionsPlugin
 from app.plugins.expenses import ExpensesPlugin
+from app.plugins.files import FilesPlugin
 from app.plugins.manager import PluginManager
 from app.plugins.notes import NotesPlugin
 from app.plugins.reminders import RemindersPlugin
@@ -54,6 +55,7 @@ def build_manager(database, notifier, users, links, logger) -> PluginManager:
     manager.register(ExpensesPlugin(database, persons=persons))
     manager.register(ApplicationsPlugin(database, persons=persons))
     manager.register(CollectionsPlugin(database, persons=persons))
+    manager.register(FilesPlugin(database, persons=persons))
     manager.register(AutomationPlugin(manager, notifier, database, persons=persons))
     manager.register(SystemPlugin(manager, users=users, links=links))
     return manager

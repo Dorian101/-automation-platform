@@ -161,13 +161,22 @@ function drawTable(table, title) {
 
   if (title) root.appendChild(el('h2', null, title));
 
+  const t = el('table', table.compact ? 'data compact' : 'data');
+
   for (const tool of table.tools || []) {
     const button = el('button', 'btn ghost', tool.label);
-    button.addEventListener('click', () => send(tool.action, tool.params || {}, button));
+    button.addEventListener('click', () => {
+      const params = { ...(tool.params || {}) };
+      if (tool.picked) {
+        params[tool.picked] = [...t.querySelectorAll('input[data-pick]:checked')]
+          .map((box) => box.value)
+          .join(',');
+      }
+      send(tool.action, params, button);
+    });
     root.appendChild(button);
   }
 
-  const t = el('table', table.compact ? 'data compact' : 'data');
   const thead = el('thead');
   const hrow = el('tr');
 
@@ -224,17 +233,31 @@ function drawTable(table, title) {
 function cellFor(col, row) {
   const value = row[col.key];
 
+  if (col.pick) {
+    const td = el('td');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.value = value;
+    box.dataset.pick = '1';
+    box.setAttribute('aria-label', col.label + ': ' + (row.name || value));
+    td.appendChild(box);
+    return td;
+  }
+
   if (col.link && value) {
-    if (!/^https?:\/\//i.test(value)) {
+    const local = value.startsWith('/') && new URL(value, location.href).origin === location.origin;
+    if (!local && !/^https?:\/\//i.test(value)) {
       return el('td', '', '');
     }
 
     const td = el('td');
     const anchor = document.createElement('a');
     anchor.href = value;
-    anchor.textContent = 'Открыть';
-    anchor.target = '_blank';
-    anchor.rel = 'noopener noreferrer';
+    anchor.textContent = col.text || 'Открыть';
+    if (!local) {
+      anchor.target = '_blank';
+      anchor.rel = 'noopener noreferrer';
+    }
     td.appendChild(anchor);
     if (col.copy) td.appendChild(copyIcon(value));
     return td;
