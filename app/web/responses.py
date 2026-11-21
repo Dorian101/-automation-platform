@@ -9,6 +9,8 @@ import logging
 
 from aiohttp import web
 
+from .pages import render_not_found
+
 logger = logging.getLogger(__name__)
 
 
@@ -20,6 +22,12 @@ def redirect(location: str) -> web.Response:
     setting a cookie on an exception object.
     """
     return web.Response(status=303, headers={"Location": location})
+
+
+def not_found(headers: dict | None = None) -> web.Response:
+    return web.Response(
+        text=render_not_found(), content_type="text/html", status=404, headers=headers
+    )
 
 
 def token_rejected(request: web.Request, location: str) -> web.Response:

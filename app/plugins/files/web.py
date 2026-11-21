@@ -6,8 +6,9 @@ from aiohttp import web
 
 from app.core.results import CommandError
 from app.web.common import rate_key
-from app.web.pages import page_styles, render_not_found
+from app.web.pages import page_styles
 from app.web.ratelimit import RateLimiter
+from app.web.responses import not_found
 
 from . import SHARE_PREFIX, size_label
 
@@ -90,9 +91,7 @@ class FileRoutes:
         entry = identity and self._plugin.own(identity, int(request.match_info["id"]))
 
         if not entry:
-            return web.Response(
-                text=render_not_found(), content_type="text/html", status=404
-            )
+            return not_found()
 
         return self._send(entry, inline=False)
 
@@ -150,12 +149,7 @@ class FileRoutes:
         if not self._rate.allow(rate_key(request, "files-miss"), MISSES_PER_HOUR, HOUR):
             return web.Response(status=429, text="Слишком много запросов.")
 
-        return web.Response(
-            text=render_not_found(),
-            content_type="text/html",
-            status=404,
-            headers=PRIVATE,
-        )
+        return not_found(PRIVATE)
 
     def _send(self, entry: dict, inline: bool) -> web.StreamResponse:
         return web.FileResponse(

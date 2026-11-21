@@ -14,7 +14,6 @@ from app.db.files_repo import FilesRepository
 from app.db.passkeys_repo import PasskeysRepository
 from app.db.sessions_repo import digest
 from app.db.users_repo import UsersRepository
-from app.web.documents import PUBLIC_BASE_URL
 
 from ..base import BasePlugin
 
@@ -266,7 +265,7 @@ class FilesPlugin(BasePlugin):
         if not self.repo.share(identity, readable, _ids(raw_ids), digest(token)):
             raise CommandError("Файлы не найдены: возможно, их уже удалили.")
 
-        return f"{PUBLIC_BASE_URL}{SHARE_PREFIX}{token}"
+        return f"{Config.PUBLIC_BASE_URL}{SHARE_PREFIX}{token}"
 
     def _view(self, readable, sharer: bool, link: str | None) -> dict:
         used = self.repo.used_bytes()

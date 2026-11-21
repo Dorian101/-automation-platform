@@ -197,6 +197,9 @@ A plugin may also declare:
   that the plugin is enabled (404 when it is switched off). Routes stay behind
   the session unless they start with the plugin's `public_prefix`, which the
   server adds to the public paths.
+  A route answers a miss with `app.web.responses.not_found()`. A plugin that
+  needs the site's public address reads `Config.PUBLIC_BASE_URL`, never
+  `app.web`.
 - Table extras: a column with `pick` draws a checkbox per row holding the
   cell's value; a table tool with `picked: "<param>"` sends the checked values
   joined by commas under that name. A ticked box holds the live refresh, as

@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.102.0
+v0.102.1
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -903,8 +903,9 @@ deployment that never sets it records everything as before.
 
 ## Current limitations
 
-* Since v0.102.0 the Files plugin brings its own web routes and a public
-  prefix (`/s/`); the /project diagram still shows ten plugins without it.
+* Since v0.102.1 every 404 page goes through `responses.not_found()`, the
+  public address is `Config.PUBLIC_BASE_URL`, and the /project diagram shows
+  all eleven plugins in two rows.
 
 * Since v0.101.0 `/admin/visits` filters by source: `?from=hh` shows every
   row of each browser that arrived with that tag on the same day, the pages
@@ -1081,11 +1082,8 @@ deployment that never sets it records everything as before.
 
 ## Potential tasks:
 
-* webhook receiver, so something outside can drive the platform; the cost is a
-  public endpoint that writes, which is the same shape as the demonstration
-  and wants the same limits;
-* anchor identity to a stable key so an account can be renamed without moving
-  its data, which is what the deferred rename command needs;
+Kept outside the repository since v0.102.1, in the owner's private task
+tracker, so this file no longer lists them.
 
 On the documents themselves: `PROJECT_STATE.md` is edited at the end of a
 sprint, which means it describes the code as of that moment and nothing about

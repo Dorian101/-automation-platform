@@ -2,7 +2,6 @@ import asyncio
 import html
 import json
 import logging
-import os
 import re
 import subprocess
 import time
@@ -14,6 +13,7 @@ from time import perf_counter
 from aiohttp import web
 
 from app.core.commands import parse_command
+from app.core.config import Config
 from app.core.identity import WEB, Identity, telegram
 from app.core.results import CommandError
 from app.db.migrations import MigrationRunner
@@ -26,9 +26,9 @@ from .common import TEMPLATES_DIR, leaves_no_trace
 from .pages import (
     menu_styles,
     page_styles,
-    render_not_found,
 )
 from .ratelimit import client_ip
+from .responses import not_found
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +160,7 @@ CAREER_START = date(2023, 7, 1)
 # both somebody else's infrastructure and a sitemap that names a host this
 # installation has never heard of. Unset, there is no sitemap — see
 # `_sitemap`. Set it in `.env` to the name your readers type.
-PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
+PUBLIC_BASE_URL = Config.PUBLIC_BASE_URL
 
 
 # What a search engine is allowed to index. Everything else on this site either
@@ -406,9 +406,7 @@ class DocumentRoutes:
         lang, base = i18n.split(request.path)
 
         if lang not in i18n.RELEASED and not self._is_admin(request):
-            return web.Response(
-                text=render_not_found(), content_type="text/html", status=404
-            )
+            return not_found()
 
         replacements = (
             {"__EXPERIENCE__": _experience(date.today(), lang)}

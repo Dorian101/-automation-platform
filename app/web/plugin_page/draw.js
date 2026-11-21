@@ -234,7 +234,7 @@ function cellFor(col, row) {
   const value = row[col.key];
 
   if (col.pick) {
-    const td = el('td');
+    const td = el('td', 'pick');
     const box = document.createElement('input');
     box.type = 'checkbox';
     box.value = value;

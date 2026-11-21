@@ -136,6 +136,8 @@ class Config:
 
     FILES_DIR = os.getenv("FILES_DIR", "")
 
+    PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
+
     # Backups older than this are deleted after each run. 0 disables pruning
     # and keeps everything.
     BACKUP_RETENTION_DAYS = int(os.getenv("BACKUP_RETENTION_DAYS", "14"))

@@ -52,10 +52,10 @@ from .pages import (
     language_switch,
     nav,
     page_styles,
-    render_not_found,
 )
 from .passkeys import PasskeyRoutes
 from .ratelimit import Blocklist, RateLimiter, client_ip
+from .responses import not_found
 from .responses import redirect as _redirect
 from .signin import SignInRoutes
 
@@ -442,9 +442,7 @@ class WebServer(
             return await handler(request)
 
         if isinstance(request.match_info.http_exception, web.HTTPNotFound):
-            return web.Response(
-                text=render_not_found(), content_type="text/html", status=404
-            )
+            return not_found()
 
         if self._identity(request) is None:
             return self._login_required(request)
@@ -551,9 +549,7 @@ class WebServer(
     def _while_enabled(self, plugin, handler):
         async def guarded(request: web.Request) -> web.StreamResponse:
             if self._manager.find_by_page(plugin.page) is not plugin:
-                return web.Response(
-                    text=render_not_found(), content_type="text/html", status=404
-                )
+                return not_found()
             return await handler(request)
 
         return guarded

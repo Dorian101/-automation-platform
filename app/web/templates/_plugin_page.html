@@ -441,6 +441,9 @@ __STYLES__
     table.data td:first-child { flex-basis: 100%; font-weight: 500; }
     table.data td:first-child::before, table.data td.acts::before { content: none; }
     table.data td:empty { display: none; }
+    table.data td.pick { flex-basis: auto; }
+    table.data td.pick::before, table.data td.pick + td::before { content: none; }
+    table.data td.pick + td { flex: 1 1 calc(100% - 2.5rem); min-width: 0; font-weight: 500; }
     table.data td.acts { flex-basis: 100%; gap: 0.5rem; padding-top: 0.3rem; }
     table.data td.acts .btn { margin: 0; }
     .kbcard .acts button, .addbtn { min-width: 2.5rem; min-height: 2.5rem; }

@@ -70,8 +70,8 @@ from app.web.auth import SESSION_COOKIE, resolve_user
 from app.web.common import form_value
 from app.web.csrf import CSRF_FIELD, CsrfSigner
 from app.web.demo import PRUNED_AT, DemoService
-from app.web.pages import menu_styles, render_not_found
-from app.web.responses import redirect, token_rejected
+from app.web.pages import menu_styles
+from app.web.responses import not_found, redirect, token_rejected
 from app.web.system import cores, disk, load, memory
 
 logger = logging.getLogger(__name__)
@@ -125,12 +125,7 @@ async def require_admin(
         return web.Response(status=303, headers={"Location": "/login"})
 
     if not user.is_admin:
-        return web.Response(
-            status=404,
-            text=render_not_found(),
-            content_type="text/html",
-            charset="utf-8",
-        )
+        return not_found()
 
     return await handler(request)
 

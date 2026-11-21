@@ -54,8 +54,8 @@
     telegram: [[205, 76], [205, 138], [380, 138]],
     identity: [[380, 207]],
     dispatcher: [[380, 287]],
-    "to-plugin": [[380, 338]],
-    "page-route": [[100, 207], [100, 330], [418, 330], [418, 342]],
+    "to-plugin": [[380, 336]],
+    "page-route": [[100, 207], [100, 330], [418, 330], [418, 338]],
     postgres: [[380, 400], [380, 488]],
     notify: [[380, 410], [638, 410], [638, 488]],
   };
@@ -70,8 +70,11 @@
     "todo",
     "automation",
     "collections",
+    "files",
   ].forEach((name, index) => {
-    PATH[`plugin-${name}`] = [[58 + index * 72, 364]];
+    const row = index < 6 ? 0 : 1;
+    const col = row ? index - 6 : index;
+    PATH[`plugin-${name}`] = [[81 + col * 119 + row * 59, 350 + row * 24]];
   });
 
   const dot = document.getElementById("trace-dot");
