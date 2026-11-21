@@ -286,3 +286,73 @@ def test_the_link_token_pattern_matches_what_is_minted():
     import secrets
 
     assert re.fullmatch(files_module.TOKEN, secrets.token_urlsafe(32))
+
+
+async def _guest_upload(client, name="shot.png", body=PNG):
+    return await client.post(
+        "/demo/files/upload", data=body, headers={"X-File-Name": name}
+    )
+
+
+class TestDemo:
+    async def test_a_guest_uploads_and_downloads_under_demo(self, client, tmp_path):
+        page = await client.get("/demo/files")
+        assert page.status == 200
+        assert "dropzone" in await page.text()
+
+        response = await _guest_upload(client)
+        assert response.status == 200, await response.text()
+        file_id = (await response.json())["id"]
+
+        got = await client.get(f"/demo/files/get/{file_id}")
+        assert await got.read() == PNG
+        assert (
+            f"/demo/files/get/{file_id}"
+            in await (await client.get("/demo/files")).text()
+        )
+
+    async def test_a_guest_without_a_cookie_cannot_upload(self, client, tmp_path):
+        assert (await _guest_upload(client)).status == 401
+        assert list(tmp_path.iterdir()) == []
+
+    async def test_another_guest_cannot_download(self, client, plugin):
+        await client.get("/demo/files")
+        file_id = (await (await _guest_upload(client)).json())["id"]
+        client.session.cookie_jar.clear()
+        await client.get("/demo/files")
+
+        assert (await client.get(f"/demo/files/get/{file_id}")).status == 404
+
+    async def test_guest_limits(self, client, monkeypatch):
+        await client.get("/demo/files")
+        monkeypatch.setattr(files_module, "GUEST_FILE_BYTES", 10)
+        assert "демо" in (await (await _guest_upload(client)).json())["error"]
+
+        monkeypatch.setattr(files_module, "GUEST_FILE_BYTES", 10_000)
+        monkeypatch.setattr(files_module, "GUEST_FILES", 1)
+        assert (await _guest_upload(client)).status == 200
+        assert (await _guest_upload(client)).status == 400
+
+        monkeypatch.setattr(files_module, "GUEST_FILES", 5)
+        monkeypatch.setattr(files_module, "GUEST_TOTAL_BYTES", len(PNG) + 10)
+        refused = await _guest_upload(client)
+        assert "закончилось" in (await refused.json())["error"]
+
+    async def test_public_links_are_not_mounted_under_demo(self, client):
+        assert (await client.get("/demo/s/" + "A" * 43)).status == 404
+
+    async def test_the_daily_cleanup_takes_guest_files_off_disk(
+        self, client, plugin, manager, database_with_schema, tmp_path, admin
+    ):
+        from app.web.demo import DemoService
+
+        own = await plugin.store(OWNER, "a.png", len(PNG), _chunks(PNG))
+        await _share(plugin, [own["id"]])
+        await client.get("/demo/files")
+        assert (await _guest_upload(client)).status == 200
+
+        DemoService(manager, database_with_schema).prune()
+        plugin.sweep()
+
+        assert [p.name for p in tmp_path.iterdir()] == [own["stored"]]
+        assert len(plugin.repo.shares([OWNER])) == 1

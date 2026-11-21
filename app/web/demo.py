@@ -85,6 +85,11 @@ def read_guest(request: web.Request) -> tuple[Identity, str]:
     return guest(token), token
 
 
+def _known_guest(request: web.Request) -> Identity | None:
+    token = request.cookies.get(COOKIE, "")
+    return guest(token) if _usable(token) else None
+
+
 def _usable(token: str) -> bool:
     """Whether a cookie carries a token this module is willing to keep.
 
@@ -235,7 +240,9 @@ class DemoService:
 
         view = await self._view(plugin, identity)
 
-        body = render_plugin_page(page_path, view, self._nav(), demo=True)
+        body = render_plugin_page(
+            page_path, view, self._nav(), demo=True, script=plugin.page_script
+        )
 
         response = web.Response(text=body, content_type="text/html")
         set_guest_cookie(response, token)
@@ -360,6 +367,29 @@ class DemoService:
         app.router.add_get(DEMO_PREFIX, self.landing)
         app.router.add_get(DEMO_PREFIX + "/{page}", self.page)
         app.router.add_post(DEMO_PREFIX + "/api/action", self.action)
+
+        for plugin in self._manager.get_plugins():
+            if not plugin.demo:
+                continue
+            for route in plugin.web_routes(_known_guest):
+                if plugin.public_prefix and route.path.startswith(plugin.public_prefix):
+                    continue
+                app.router.add_route(
+                    route.method,
+                    DEMO_PREFIX + route.path,
+                    self._plugin_route(plugin, route.handler),
+                )
+
+    def _plugin_route(self, plugin, handler):
+        async def guarded(request: web.Request) -> web.StreamResponse:
+            limited = self._limited(request)
+            if limited is not None:
+                return limited
+            if self._manager.find_by_page(plugin.page) is not plugin:
+                return not_found()
+            return await handler(request)
+
+        return guarded
 
     # -- cleanup ------------------------------------------------------------
 

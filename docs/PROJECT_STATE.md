@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.102.1
+v0.103.0
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -553,7 +553,9 @@ Implemented (v0.102.0):
   switched off; the page has no script, previews images and video by their
   first bytes and offers everything else for download only
 * 20 unknown links an hour per address, then 429
-* not in the demonstration yet
+* on the demonstration since v0.103.0: a guest uploads up to 5 files of
+  5 MB (50 MB for all guests), downloads only its own, makes no links; the
+  daily demo cleanup and the sweep remove them
 
 ⸻
 

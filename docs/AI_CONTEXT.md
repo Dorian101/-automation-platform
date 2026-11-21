@@ -389,14 +389,17 @@ notifier; the last dates are on `/admin/status`.
   (a changed deadline clears `notified_at`, so it is reminded again). The
   hourly worker reminds from 09:00 in `DISPLAY_TIMEZONE` about tasks due that
   day (`TasksRepository.due_on`); the plugin's "today" is that zone's
-- Files (`app/plugins/files/`, not on the demo): page at /files, web-only,
+- Files (`app/plugins/files/`, on the demo since v0.103.0): page at /files, web-only,
   for every account. Upload by button, drag and drop or paste
   (`POST /files/upload`, raw body, name in `X-File-Name`, streamed to
   `FILES_DIR` or `<repo>/data/files` under a random name), download at
   `/files/get/<id>`. 50 MB a file, 500 MB for the whole server (an in-memory
   reservation covers uploads in flight). Every file is deleted 24 h after
   upload by a sweep every 10 min; files on disk with no row are removed at
-  start. Public links (`/s/<token>`, admin with a passkey only) cover the
+  start and by the sweep. On the demo a guest gets `/demo/files/upload` and
+  `/demo/files/get/<id>` (the demo mounts a plugin's `web_routes` under
+  `/demo` with a cookie-only identity, behind the demo rate limit, never its
+  `public_prefix`), 5 MB a file, 5 files, 50 MB for all guests. Public links (`/s/<token>`, admin with a passkey only) cover the
   ticked files, live until the last of them expires, store only the token's
   SHA-256 and are shown once. The link page has no script and a CSP of its
   own; a file is always `attachment` + `octet-stream`, except

@@ -18,7 +18,7 @@ picker.hidden = true;
 progress.setAttribute('aria-live', 'polite');
 choose.type = 'button';
 zone.append(
-  el('p', null, 'Перетащите файлы сюда или вставьте скриншот (Ctrl+V). До 50 МБ, хранятся сутки.'),
+  el('p', null, 'Перетащите файлы сюда или вставьте скриншот (Ctrl+V).'),
   choose,
   picker,
   progress,
@@ -77,7 +77,7 @@ async function uploadAll(files) {
 function upload(file) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/files/upload');
+    xhr.open('POST', (location.pathname.startsWith('/demo/') ? '/demo' : '') + '/files/upload');
     xhr.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
     xhr.upload.addEventListener('progress', (ev) => {
       if (ev.lengthComputable) {

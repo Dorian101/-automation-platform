@@ -3190,8 +3190,8 @@ owner chose the routes.
 - No one-time links: messengers and mail scanners open a link to preview it
   and would burn it before the person does. The link lives as long as its
   files and can be switched off.
-- Not on the demo for now: the owner wants to try it first, and anonymous
-  uploads to the domain are the same risk as above.
+- Not on the demo at first: the owner wanted to try it first. Added in
+  v0.103.0 (see the entry below).
 - The token is in the URL, so it reaches the `aiohttp.access` lines of the
   journal. Accepted: the journal is readable only on the server, and a link
   lives a day at most.
@@ -3202,3 +3202,27 @@ owner chose the routes.
   through the page contract is not worth it for this.
 - Startup removes only orphan names the plugin itself mints (32 hex, maybe
   `.part`), so a `FILES_DIR` pointed at a shared folder cannot wipe it.
+
+## 2026-11-21
+
+### Decision
+Files on the demonstration, with guest limits of their own
+
+### Why
+The owner tried Files on production and wanted visitors to see it. A guest
+can only download what the same cookie uploaded and can never make a public
+link (that needs an admin with a passkey), so the demo cannot hand a file to
+anyone else; the one remaining risk is a full disk.
+
+### How it is done
+- 5 MB a file, 5 files a guest, 50 MB for all guests together, inside the
+  server's 500 MB. The daily demo cleanup deletes the rows; the sweep then
+  removes files with no row.
+- The demo mounts every demo plugin's `web_routes` under `/demo`, with an
+  identity read from the guest cookie only (no cookie, no identity; nothing
+  is minted on an upload), behind the demo's per-address limit, and skips
+  routes under the plugin's `public_prefix`.
+- `share_files` gained `user_id` (migration 027): the demo cleanup and the
+  admin demo block delete and count by `user_id` in every plugin table, and
+  this was the only table without it.
+

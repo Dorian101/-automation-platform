@@ -88,10 +88,13 @@ class FilesRepository:
 
         return None if row is None else row[0]
 
-    def used_bytes(self) -> int:
+    def used_bytes(self, owners: str = "%") -> int:
         with self.database.connect() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT COALESCE(SUM(size), 0) FROM files")
+                cur.execute(
+                    "SELECT COALESCE(SUM(size), 0) FROM files WHERE user_id LIKE %s",
+                    (owners,),
+                )
                 return int(cur.fetchone()[0])
 
     def stored_names(self) -> set[str]:
@@ -143,8 +146,9 @@ class FilesRepository:
                 )
                 share_id = cur.fetchone()[0]
                 cur.executemany(
-                    "INSERT INTO share_files (share_id, file_id) VALUES (%s, %s)",
-                    [(share_id, row[0]) for row in found],
+                    "INSERT INTO share_files (share_id, file_id, user_id) "
+                    "VALUES (%s, %s, %s)",
+                    [(share_id, row[0], str(identity)) for row in found],
                 )
             conn.commit()
 

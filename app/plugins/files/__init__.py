@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 from app.core.config import Config
-from app.core.identity import WEB, Identity
+from app.core.identity import GUEST, WEB, Identity, as_tuple, is_guest
 from app.core.results import CommandError, CommandResult
 from app.db.database import Database
 from app.db.files_repo import FilesRepository
@@ -22,6 +22,11 @@ logger = logging.getLogger(__name__)
 MB = 2**20
 MAX_FILE_BYTES = 50 * MB
 TOTAL_BYTES = 500 * MB
+GUEST_FILE_BYTES = 5 * MB
+GUEST_TOTAL_BYTES = 50 * MB
+GUEST_FILES = 5
+GUESTS = f"{WEB}:{GUEST}:%"
+DEMO_PREFIX = "/demo"
 MAX_NAME = 200
 MAX_SHARED = 50
 SWEEP_SECONDS = 600
@@ -116,6 +121,7 @@ class FilesPlugin(BasePlugin):
     page_script = str(Path(__file__).with_name("page.js"))
     public_prefix = SHARE_PREFIX
     web_only = True
+    demo = True
     tables = {
         "files": "Файлы",
         "shares": "Ссылки на файлы",
@@ -167,6 +173,11 @@ class FilesPlugin(BasePlugin):
     def sweep(self) -> None:
         for stored in self.repo.purge():
             self.path(stored).unlink(missing_ok=True)
+        known = self.repo.stored_names()
+        for path in self.folder.glob("*"):
+            if STORED.fullmatch(path.name) and path.suffix != ".part":
+                if path.name not in known:
+                    path.unlink(missing_ok=True)
 
     def path(self, stored: str) -> Path:
         return self.folder / stored
@@ -188,6 +199,8 @@ class FilesPlugin(BasePlugin):
             raise CommandError("Файл пустой.")
         if size > MAX_FILE_BYTES:
             raise CommandError(f"Файл больше {MAX_FILE_BYTES // MB} МБ.")
+        if is_guest(identity):
+            self._guest_limits(identity, size)
         if self.repo.used_bytes() + self._reserved + size > TOTAL_BYTES:
             raise CommandError(
                 "Место для файлов закончилось. Удалите ненужные "
@@ -224,6 +237,16 @@ class FilesPlugin(BasePlugin):
 
         self.changed(identity)
         return entry
+
+    def _guest_limits(self, identity: Identity, size: int) -> None:
+        if size > GUEST_FILE_BYTES:
+            raise CommandError(f"В демо файл до {GUEST_FILE_BYTES // MB} МБ.")
+        if len(self.repo.entries(identity)) >= GUEST_FILES:
+            raise CommandError(
+                f"В демо не больше {GUEST_FILES} файлов. Удалите один из них."
+            )
+        if self.repo.used_bytes(GUESTS) + self._reserved + size > GUEST_TOTAL_BYTES:
+            raise CommandError("Место для файлов в демо закончилось, загляните позже.")
 
     def own(self, identity: Identity, file_id: int) -> dict | None:
         return self.repo.get(self._readable_as(identity), file_id)
@@ -268,9 +291,20 @@ class FilesPlugin(BasePlugin):
         return f"{Config.PUBLIC_BASE_URL}{SHARE_PREFIX}{token}"
 
     def _view(self, readable, sharer: bool, link: str | None) -> dict:
-        used = self.repo.used_bytes()
+        guest = any(is_guest(who) for who in as_tuple(readable))
+        prefix = DEMO_PREFIX if guest else ""
+        if guest:
+            title = (
+                f"Демо: до {GUEST_FILES} файлов по {GUEST_FILE_BYTES // MB} МБ, "
+                "удаляются в течение суток"
+            )
+        else:
+            title = (
+                f"Занято {size_label(self.repo.used_bytes())} из "
+                f"{TOTAL_BYTES // MB} МБ, файл до {MAX_FILE_BYTES // MB} МБ"
+            )
         files = {
-            "title": f"Занято {size_label(used)} из {TOTAL_BYTES // MB} МБ",
+            "title": title,
             "empty": "Файлов нет. Каждый файл удаляется через сутки.",
             "compact": True,
             "columns": [
@@ -287,7 +321,7 @@ class FilesPlugin(BasePlugin):
                     "name": entry["name"],
                     "size": size_label(entry["size"]),
                     "left": left_label(entry["left"]),
-                    "url": f"/files/get/{entry['id']}",
+                    "url": f"{prefix}/files/get/{entry['id']}",
                     "actions": [
                         {
                             "action": "delete",
