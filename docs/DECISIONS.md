@@ -3226,3 +3226,25 @@ anyone else; the one remaining risk is a full disk.
   admin demo block delete and count by `user_id` in every plugin table, and
   this was the only table without it.
 
+## 2026-11-22
+
+### Decision
+Take the whole site out of search engines
+
+### Why
+Google had indexed `/about`, `/demo` and its pages on both domains. The owner
+wants the visit log to show the recruiters the owner sends links to, not people
+arriving from a search, so the earlier choice to make `/about`, `/project` and
+`/demo` indexable is reversed.
+
+### How it is done
+- Every response carries `X-Robots-Tag: noindex, nofollow`, set with the other
+  security headers, so no page, image or new route can be missed.
+- robots.txt and the sitemap are left as they were. A page has to be crawled
+  for its noindex to be read; disallowing it would keep the old entry in the
+  index without a snippet. Once the pages are gone, `Disallow: /` can follow.
+- The fastest removal is Search Console's Removals tool, on the owner's
+  account; the header keeps them out after its six months run out.
+- Open Graph previews in messengers still work: a noindex header does not stop
+  a preview bot from reading the page.
+

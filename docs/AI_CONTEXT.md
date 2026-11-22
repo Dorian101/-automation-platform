@@ -610,6 +610,11 @@ stable key.
 
 ## Search engines
 
+Since v0.103.1 every response carries `X-Robots-Tag: noindex, nofollow`
+(`SECURITY_HEADERS` in `server.py`): the owner wants the site out of search,
+reached only by the links the owner hands to recruiters. robots.txt and the sitemap
+stay open on purpose, so a crawler can come back and read the header.
+
 `robots.txt` and `sitemap.xml` are routes, not files: there is no `sitemap.xml`
 on disk and `find` will not find one. Both are generated per request by
 `_robots` and `_sitemap` in `app/web/documents.py`, from the same

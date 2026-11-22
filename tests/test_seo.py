@@ -44,6 +44,13 @@ async def crawler(web_server):
 
 
 class TestCrawlerPaths:
+    async def test_every_public_page_asks_to_be_left_out_of_the_index(
+        self, crawler
+    ):
+        for path in ("/about", "/project", "/demo", "/robots.txt"):
+            response = await crawler.get(path)
+            assert response.headers["X-Robots-Tag"] == "noindex, nofollow", path
+
     async def test_robots_is_reachable_without_a_session(self, crawler):
         """It answered a redirect to the login form before.
 

@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.103.0
+v0.103.1
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -904,6 +904,9 @@ count that answers one question, and an empty value trusts nothing, so a
 deployment that never sets it records everything as before.
 
 ## Current limitations
+
+* Since v0.103.1 the whole site answers `X-Robots-Tag: noindex, nofollow`;
+  pages already in Google drop out as they are recrawled.
 
 * Since v0.102.1 every 404 page goes through `responses.not_found()`, the
   public address is `Config.PUBLIC_BASE_URL`, and the /project diagram shows

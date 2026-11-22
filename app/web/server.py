@@ -159,6 +159,7 @@ SECURITY_HEADERS = {
     "X-Frame-Options": "DENY",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
+    "X-Robots-Tag": "noindex, nofollow",
 }
 
 
