@@ -42,12 +42,11 @@ accepted=$(awk '$1 == "Accepted" {print $4, $6, $2}' <<<"$log" | sort | uniq -c 
 
 cutoff=$(date -d "$SINCE" "+%Y-%m-%d %H:%M:%S")
 banned_today=$(awk -v cutoff="$cutoff" '$0 >= cutoff && / Ban /' /var/log/fail2ban.log 2>/dev/null | grep -c . || true)
-banned_now=$(fail2ban-client status sshd 2>/dev/null | awk -F: '/Currently banned/ {gsub(/[ \t]/, "", $2); print $2}')
 
 message="SSH за сутки
 Неудачных подключений: ${attempts} с ${addresses} адресов
 Чаще всего пробовали: ${top_users:-—}
-Забанено fail2ban за сутки: ${banned_today}, в бане сейчас: ${banned_now:-?}
+Забанено fail2ban за сутки: ${banned_today}
 Успешные входы:
 ${accepted:-  нет}"
 

@@ -89,15 +89,46 @@ ufw --force enable
 PostgreSQL, the app and Caddy's admin API listen on loopback anyway; the
 firewall is the second line for anything that one day binds to every address.
 
-**fail2ban** on sshd: five failures in ten minutes ban the address for an hour.
+**fail2ban** on sshd: five failures in ten minutes ban the address. The ban
+grows with each repeat from the same address: 10 minutes, an hour, then a day
+(`bantime.multipliers` times the base 10m). An address can collect at most
+three sshd bans in a day, so `recidive` acts on the third: that one becomes a
+week on every port instead of a day on SSH.
 `/etc/fail2ban/jail.local`:
 
 ```ini
+[DEFAULT]
+bantime.increment = true
+bantime.multipliers = 1 6 144
+
 [sshd]
 enabled = true
 maxretry = 5
 findtime = 10m
-bantime = 1h
+bantime = 10m
+
+[recidive]
+enabled = true
+backend = auto
+logpath = /var/log/fail2ban.log
+banaction = %(banaction_allports)s
+bantime = 1w
+findtime = 1d
+maxretry = 3
+```
+
+The increment looks up earlier bans in fail2ban's database, which forgets
+them after `dbpurgeage` (a day by default), so keep them for a week.
+`/etc/fail2ban/fail2ban.local`:
+
+```ini
+[DEFAULT]
+dbpurgeage = 7d
+```
+
+```bash
+fail2ban-client -t && systemctl restart fail2ban
+fail2ban-client status sshd && fail2ban-client status recidive
 ```
 
 `fail2ban-client status sshd` shows the current bans.
@@ -106,7 +137,7 @@ bantime = 1h
 
 Every morning at 09:00 Moscow time the administrators get a Telegram message:
 refused SSH connections over the last day and from how many addresses, the
-usernames tried most, fail2ban's bans, and every successful login with its
+usernames tried most, how many bans fail2ban made that day, and every successful login with its
 user, address and method.
 
 The collector reads the journal and asks fail2ban, so it runs as root. It is
