@@ -1,7 +1,7 @@
 # Project State
 
 ## Current version
-v0.103.1
+v0.103.2
 
 ## Project goal
 Automation Platform is a personal automation system built around an extensible plugin architecture, reachable over Telegram and a web interface.
@@ -910,7 +910,8 @@ deployment that never sets it records everything as before.
 
 * Since v0.102.1 every 404 page goes through `responses.not_found()`, the
   public address is `Config.PUBLIC_BASE_URL`, and the /project diagram shows
-  all eleven plugins in two rows.
+  all eleven plugins in two rows; since v0.103.2 the arrows meet a bus above
+  and below the rows instead of a single plugin cell.
 
 * Since v0.101.0 `/admin/visits` filters by source: `?from=hh` shows every
   row of each browser that arrived with that tag on the same day, the pages
